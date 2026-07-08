@@ -307,7 +307,7 @@ async function initShowDetail() {
       const toggleBtn = el('button', { class: 'button button-small ep-toggle-btn' });
       const setWatched = (value) => {
         isWatched = value;
-        toggleBtn.textContent = value ? `Mark ${code} Not Watched` : `Mark ${code} Watched`;
+        toggleBtn.textContent = value ? `❌ Mark ${code} Not Watched` : `✅ Mark ${code} Watched`;
         toggleBtn.classList.toggle('button-secondary', value);
         li.classList.toggle('watched', value);
       };
