@@ -61,8 +61,11 @@ db()->beginTransaction();
 $stmt = db()->prepare(
     'INSERT INTO shows (imdb_id, name, image_url, status, overview, premiered, synced_at)
      VALUES (?, ?, ?, ?, ?, ?, NOW())
-     ON DUPLICATE KEY UPDATE name = VALUES(name), image_url = VALUES(image_url),
-         status = VALUES(status), overview = VALUES(overview), premiered = VALUES(premiered),
+     ON DUPLICATE KEY UPDATE name = VALUES(name),
+         image_url = COALESCE(VALUES(image_url), image_url),
+         status = COALESCE(VALUES(status), status),
+         overview = COALESCE(VALUES(overview), overview),
+         premiered = COALESCE(VALUES(premiered), premiered),
          synced_at = NOW()'
 );
 $stmt->execute([

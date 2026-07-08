@@ -346,6 +346,13 @@ async function initShowDetail() {
       statusEl.textContent = 'Not on TMDB yet — fetching episodes from TVmaze…';
       payload = await fetchShowFromTVmaze(showId);
     }
+    if (!payload.show.image_url) {
+      // Combine providers for the poster: whoever has one wins.
+      try {
+        const other = await fetch(`${TVMAZE}/lookup/shows?imdb=${showId}`);
+        if (other.ok) payload.show.image_url = (await other.json()).image?.medium ?? '';
+      } catch { /* poster stays empty */ }
+    }
     await apiPost('api/episodes.php', payload);
   };
 
