@@ -420,7 +420,10 @@ async function initShowDetail() {
 
   const allToggles = []; // per-episode setWatched fns, for mark-all
   const epContainer = el('div', { class: 'seasons' });
-  for (const [season, eps] of seasons) {
+  // Newest season first; only that one starts unfolded.
+  const orderedSeasons = [...seasons.entries()].sort((a, b) => b[0] - a[0]);
+  const newestSeason = orderedSeasons[0]?.[0];
+  for (const [season, eps] of orderedSeasons) {
     const seasonToggles = []; // {watched(), setWatched()} per aired episode
     let updateSeasonBtn = null;
     const list = el('ul', { class: 'episode-list' });
@@ -493,7 +496,7 @@ async function initShowDetail() {
       seasonBtn.textContent = seasonFullyWatched() ? 'Mark Season Unwatched' : 'Mark Season Watched';
     };
     updateSeasonBtn();
-    epContainer.append(el('details', { class: 'season', ...(seasons.size === 1 ? { open: '' } : {}) }, [
+    epContainer.append(el('details', { class: 'season', ...(season === newestSeason ? { open: '' } : {}) }, [
       el('summary', {}, [`${title} (${eps.length} episodes)`, seasonBtn]),
       list,
     ]));
