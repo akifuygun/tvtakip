@@ -10,6 +10,21 @@ $stmt = db()->prepare(
 $stmt->execute([current_user_id()]);
 $shows = $stmt->fetchAll();
 
+// Group by status: running | upcoming (incl. unknown) | ended+canceled.
+$groups = [
+    'running' => ['title' => 'Running', 'open' => true, 'shows' => []],
+    'upcoming' => ['title' => 'Upcoming', 'open' => true, 'shows' => []],
+    'finished' => ['title' => 'Cancelled / Ended', 'open' => false, 'shows' => []],
+];
+foreach ($shows as $show) {
+    $key = match ($show['status']) {
+        'running' => 'running',
+        'ended', 'canceled' => 'finished',
+        default => 'upcoming',
+    };
+    $groups[$key]['shows'][] = $show;
+}
+
 $pageTitle = 'My Shows';
 require __DIR__ . '/includes/header.php';
 ?>
@@ -20,25 +35,31 @@ require __DIR__ . '/includes/header.php';
     </div>
 <?php else: ?>
     <h1>My Shows</h1>
-    <div class="show-grid">
-        <?php foreach ($shows as $show): ?>
-            <?php $imdbId = htmlspecialchars($show['imdb_id']); ?>
-            <div class="show-card" data-show-id="<?= $imdbId ?>">
-                <a href="show.php?id=<?= $imdbId ?>">
-                    <?php if ($show['image_url']): ?>
-                        <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="">
-                    <?php else: ?>
-                        <div class="no-poster">No image</div>
-                    <?php endif; ?>
-                    <h3><?= htmlspecialchars($show['name']) ?></h3>
-                </a>
-                <?php if (status_label($show['status'])): ?>
-                    <span class="status status-<?= htmlspecialchars($show['status']) ?>"><?= status_label($show['status']) ?></span>
-                <?php endif; ?>
-                <button class="button button-small button-danger untrack-btn"
-                        data-show-id="<?= $imdbId ?>">Untrack</button>
+    <?php foreach ($groups as $group): ?>
+        <?php if (!$group['shows']) continue; ?>
+        <details class="show-group"<?= $group['open'] ? ' open' : '' ?>>
+            <summary><?= $group['title'] ?> (<?= count($group['shows']) ?>)</summary>
+            <div class="show-grid">
+                <?php foreach ($group['shows'] as $show): ?>
+                    <?php $imdbId = htmlspecialchars($show['imdb_id']); ?>
+                    <div class="show-card" data-show-id="<?= $imdbId ?>">
+                        <a href="show.php?id=<?= $imdbId ?>">
+                            <?php if ($show['image_url']): ?>
+                                <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="">
+                            <?php else: ?>
+                                <div class="no-poster">No image</div>
+                            <?php endif; ?>
+                            <h3><?= htmlspecialchars($show['name']) ?></h3>
+                        </a>
+                        <?php if (status_label($show['status'])): ?>
+                            <span class="status status-<?= htmlspecialchars($show['status']) ?>"><?= status_label($show['status']) ?></span>
+                        <?php endif; ?>
+                        <button class="button button-small button-danger untrack-btn"
+                                data-show-id="<?= $imdbId ?>">Untrack</button>
+                    </div>
+                <?php endforeach; ?>
             </div>
-        <?php endforeach; ?>
-    </div>
+        </details>
+    <?php endforeach; ?>
 <?php endif; ?>
 <?php require __DIR__ . '/includes/footer.php'; ?>

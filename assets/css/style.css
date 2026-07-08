@@ -212,6 +212,19 @@ a:hover { color: var(--accent-hover); }
 
 .source-tag { font-size: 0.72rem; }
 
+/* My Shows groups */
+.show-group { margin-bottom: 1rem; }
+.show-group > summary {
+  cursor: pointer;
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 0.6rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.show-group[open] > summary { margin-bottom: 0.75rem; }
+
 .notice {
   background: rgba(79, 140, 255, 0.10);
   border: 1px solid var(--accent);
