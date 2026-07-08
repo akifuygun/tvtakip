@@ -2,10 +2,10 @@
 require_once __DIR__ . '/includes/auth.php';
 require_login();
 
-// IDs of already-tracked shows so search results can show the right button state.
-$stmt = db()->prepare('SELECT tvmaze_id FROM user_shows WHERE user_id = ?');
+// IMDB ids of already-tracked shows so search results can show the right button state.
+$stmt = db()->prepare('SELECT show_imdb_id FROM user_shows WHERE user_id = ?');
 $stmt->execute([current_user_id()]);
-$trackedIds = array_map('intval', array_column($stmt->fetchAll(), 'tvmaze_id'));
+$trackedIds = array_column($stmt->fetchAll(), 'show_imdb_id');
 
 $pageTitle = 'Search';
 require __DIR__ . '/includes/header.php';

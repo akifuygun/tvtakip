@@ -1,15 +1,15 @@
 <?php
-// POST {action: "track"|"untrack", show: {id, name, image_url?, status?}}
+// POST {action: "track"|"untrack", show: {imdb_id, name?, image_url?, status?}}
 require_once __DIR__ . '/../includes/auth.php';
 require_login_json();
 $data = read_json_post();
 
 $action = $data['action'] ?? '';
 $show = $data['show'] ?? [];
-$showId = (int) ($show['id'] ?? 0);
+$imdbId = $show['imdb_id'] ?? '';
 
-if ($showId <= 0) {
-    json_response(['error' => 'Missing show id'], 400);
+if (!valid_imdb_id($imdbId)) {
+    json_response(['error' => 'Missing or invalid IMDB id'], 400);
 }
 
 if ($action === 'track') {
@@ -20,21 +20,31 @@ if ($action === 'track') {
     $imageUrl = substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null;
     $status = substr((string) ($show['status'] ?? ''), 0, 50) ?: null;
 
+    // Upsert the shared show cache row, then link it to the user.
     $stmt = db()->prepare(
-        'INSERT INTO user_shows (user_id, tvmaze_id, name, image_url, status)
-         VALUES (?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE name = VALUES(name), image_url = VALUES(image_url), status = VALUES(status)'
+        'INSERT INTO shows (imdb_id, name, image_url, status)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE name = VALUES(name),
+             image_url = COALESCE(VALUES(image_url), image_url),
+             status = COALESCE(VALUES(status), status)'
     );
-    $stmt->execute([current_user_id(), $showId, substr($name, 0, 255), $imageUrl, $status]);
+    $stmt->execute([$imdbId, substr($name, 0, 255), $imageUrl, $status]);
+
+    $stmt = db()->prepare('INSERT IGNORE INTO user_shows (user_id, show_imdb_id) VALUES (?, ?)');
+    $stmt->execute([current_user_id(), $imdbId]);
     json_response(['ok' => true, 'tracked' => true]);
 }
 
 if ($action === 'untrack') {
-    $stmt = db()->prepare('DELETE FROM user_shows WHERE user_id = ? AND tvmaze_id = ?');
-    $stmt->execute([current_user_id(), $showId]);
-    // Also clear watched history for that show.
-    $stmt = db()->prepare('DELETE FROM watched_episodes WHERE user_id = ? AND tvmaze_show_id = ?');
-    $stmt->execute([current_user_id(), $showId]);
+    $stmt = db()->prepare('DELETE FROM user_shows WHERE user_id = ? AND show_imdb_id = ?');
+    $stmt->execute([current_user_id(), $imdbId]);
+    // Clear this user's watched history for the show (episode cache stays for other users).
+    $stmt = db()->prepare(
+        'DELETE we FROM watched_episodes we
+         JOIN episodes e ON e.id = we.episode_id
+         WHERE we.user_id = ? AND e.show_imdb_id = ?'
+    );
+    $stmt->execute([current_user_id(), $imdbId]);
     json_response(['ok' => true, 'tracked' => false]);
 }
 

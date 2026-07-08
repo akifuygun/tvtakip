@@ -3,7 +3,11 @@ require_once __DIR__ . '/includes/auth.php';
 
 $shows = [];
 if (is_logged_in()) {
-    $stmt = db()->prepare('SELECT tvmaze_id, name, image_url, status FROM user_shows WHERE user_id = ? ORDER BY name');
+    $stmt = db()->prepare(
+        'SELECT s.imdb_id, s.name, s.image_url, s.status
+         FROM user_shows us JOIN shows s ON s.imdb_id = us.show_imdb_id
+         WHERE us.user_id = ? ORDER BY s.name'
+    );
     $stmt->execute([current_user_id()]);
     $shows = $stmt->fetchAll();
 }
@@ -29,8 +33,9 @@ require __DIR__ . '/includes/header.php';
     <h1>My Shows</h1>
     <div class="show-grid">
         <?php foreach ($shows as $show): ?>
-            <div class="show-card" data-show-id="<?= (int) $show['tvmaze_id'] ?>">
-                <a href="show.php?id=<?= (int) $show['tvmaze_id'] ?>">
+            <?php $imdbId = htmlspecialchars($show['imdb_id']); ?>
+            <div class="show-card" data-show-id="<?= $imdbId ?>">
+                <a href="show.php?id=<?= $imdbId ?>">
                     <?php if ($show['image_url']): ?>
                         <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="">
                     <?php else: ?>
@@ -39,10 +44,10 @@ require __DIR__ . '/includes/header.php';
                     <h3><?= htmlspecialchars($show['name']) ?></h3>
                 </a>
                 <?php if ($show['status']): ?>
-                    <span class="status status-<?= strtolower(htmlspecialchars($show['status'])) ?>"><?= htmlspecialchars($show['status']) ?></span>
+                    <span class="status status-<?= preg_replace('/[^a-z0-9]+/', '-', strtolower($show['status'])) ?>"><?= htmlspecialchars($show['status']) ?></span>
                 <?php endif; ?>
                 <button class="button button-small button-danger untrack-btn"
-                        data-show-id="<?= (int) $show['tvmaze_id'] ?>">Untrack</button>
+                        data-show-id="<?= $imdbId ?>">Untrack</button>
             </div>
         <?php endforeach; ?>
     </div>

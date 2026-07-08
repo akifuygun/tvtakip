@@ -64,6 +64,11 @@ function json_response(array $data, int $status = 200): never
     exit;
 }
 
+function valid_imdb_id(?string $id): bool
+{
+    return is_string($id) && preg_match('/^tt\d{6,10}$/', $id) === 1;
+}
+
 /** Read and validate a JSON POST body for API endpoints. CSRF token comes in the X-CSRF-Token header. */
 function read_json_post(): array
 {

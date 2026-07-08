@@ -168,3 +168,14 @@ a:hover { color: var(--accent-hover); }
 .episode-list label { cursor: pointer; }
 
 .loading { color: var(--muted); }
+
+.imdb-link {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #f5c518;
+  color: #000;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.imdb-link:hover { background: #ffd84d; color: #000; }

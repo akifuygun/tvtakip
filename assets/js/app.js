@@ -1,6 +1,12 @@
-// tvtakip frontend: TVmaze API calls (browser-side) + calls to our own backend.
+// tvtakip frontend.
+// TVmaze = search only (no key, fuzzy). TMDB = episode data incl. per-episode
+// IMDB ids. Everything is cached in our own DB keyed by IMDB ids: the first
+// browser to open a show pays the TMDB calls, everyone after reads our DB.
 const TVMAZE = 'https://api.tvmaze.com';
+const TMDB = 'https://api.themoviedb.org/3';
+const TMDB_IMG = 'https://image.tmdb.org/t/p/w342';
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+const TMDB_KEY = document.querySelector('meta[name="tmdb-key"]')?.content ?? '';
 
 async function apiPost(url, body) {
   const res = await fetch(url, {
@@ -8,6 +14,13 @@ async function apiPost(url, body) {
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN },
     body: JSON.stringify(body),
   });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
+async function apiGet(url) {
+  const res = await fetch(url);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
@@ -24,13 +37,82 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-function showPayload(show) {
+// ---------- TMDB fetch layer ----------
+async function tmdb(path, params = {}) {
+  const url = new URL(TMDB + path);
+  url.searchParams.set('api_key', TMDB_KEY);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`TMDB request failed (${res.status})`);
+  return res.json();
+}
+
+/** Run fn over items with limited concurrency, preserving order. */
+async function pool(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        results[i] = await fn(items[i], i);
+      }
+    }),
+  );
+  return results;
+}
+
+/** Full show + episodes (with per-episode IMDB ids) from TMDB, by show IMDB id. */
+async function fetchShowFromTMDB(imdbId, onProgress) {
+  const found = await tmdb(`/find/${imdbId}`, { external_source: 'imdb_id' });
+  const tv = found.tv_results?.[0];
+  if (!tv) throw new Error('Show not found on TMDB.');
+
+  const detail = await tmdb(`/tv/${tv.id}`);
+  const seasonNumbers = (detail.seasons ?? []).map((s) => s.season_number);
+  const seasons = await pool(seasonNumbers, 4, (n) => tmdb(`/tv/${tv.id}/season/${n}`));
+  const episodes = seasons.flatMap((s) => s.episodes ?? []);
+
+  let done = 0;
+  const withIds = await pool(episodes, 8, async (ep) => {
+    let epImdb = null;
+    try {
+      const ext = await tmdb(`/tv/${tv.id}/season/${ep.season_number}/episode/${ep.episode_number}/external_ids`);
+      epImdb = ext.imdb_id || null;
+    } catch {
+      // Missing external ids for one episode shouldn't sink the whole import.
+    }
+    onProgress?.(++done, episodes.length);
+    return {
+      imdb_id: epImdb,
+      season: ep.season_number,
+      number: ep.episode_number,
+      name: ep.name ?? '',
+      airdate: ep.air_date || null,
+    };
+  });
+
   return {
-    id: show.id,
-    name: show.name,
-    image_url: show.image?.medium ?? '',
-    status: show.status ?? '',
+    show: {
+      imdb_id: imdbId,
+      name: detail.name,
+      image_url: detail.poster_path ? TMDB_IMG + detail.poster_path : '',
+      status: detail.status ?? '',
+      overview: detail.overview ?? '',
+      premiered: detail.first_air_date || null,
+    },
+    episodes: withIds,
   };
+}
+
+function imdbLink(imdbId, cls = 'imdb-link') {
+  return el('a', {
+    href: `https://www.imdb.com/title/${imdbId}/`,
+    target: '_blank',
+    rel: 'noopener',
+    class: cls,
+    text: 'IMDB',
+  });
 }
 
 // ---------- Search page ----------
@@ -64,7 +146,21 @@ function initSearch() {
 }
 
 function renderSearchCard(show, trackedIds) {
-  const isTracked = trackedIds.has(show.id);
+  const imdbId = show.externals?.imdb ?? null;
+  const year = show.premiered ? ` (${show.premiered.slice(0, 4)})` : '';
+  const poster = show.image?.medium
+    ? el('img', { src: show.image.medium, alt: '' })
+    : el('div', { class: 'no-poster', text: 'No image' });
+
+  if (!imdbId) {
+    return el('div', { class: 'show-card' }, [
+      poster,
+      el('h3', { text: show.name + year }),
+      el('span', { class: 'muted', text: 'No IMDB id — cannot track' }),
+    ]);
+  }
+
+  const isTracked = trackedIds.has(imdbId);
   const trackBtn = el('button', {
     class: 'button button-small track-btn',
     text: isTracked ? 'Tracking ✓' : 'Track',
@@ -72,9 +168,17 @@ function renderSearchCard(show, trackedIds) {
     onclick: async () => {
       trackBtn.disabled = true;
       try {
-        await apiPost('api/track.php', { action: 'track', show: showPayload(show) });
+        await apiPost('api/track.php', {
+          action: 'track',
+          show: {
+            imdb_id: imdbId,
+            name: show.name,
+            image_url: show.image?.medium ?? '',
+            status: show.status ?? '',
+          },
+        });
         trackBtn.textContent = 'Tracking ✓';
-        trackedIds.add(show.id);
+        trackedIds.add(imdbId);
       } catch (err) {
         trackBtn.disabled = false;
         alert(err.message);
@@ -82,12 +186,9 @@ function renderSearchCard(show, trackedIds) {
     },
   });
 
-  const year = show.premiered ? ` (${show.premiered.slice(0, 4)})` : '';
   return el('div', { class: 'show-card' }, [
-    show.image?.medium
-      ? el('img', { src: show.image.medium, alt: '' })
-      : el('div', { class: 'no-poster', text: 'No image' }),
-    el('h3', {}, [el('a', { href: `show.php?id=${show.id}`, text: show.name + year })]),
+    poster,
+    el('h3', {}, [el('a', { href: `show.php?id=${imdbId}`, text: show.name + year })]),
     trackBtn,
   ]);
 }
@@ -101,7 +202,7 @@ function initDashboard() {
       try {
         await apiPost('api/track.php', {
           action: 'untrack',
-          show: { id: Number(btn.dataset.showId) },
+          show: { imdb_id: btn.dataset.showId },
         });
         btn.closest('.show-card')?.remove();
       } catch (err) {
@@ -116,25 +217,32 @@ function initDashboard() {
 async function initShowDetail() {
   const root = document.getElementById('show-detail');
   if (!root) return;
-  const showId = Number(root.dataset.showId);
+  const showId = root.dataset.showId;
   let isTracked = root.dataset.tracked === '1';
+  const status = el('p', { class: 'loading', text: 'Loading show…' });
+  root.replaceChildren(status);
 
-  let show, watched;
+  let data;
   try {
-    const [showRes, watchedRes] = await Promise.all([
-      fetch(`${TVMAZE}/shows/${showId}?embed=episodes`),
-      fetch(`api/watch.php?show_id=${showId}`),
-    ]);
-    if (!showRes.ok) throw new Error();
-    show = await showRes.json();
-    watched = new Set((await watchedRes.json()).watched || []);
-  } catch {
-    root.textContent = 'Could not load this show. Please try again later.';
+    data = await apiGet(`api/episodes.php?show_id=${showId}`);
+    if (!data.show || !data.episodes.length) {
+      // Not cached yet — this browser imports it from TMDB for everyone.
+      status.textContent = 'Fetching episodes from TMDB (first visit for this show)…';
+      const payload = await fetchShowFromTMDB(showId, (done, total) => {
+        status.textContent = `Fetching episode IMDB ids… ${done}/${total}`;
+      });
+      await apiPost('api/episodes.php', payload);
+      data = await apiGet(`api/episodes.php?show_id=${showId}`);
+    }
+  } catch (err) {
+    status.textContent = `Could not load this show: ${err.message}`;
     return;
   }
 
+  const show = data.show;
+  const episodes = data.episodes;
+  const watched = new Set(data.watched || []);
   document.title = `${show.name} — tvtakip`;
-  const episodes = show._embedded?.episodes ?? [];
   root.replaceChildren();
 
   const trackBtn = el('button', {
@@ -145,7 +253,7 @@ async function initShowDetail() {
       try {
         await apiPost('api/track.php', {
           action: isTracked ? 'untrack' : 'track',
-          show: showPayload(show),
+          show: { imdb_id: showId, name: show.name, image_url: show.image_url ?? '', status: show.status ?? '' },
         });
         isTracked = !isTracked;
         trackBtn.textContent = isTracked ? 'Untrack' : 'Track this show';
@@ -156,16 +264,16 @@ async function initShowDetail() {
     },
   });
 
-  const summary = el('div', { class: 'show-summary' });
-  summary.innerHTML = show.summary ?? ''; // TVmaze returns sanitized-enough HTML (<p>, <b>, <i>)
-
   root.append(
     el('div', { class: 'show-header' }, [
-      show.image?.medium ? el('img', { src: show.image.medium, alt: '' }) : '',
+      show.image_url ? el('img', { src: show.image_url, alt: '' }) : '',
       el('div', {}, [
-        el('h1', { text: show.name }),
-        el('p', { class: 'muted', text: [show.premiered?.slice(0, 4), show.status, show.network?.name].filter(Boolean).join(' · ') }),
-        summary,
+        el('h1', {}, [show.name + ' ', imdbLink(showId)]),
+        el('p', {
+          class: 'muted',
+          text: [show.premiered?.slice(0, 4), show.status].filter(Boolean).join(' · '),
+        }),
+        el('p', { class: 'show-summary', text: show.overview ?? '' }),
         trackBtn,
       ]),
     ]),
@@ -178,7 +286,7 @@ async function initShowDetail() {
     seasons.get(ep.season).push(ep);
   }
 
-  const checkboxes = new Map(); // episode id -> checkbox
+  const checkboxes = []; // all episode checkboxes, for mark-all
   const epContainer = el('div', { class: 'seasons' });
   for (const [season, eps] of seasons) {
     const list = el('ul', { class: 'episode-list' });
@@ -189,11 +297,7 @@ async function initShowDetail() {
         onchange: async () => {
           checkbox.disabled = true;
           try {
-            await apiPost('api/watch.php', {
-              show_id: showId,
-              episode: { id: ep.id, season: ep.season, number: ep.number },
-              watched: checkbox.checked,
-            });
+            await apiPost('api/watch.php', { episode_id: ep.id, watched: checkbox.checked });
           } catch (err) {
             checkbox.checked = !checkbox.checked;
             alert(err.message);
@@ -201,28 +305,29 @@ async function initShowDetail() {
           checkbox.disabled = false;
         },
       });
-      checkboxes.set(ep.id, checkbox);
+      checkboxes.push(checkbox);
       const aired = ep.airdate ? ` — ${ep.airdate}` : '';
-      list.append(el('li', {}, [
-        el('label', {}, [checkbox, ` S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')} ${ep.name ?? ''}${aired}`]),
-      ]));
+      const label = el('label', {}, [
+        checkbox,
+        ` S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')} ${ep.name ?? ''}${aired} `,
+      ]);
+      list.append(el('li', {}, ep.imdb_id ? [label, imdbLink(ep.imdb_id)] : [label]));
     }
+    const title = season === 0 ? 'Specials' : `Season ${season}`;
     epContainer.append(el('details', { class: 'season', ...(seasons.size === 1 ? { open: '' } : {}) }, [
-      el('summary', { text: `Season ${season} (${eps.length} episodes)` }),
+      el('summary', { text: `${title} (${eps.length} episodes)` }),
       list,
     ]));
   }
+
   const markAllBtn = el('button', {
     class: 'button button-small',
     text: 'Mark all watched',
     onclick: async () => {
       markAllBtn.disabled = true;
       try {
-        await apiPost('api/watch.php', {
-          show_id: showId,
-          episodes: episodes.map((ep) => ({ id: ep.id, season: ep.season, number: ep.number })),
-        });
-        for (const cb of checkboxes.values()) cb.checked = true;
+        await apiPost('api/watch.php', { show_id: showId, all: true });
+        for (const cb of checkboxes) cb.checked = true;
       } catch (err) {
         alert(err.message);
       }

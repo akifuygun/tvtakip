@@ -8,6 +8,7 @@ $pageTitle = $pageTitle ?? 'tvtakip';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token()) ?>">
+    <meta name="tmdb-key" content="<?= htmlspecialchars(TMDB_API_KEY) ?>">
     <title><?= htmlspecialchars($pageTitle) ?> — tvtakip</title>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
