@@ -215,6 +215,30 @@ function initDashboard() {
   });
 }
 
+// ---------- Calendar page ----------
+function initCalendar() {
+  const cal = document.getElementById('calendar');
+  if (!cal) return;
+  cal.querySelectorAll('.cal-watch-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        await apiPost('api/watch.php', { episode_id: Number(btn.dataset.episodeId), watched: true });
+        const li = btn.closest('li');
+        const group = li?.closest('.cal-group');
+        li?.remove();
+        if (group && !group.querySelector('li')) group.remove();
+        if (!cal.querySelector('li')) {
+          cal.replaceChildren(el('div', { class: 'hero' }, [el('h2', { text: '🎉 All caught up!' })]));
+        }
+      } catch (err) {
+        btn.disabled = false;
+        alert(err.message);
+      }
+    });
+  });
+}
+
 // ---------- Show detail page ----------
 async function initShowDetail() {
   const root = document.getElementById('show-detail');
@@ -410,4 +434,5 @@ async function initShowDetail() {
 
 initSearch();
 initDashboard();
+initCalendar();
 initShowDetail();

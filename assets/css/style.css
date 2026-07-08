@@ -191,6 +191,25 @@ a:hover { color: var(--accent-hover); }
 
 .loading { color: var(--muted); }
 
+/* Calendar */
+.cal-date {
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin: 1.4rem 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.cal-show { font-weight: 600; }
+
+.notice {
+  background: rgba(79, 140, 255, 0.10);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
 .imdb-link {
   font-size: 0.72rem;
   font-weight: 700;

@@ -20,7 +20,8 @@ A web app to track TV series: search shows, follow them, and mark episodes as wa
 ## Project structure
 
 ```
-index.php          Dashboard — your tracked shows (or welcome page)
+index.php          Calendar — aired episodes you haven't watched yet (or welcome page)
+myshows.php        Your tracked shows
 search.php         Search TVmaze and track shows
 show.php           Show detail + episode checklist
 login.php / register.php / logout.php
