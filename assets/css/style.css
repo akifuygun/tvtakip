@@ -149,6 +149,9 @@ a:hover { color: var(--accent-hover); }
 }
 .show-card h3 { margin: 0; font-size: 0.95rem; }
 .show-card h3 a { color: var(--text); }
+/* Cards are flex columns — the action button always sits at the bottom,
+   even when titles wrap to several lines. */
+.show-card > .button:last-child { margin-top: auto; }
 
 .status { font-size: 0.75rem; color: var(--muted); }
 .status-running { color: #5fbf6e; }
