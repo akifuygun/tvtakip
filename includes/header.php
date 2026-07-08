@@ -17,10 +17,11 @@ $pageTitle = $pageTitle ?? 'TVTakip';
     <a class="brand" href="index.php">📺 TVTakip</a>
     <nav>
         <?php if (is_logged_in()): ?>
+            <span class="nav-user">Welcome <?= htmlspecialchars(current_display_name()) ?></span>
             <a href="index.php">📅 Calendar</a>
             <a href="myshows.php">🎬 My Shows</a>
             <a href="search.php">🔍 Search</a>
-            <span class="nav-user"><?= htmlspecialchars(current_display_name()) ?></span>
+            <span class="nav-sep">|</span>
             <a href="logout.php" title="Log out" class="logout-link">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Log out">
