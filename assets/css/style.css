@@ -18,6 +18,10 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
+  /* Sticky footer: main grows, footer sits at the bottom on short pages. */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -37,7 +41,13 @@ a:hover { color: var(--accent-hover); }
 .site-header nav { display: flex; align-items: center; gap: 1rem; }
 .nav-user { color: var(--muted); }
 
-.container { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1.25rem; }
+.container {
+  max-width: 1000px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem;
+  flex: 1;
+}
 
 .site-footer {
   text-align: center;

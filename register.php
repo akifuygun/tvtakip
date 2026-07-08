@@ -54,7 +54,7 @@ require __DIR__ . '/includes/header.php';
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
         <label>Name
             <input type="text" name="display_name" required minlength="2" maxlength="100"
-                   placeholder="First and/or last name"
+                   placeholder="Your name"
                    value="<?= htmlspecialchars($_POST['display_name'] ?? '') ?>">
         </label>
         <label>Email
