@@ -134,7 +134,7 @@ $insertTrack = $pdo->prepare('INSERT IGNORE INTO user_shows (user_id, show_imdb_
 $insertWatched = $pdo->prepare(
     'INSERT IGNORE INTO watched_episodes (user_id, episode_id)
      SELECT ?, id FROM episodes
-     WHERE show_imdb_id = ? AND airdate IS NOT NULL AND airdate <= CURDATE()'
+     WHERE show_imdb_id = ? AND airdate IS NOT NULL AND airdate <= ?'
 );
 
 $date = static fn($v) => (is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) ? $v : null;
@@ -203,7 +203,7 @@ foreach ($ids as $imdbId) {
         ]);
     }
     $insertTrack->execute([$userId, $imdbId]);
-    $insertWatched->execute([$userId, $imdbId]);
+    $insertWatched->execute([$userId, $imdbId, today()]);
     $pdo->commit();
 
     $totalEpisodes += count($episodes);

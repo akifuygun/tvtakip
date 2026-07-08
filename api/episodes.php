@@ -33,7 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $stmt->execute([current_user_id(), $imdbId]);
     $watched = array_map('intval', array_column($stmt->fetchAll(), 'episode_id'));
 
-    json_response(['show' => $show, 'episodes' => $episodes, 'watched' => $watched]);
+    // 'today' is the server's date — the client uses it for aired-ness so the
+    // UI can never disagree with the API's own clock.
+    json_response(['show' => $show, 'episodes' => $episodes, 'watched' => $watched, 'today' => today()]);
 }
 
 $data = read_json_post();
@@ -70,8 +72,8 @@ $stmt = db()->prepare(
 );
 $stmt->execute([
     $imdbId,
-    substr($name, 0, 255),
-    substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null,
+    mb_substr($name, 0, 255),
+    mb_substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null,
     normalize_show_status($show['status'] ?? null),
     trim((string) ($show['overview'] ?? '')) ?: null,
     $date($show['premiered'] ?? null),
@@ -93,7 +95,7 @@ foreach ($episodes as $ep) {
         valid_imdb_id($epImdb) ? $epImdb : null,
         max(0, (int) ($ep['season'] ?? 0)),
         max(0, (int) ($ep['number'] ?? 0)),
-        substr(trim((string) ($ep['name'] ?? '')), 0, 255) ?: null,
+        mb_substr(trim((string) ($ep['name'] ?? '')), 0, 255) ?: null,
         $date($ep['airdate'] ?? null),
     ]);
 }

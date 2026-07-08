@@ -22,14 +22,17 @@ $pageTitle = $pageTitle ?? 'TVTakip';
             <a href="myshows.php">🎬 My Shows</a>
             <a href="search.php">🔍 Search</a>
             <span class="nav-sep">|</span>
-            <a href="logout.php" title="Log out" class="logout-link">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Log out">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                    <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
-                </svg>
-            </a>
+            <form method="post" action="logout.php" class="logout-form">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+                <button type="submit" title="Log out" class="logout-link">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Log out">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                </button>
+            </form>
         <?php else: ?>
             <a href="login.php">Log in</a>
             <a href="register.php">Register</a>

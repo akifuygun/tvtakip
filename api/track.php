@@ -17,7 +17,7 @@ if ($action === 'track') {
     if ($name === '') {
         json_response(['error' => 'Missing show name'], 400);
     }
-    $imageUrl = substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null;
+    $imageUrl = mb_substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null;
     $status = normalize_show_status($show['status'] ?? null);
 
     // Upsert the shared show cache row, then link it to the user.
@@ -28,7 +28,7 @@ if ($action === 'track') {
              image_url = COALESCE(VALUES(image_url), image_url),
              status = COALESCE(VALUES(status), status)'
     );
-    $stmt->execute([$imdbId, substr($name, 0, 255), $imageUrl, $status]);
+    $stmt->execute([$imdbId, mb_substr($name, 0, 255), $imageUrl, $status]);
 
     $stmt = db()->prepare('INSERT IGNORE INTO user_shows (user_id, show_imdb_id) VALUES (?, ?)');
     $stmt->execute([current_user_id(), $imdbId]);

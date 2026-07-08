@@ -1,6 +1,16 @@
 <?php
 require_once __DIR__ . '/db.php';
 
+// One clock for the whole app. Every "has this episode aired" comparison —
+// SQL, PHP, and the value handed to the browser — uses this date, so the
+// UI, the API, and bulk SQL can never disagree around midnight.
+date_default_timezone_set('UTC');
+
+function today(): string
+{
+    return date('Y-m-d');
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
         'httponly' => true,

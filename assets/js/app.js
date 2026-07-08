@@ -180,7 +180,10 @@ function imdbLink(imdbId, cls = 'imdb-link') {
 /** Search TVmaze and TMDB in parallel; merge results by IMDB id. */
 async function searchBoth(q) {
   const [tvmazeRes, tmdbRes] = await Promise.allSettled([
-    fetch(`${TVMAZE}/search/shows?q=${encodeURIComponent(q)}`).then((r) => r.json()),
+    fetch(`${TVMAZE}/search/shows?q=${encodeURIComponent(q)}`).then((r) => {
+      if (!r.ok) throw new Error(`TVmaze search failed (${r.status})`);
+      return r.json();
+    }),
     tmdb('/search/tv', { query: q }),
   ]);
 
@@ -393,6 +396,8 @@ async function initShowDetail() {
   const show = data.show;
   const episodes = data.episodes;
   const watched = new Set(data.watched || []);
+  // Server clock, not browser clock — keeps aired-ness in sync with the API.
+  const today = data.today ?? new Date().toISOString().slice(0, 10);
   document.title = `${show.name} — TVTakip`;
   root.replaceChildren();
 
@@ -446,7 +451,6 @@ async function initShowDetail() {
     const seasonToggles = []; // {watched(), setWatched()} per aired episode
     let updateSeasonBtn = null;
     const list = el('ul', { class: 'episode-list' });
-    const today = new Date().toISOString().slice(0, 10);
     for (const ep of eps) {
       const code = `S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')}`;
       const aired = ep.airdate ? ` — ${ep.airdate}` : '';

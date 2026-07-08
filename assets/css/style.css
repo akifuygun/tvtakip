@@ -42,7 +42,17 @@ a:hover { color: var(--accent-hover); }
 .site-header nav { display: flex; align-items: center; gap: 1rem; }
 .nav-user { color: var(--muted); }
 .nav-sep { color: var(--border); }
-.logout-link { display: inline-flex; align-items: center; }
+.logout-form { display: inline-flex; margin: 0; }
+.logout-link {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--accent);
+}
+.logout-link:hover { color: var(--accent-hover); }
 
 .container {
   max-width: 1000px;

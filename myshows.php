@@ -5,11 +5,11 @@ require_login();
 $stmt = db()->prepare(
     'SELECT s.imdb_id, s.name, s.image_url, s.status,
             (SELECT MIN(e.airdate) FROM episodes e
-             WHERE e.show_imdb_id = s.imdb_id AND e.airdate >= CURDATE()) AS next_airdate
+             WHERE e.show_imdb_id = s.imdb_id AND e.airdate >= ?) AS next_airdate
      FROM user_shows us JOIN shows s ON s.imdb_id = us.show_imdb_id
      WHERE us.user_id = ? ORDER BY s.name'
 );
-$stmt->execute([current_user_id()]);
+$stmt->execute([today(), current_user_id()]);
 $shows = $stmt->fetchAll();
 
 /** "Airs today" / "N days remaining" label for a coming airdate. */
