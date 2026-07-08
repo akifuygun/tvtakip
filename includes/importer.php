@@ -4,6 +4,13 @@
 // shared shows/episodes cache. Clients only ever send an IMDB id; provider
 // data never transits the browser, and the TMDB key never leaves the server.
 //
+// Import happens in two cheap phases so it survives shared-hosting limits
+// (short execution time, idle MySQL connections dropped mid-request):
+//   1. base import  — show + episodes (no per-episode IMDB ids), committed
+//                     immediately so the show is usable even on huge series.
+//   2. id backfill  — episode IMDB ids fetched in small batches, one batch
+//                     per import/refresh, converging over a few refreshes.
+//
 // Used by api/episodes.php, api/track.php, and the CLI scripts.
 
 require_once __DIR__ . '/auth.php';
@@ -13,9 +20,10 @@ const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w342';
 const TVMAZE_BASE = 'https://api.tvmaze.com';
 
-// Per-import cap on TMDB external_ids calls; huge shows backfill
-// progressively across refreshes instead of timing out one request.
-const MAX_EXTERNAL_ID_FETCHES = 500;
+// Episode IMDB ids fetched per import/refresh. Kept small so a single web
+// request stays under shared-hosting execution limits when curl_multi is
+// unavailable (fetches run sequentially). CLI passes a large value.
+const BACKFILL_BATCH = 30;
 
 function tmdb_api_url(string $path, array $q = []): string
 {
@@ -28,12 +36,8 @@ function valid_date(mixed $value): ?string
     return (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) ? $value : null;
 }
 
-/**
- * Full show + episodes from TMDB by show IMDB id, or null if TMDB doesn't
- * know it. $haveIdKeys lists "season-number" strings that already carry an
- * episode IMDB id in our cache, so refreshes only fetch the missing ones.
- */
-function fetch_show_from_tmdb(string $imdbId, array $haveIdKeys = []): ?array
+/** Base show + episodes (no per-episode IMDB ids) from TMDB, or null. */
+function fetch_base_from_tmdb(string $imdbId): ?array
 {
     $found = http_get_json(tmdb_api_url("/find/$imdbId", ['external_source' => 'imdb_id']));
     $tv = $found['tv_results'][0] ?? null;
@@ -62,26 +66,6 @@ function fetch_show_from_tmdb(string $imdbId, array $haveIdKeys = []): ?array
         }
     }
 
-    // Episode IMDB ids for episodes we don't have one for yet, capped.
-    $have = array_flip($haveIdKeys);
-    $need = [];
-    foreach ($episodes as $i => $ep) {
-        if (!isset($have[$ep['season'] . '-' . $ep['number']])) {
-            $need[] = $i;
-        }
-    }
-    $need = array_slice($need, 0, MAX_EXTERNAL_ID_FETCHES);
-    $extUrls = array_map(
-        fn($i) => tmdb_api_url('/tv/' . $tv['id'] . '/season/' . $episodes[$i]['season'] . '/episode/' . $episodes[$i]['number'] . '/external_ids'),
-        $need
-    );
-    foreach (http_multi_json($extUrls, 12) as $k => $ext) {
-        $epImdb = $ext['imdb_id'] ?? null;
-        if (valid_imdb_id($epImdb)) {
-            $episodes[$need[$k]]['imdb_id'] = $epImdb;
-        }
-    }
-
     return [
         'show' => [
             'imdb_id' => $imdbId,
@@ -96,8 +80,8 @@ function fetch_show_from_tmdb(string $imdbId, array $haveIdKeys = []): ?array
     ];
 }
 
-/** Fallback: show + episodes from TVmaze (no episode IMDB ids there). */
-function fetch_show_from_tvmaze(string $imdbId): ?array
+/** Base show + episodes from TVmaze (no episode IMDB ids there). */
+function fetch_base_from_tvmaze(string $imdbId): ?array
 {
     $show = http_get_json(TVMAZE_BASE . '/lookup/shows?imdb=' . urlencode($imdbId));
     if (!$show || !isset($show['id'])) {
@@ -159,7 +143,7 @@ function upsert_show(PDO $pdo, array $show, bool $markSynced): void
 /**
  * Canonical episode upsert, chunked multi-row. Identity is strictly
  * (show, season, number); imdb_id COALESCEs so an import without ids
- * (TVmaze, capped TMDB run) never erases ids already backfilled.
+ * (TVmaze, base phase) never erases ids already backfilled.
  */
 function upsert_episodes(PDO $pdo, string $showImdbId, array $episodes): int
 {
@@ -191,25 +175,69 @@ function upsert_episodes(PDO $pdo, string $showImdbId, array $episodes): int
 }
 
 /**
- * Import (or refresh) one show into the cache: TMDB first, TVmaze fallback,
- * poster combined from whichever provider has one. Returns episode count.
- * Throws RuntimeException when neither provider knows the show.
+ * Fetch episode IMDB ids from TMDB for up to $limit episodes that don't have
+ * one yet, and update them in place. Returns how many were filled. Its own
+ * short DB write window (db_live) so a dropped idle connection can't kill it.
  */
-function import_show(PDO $pdo, string $imdbId): int
+function backfill_episode_imdb_ids(PDO $pdo, string $imdbId, int $limit): int
 {
-    set_time_limit(120);
-
-    // season-number keys that already have an episode IMDB id — refreshes
-    // then spend their external_ids budget only on the missing ones.
+    if ($limit < 1) {
+        return 0;
+    }
+    $lim = (int) min($limit, 2000);
     $stmt = $pdo->prepare(
-        "SELECT CONCAT(season, '-', number) AS k FROM episodes
-         WHERE show_imdb_id = ? AND imdb_id IS NOT NULL"
+        "SELECT season, number FROM episodes
+         WHERE show_imdb_id = ? AND imdb_id IS NULL ORDER BY season, number LIMIT $lim"
     );
     $stmt->execute([$imdbId]);
-    $haveIdKeys = array_column($stmt->fetchAll(), 'k');
+    $rows = $stmt->fetchAll();
+    if (!$rows) {
+        return 0;
+    }
 
-    $payload = fetch_show_from_tmdb($imdbId, $haveIdKeys)
-        ?? fetch_show_from_tvmaze($imdbId);
+    $found = http_get_json(tmdb_api_url("/find/$imdbId", ['external_source' => 'imdb_id']));
+    $tvId = $found['tv_results'][0]['id'] ?? null;
+    if (!$tvId) {
+        return 0; // not on TMDB (TVmaze-only show) — ids stay null for now
+    }
+
+    $urls = array_map(
+        fn($r) => tmdb_api_url('/tv/' . $tvId . '/season/' . $r['season'] . '/episode/' . $r['number'] . '/external_ids'),
+        $rows
+    );
+    $exts = http_multi_json($urls, 12);
+
+    $pdo = db_live();
+    $upd = $pdo->prepare(
+        'UPDATE episodes SET imdb_id = ?
+         WHERE show_imdb_id = ? AND season = ? AND number = ? AND imdb_id IS NULL'
+    );
+    $pdo->beginTransaction();
+    $n = 0;
+    foreach ($rows as $i => $r) {
+        $epImdb = $exts[$i]['imdb_id'] ?? null;
+        if (valid_imdb_id($epImdb)) {
+            $upd->execute([$epImdb, $imdbId, $r['season'], $r['number']]);
+            $n++;
+        }
+    }
+    $pdo->commit();
+    return $n;
+}
+
+/**
+ * Import (or refresh) one show: base phase committed immediately, then one
+ * batch of episode-id backfill. Returns episode count. Throws
+ * RuntimeException when neither provider knows the show.
+ *
+ * $backfillLimit: episode ids to fetch this call (CLI passes a large value to
+ * complete in one run; the web default keeps each request short).
+ */
+function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BATCH): int
+{
+    @set_time_limit(120);
+
+    $payload = fetch_base_from_tmdb($imdbId) ?? fetch_base_from_tvmaze($imdbId);
     if (!$payload) {
         throw new RuntimeException('Show not found on TMDB or TVmaze.');
     }
@@ -226,6 +254,9 @@ function import_show(PDO $pdo, string $imdbId): int
         }
     }
 
+    // Phase 1: base import, committed immediately (reconnect first — the fetch
+    // above may have outlasted an idle MySQL connection).
+    $pdo = db_live();
     $pdo->beginTransaction();
     try {
         upsert_show($pdo, $payload['show'], true);
@@ -235,5 +266,14 @@ function import_show(PDO $pdo, string $imdbId): int
         $pdo->rollBack();
         throw $e;
     }
+
+    // Phase 2: best-effort id backfill — the show is already usable, so a
+    // failure here (timeout, provider hiccup) must not fail the import.
+    try {
+        backfill_episode_imdb_ids($pdo, $imdbId, $backfillLimit);
+    } catch (Throwable $e) {
+        // ignore; a later refresh will backfill
+    }
+
     return $count;
 }

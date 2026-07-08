@@ -61,7 +61,7 @@ $n = 0;
 foreach ($ids as $imdbId) {
     $n++;
     try {
-        $count = import_show($pdo, $imdbId);
+        $count = import_show($pdo, $imdbId, PHP_INT_MAX); // CLI: backfill all ids in one run
     } catch (RuntimeException $e) {
         $failed[] = $imdbId;
         echo "[$n/" . count($ids) . "] $imdbId FAILED: {$e->getMessage()}\n";
