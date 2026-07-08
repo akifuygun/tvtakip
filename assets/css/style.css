@@ -174,8 +174,13 @@ a:hover { color: var(--accent-hover); }
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.3rem 0;
+  padding: 0.3rem 0.5rem;
   border-top: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(224, 82, 82, 0.10);   /* not watched: reddish */
+}
+.episode-list li.watched {
+  background: rgba(95, 191, 110, 0.12);  /* watched: greenish */
 }
 .episode-list li.watched .ep-title { color: var(--muted); }
 .ep-toggle-btn { flex-shrink: 0; min-width: 15rem; }
