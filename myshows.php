@@ -60,6 +60,11 @@ $byNextAirdate = static function ($a, $b) {
 usort($groups['running']['shows'], $byNextAirdate);
 usort($groups['upcoming']['shows'], $byNextAirdate);
 
+// With nothing running or upcoming, the finished group is all there is — open it.
+if (!$groups['running']['shows'] && !$groups['upcoming']['shows']) {
+    $groups['finished']['open'] = true;
+}
+
 $pageTitle = 'My Shows';
 require __DIR__ . '/includes/header.php';
 ?>
