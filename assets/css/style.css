@@ -55,13 +55,17 @@ a:hover { color: var(--accent-hover); }
 .logout-link {
   display: inline-flex;
   align-items: center;
+  gap: 0.4rem;
   background: none;
   border: 0;
   padding: 0;
   cursor: pointer;
   color: var(--accent);
+  font: inherit;
 }
 .logout-link:hover { color: var(--accent-hover); }
+/* Icon-only in the desktop bar; the label shows in the mobile menu. */
+.logout-label { display: none; }
 
 .container {
   max-width: 1000px;
@@ -304,6 +308,8 @@ a:hover { color: var(--accent-hover); }
     border-top: 1px solid var(--border);
   }
   .nav-sep { display: none; }
+  .logout-label { display: inline; }
+  .logout-form .logout-link { width: 100%; justify-content: flex-start; }
 
   /* Episode rows: stack the title above a full-width toggle button so the
      long "Mark SxxEyy Watched" label never forces horizontal scroll. */
