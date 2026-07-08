@@ -1,14 +1,8 @@
 // tvtakip frontend.
-// Search queries TVmaze and TMDB and merges results by IMDB id. Episode data
-// comes from TMDB (incl. per-episode IMDB ids), falling back to TVmaze for
-// shows TMDB doesn't know (their episode IMDB ids stay null and are updated
-// on refresh once TMDB has the show). Everything is cached in our own DB
-// keyed by IMDB ids: the first browser to open a show pays the API calls.
-const TVMAZE = 'https://api.tvmaze.com';
-const TMDB = 'https://api.themoviedb.org/3';
-const TMDB_IMG = 'https://image.tmdb.org/t/p/w342';
+// All provider access (TVmaze/TMDB) happens server-side: search goes through
+// api/search.php, and imports happen inside api/episodes.php / api/track.php —
+// the browser only ever sends IMDB ids and reads our own cache.
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
-const TMDB_KEY = document.querySelector('meta[name="tmdb-key"]')?.content ?? '';
 // Display labels for canonical status values (normalized server-side).
 const STATUS_LABELS = { running: 'Running', ended: 'Ended', canceled: 'Canceled', upcoming: 'Upcoming' };
 
@@ -41,131 +35,6 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-// ---------- TMDB fetch layer ----------
-async function tmdb(path, params = {}) {
-  const url = new URL(TMDB + path);
-  url.searchParams.set('api_key', TMDB_KEY);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`TMDB request failed (${res.status})`);
-  return res.json();
-}
-
-/** Run fn over items with limited concurrency, preserving order. */
-async function pool(items, limit, fn) {
-  const results = new Array(items.length);
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, async () => {
-      while (next < items.length) {
-        const i = next++;
-        results[i] = await fn(items[i], i);
-      }
-    }),
-  );
-  return results;
-}
-
-/** Fallback: show + episodes from TVmaze (no episode IMDB ids there). */
-async function fetchShowFromTVmaze(imdbId) {
-  const res = await fetch(`${TVMAZE}/lookup/shows?imdb=${imdbId}`);
-  if (!res.ok) throw new Error('Show not found on TVmaze either.');
-  const show = await res.json();
-  const epRes = await fetch(`${TVMAZE}/shows/${show.id}/episodes`);
-  const eps = epRes.ok ? await epRes.json() : [];
-  return {
-    show: {
-      imdb_id: imdbId,
-      name: show.name,
-      image_url: show.image?.medium ?? '',
-      status: show.status ?? '',
-      overview: (show.summary ?? '').replace(/<[^>]+>/g, ''),
-      premiered: show.premiered || null,
-    },
-    episodes: eps.map((ep) => ({
-      imdb_id: null,
-      season: ep.season,
-      number: ep.number,
-      name: ep.name ?? '',
-      airdate: ep.airdate || null,
-    })),
-  };
-}
-
-/** Full show + episodes (with per-episode IMDB ids) from TMDB, by show IMDB id. */
-async function fetchShowFromTMDB(imdbId, onProgress) {
-  const found = await tmdb(`/find/${imdbId}`, { external_source: 'imdb_id' });
-  const tv = found.tv_results?.[0];
-  if (!tv) throw new Error('Show not found on TMDB.');
-
-  const detail = await tmdb(`/tv/${tv.id}`);
-  const seasonNumbers = (detail.seasons ?? []).map((s) => s.season_number);
-  const seasons = await pool(seasonNumbers, 4, (n) => tmdb(`/tv/${tv.id}/season/${n}`));
-  const episodes = seasons.flatMap((s) => s.episodes ?? []);
-
-  let done = 0;
-  const withIds = await pool(episodes, 8, async (ep) => {
-    let epImdb = null;
-    try {
-      const ext = await tmdb(`/tv/${tv.id}/season/${ep.season_number}/episode/${ep.episode_number}/external_ids`);
-      epImdb = ext.imdb_id || null;
-    } catch {
-      // Missing external ids for one episode shouldn't sink the whole import.
-    }
-    onProgress?.(++done, episodes.length);
-    return {
-      imdb_id: epImdb,
-      season: ep.season_number,
-      number: ep.episode_number,
-      name: ep.name ?? '',
-      airdate: ep.air_date || null,
-    };
-  });
-
-  return {
-    show: {
-      imdb_id: imdbId,
-      name: detail.name,
-      image_url: detail.poster_path ? TMDB_IMG + detail.poster_path : '',
-      status: detail.status ?? '',
-      overview: detail.overview ?? '',
-      premiered: detail.first_air_date || null,
-    },
-    episodes: withIds,
-  };
-}
-
-/**
- * Import a show's episodes into our cache: TMDB first (episode IMDB ids),
- * TVmaze fallback, poster from whichever provider has one. Used by both the
- * show page and the search page's Track button.
- */
-async function importShowData(imdbId, onStatus = () => {}) {
-  let payload;
-  try {
-    payload = await fetchShowFromTMDB(imdbId, (done, total) => {
-      onStatus(`Fetching ${done}/${total}…`);
-    });
-  } catch {
-    onStatus('Trying TVmaze…');
-    payload = await fetchShowFromTVmaze(imdbId);
-  }
-  if (!payload.show.image_url) {
-    // Combine providers for the poster: whoever has one wins.
-    try {
-      const other = await fetch(`${TVMAZE}/lookup/shows?imdb=${imdbId}`);
-      if (other.ok) payload.show.image_url = (await other.json()).image?.medium ?? '';
-    } catch { /* poster stays empty */ }
-  }
-  await apiPost('api/episodes.php', payload);
-}
-
-/** True if the show's episode cache is complete. */
-async function isShowSynced(imdbId) {
-  const data = await apiGet(`api/episodes.php?show_id=${imdbId}`);
-  return !!data.show?.synced_at && data.episodes.length > 0;
-}
-
 function imdbLink(imdbId, cls = 'imdb-link') {
   return el('a', {
     href: `https://www.imdb.com/title/${imdbId}/`,
@@ -177,71 +46,6 @@ function imdbLink(imdbId, cls = 'imdb-link') {
 }
 
 // ---------- Search page ----------
-/** Search TVmaze and TMDB in parallel; merge results by IMDB id. */
-async function searchBoth(q) {
-  const [tvmazeRes, tmdbRes] = await Promise.allSettled([
-    fetch(`${TVMAZE}/search/shows?q=${encodeURIComponent(q)}`).then((r) => {
-      if (!r.ok) throw new Error(`TVmaze search failed (${r.status})`);
-      return r.json();
-    }),
-    tmdb('/search/tv', { query: q }),
-  ]);
-
-  const byImdb = new Map();
-  const noId = [];
-
-  if (tvmazeRes.status === 'fulfilled') {
-    for (const { show } of tvmazeRes.value) {
-      const item = {
-        imdbId: show.externals?.imdb ?? null,
-        name: show.name,
-        year: show.premiered?.slice(0, 4) ?? null,
-        image: show.image?.medium ?? '',
-        status: show.status ?? '',
-        source: 'TVmaze',
-      };
-      if (item.imdbId) byImdb.set(item.imdbId, item);
-      else noId.push(item);
-    }
-  }
-
-  if (tmdbRes.status === 'fulfilled') {
-    const results = (tmdbRes.value.results ?? []).slice(0, 12);
-    // Search results carry no external ids — resolve each one's IMDB id.
-    const exts = await pool(results, 8, (r) => tmdb(`/tv/${r.id}/external_ids`).catch(() => null));
-    results.forEach((r, i) => {
-      const item = {
-        imdbId: exts[i]?.imdb_id || null,
-        name: r.name,
-        year: r.first_air_date?.slice(0, 4) ?? null,
-        image: r.poster_path ? TMDB_IMG + r.poster_path : '',
-        status: '',
-        source: 'TMDB',
-      };
-      if (item.imdbId) {
-        const existing = byImdb.get(item.imdbId);
-        if (existing) {
-          existing.image = existing.image || item.image;
-          existing.source = 'TVmaze + TMDB';
-        } else {
-          byImdb.set(item.imdbId, item);
-        }
-      } else {
-        // No IMDB id to merge on — drop only if it looks like a duplicate.
-        const dup = [...byImdb.values(), ...noId].some(
-          (x) => x.name.toLowerCase() === item.name.toLowerCase() && x.year === item.year,
-        );
-        if (!dup) noId.push(item);
-      }
-    });
-  }
-
-  if (tvmazeRes.status === 'rejected' && tmdbRes.status === 'rejected') {
-    throw new Error('Both search providers failed.');
-  }
-  return [...byImdb.values(), ...noId];
-}
-
 function initSearch() {
   const form = document.getElementById('search-form');
   if (!form) return;
@@ -255,7 +59,7 @@ function initSearch() {
     if (!q) return;
     results.textContent = 'Searching TVmaze and TMDB…';
     try {
-      const items = await searchBoth(q);
+      const { results: items } = await apiGet(`api/search.php?q=${encodeURIComponent(q)}`);
       results.replaceChildren();
       if (!items.length) {
         results.textContent = 'No shows found.';
@@ -264,8 +68,8 @@ function initSearch() {
       for (const item of items) {
         results.append(renderSearchCard(item, trackedIds));
       }
-    } catch {
-      results.textContent = 'Search failed. Please try again.';
+    } catch (err) {
+      results.textContent = `Search failed: ${err.message}`;
     }
   });
 }
@@ -277,7 +81,7 @@ function renderSearchCard(item, trackedIds) {
     : el('div', { class: 'no-poster', text: 'No image' });
   const source = el('span', { class: 'muted source-tag', text: item.source });
 
-  if (!item.imdbId) {
+  if (!item.imdb_id) {
     return el('div', { class: 'show-card' }, [
       poster,
       el('h3', { text: item.name + year }),
@@ -286,43 +90,29 @@ function renderSearchCard(item, trackedIds) {
     ]);
   }
 
-  const isTracked = trackedIds.has(item.imdbId);
+  const isTracked = trackedIds.has(item.imdb_id);
   const trackBtn = el('button', {
     class: 'button button-small track-btn',
     text: isTracked ? 'Tracking ✓' : 'Track',
     ...(isTracked ? { disabled: '' } : {}),
     onclick: async () => {
       trackBtn.disabled = true;
+      trackBtn.textContent = 'Importing…';
       try {
-        await apiPost('api/track.php', {
-          action: 'track',
-          show: {
-            imdb_id: item.imdbId,
-            name: item.name,
-            image_url: item.image,
-            status: item.status,
-          },
-        });
-        trackedIds.add(item.imdbId);
+        await apiPost('api/track.php', { action: 'track', imdb_id: item.imdb_id });
+        trackedIds.add(item.imdb_id);
+        trackBtn.textContent = 'Tracking ✓';
       } catch (err) {
         trackBtn.disabled = false;
+        trackBtn.textContent = 'Track';
         alert(err.message);
-        return;
       }
-      // Tracked — now warm the episode cache so the calendar works right away.
-      try {
-        if (!(await isShowSynced(item.imdbId))) {
-          trackBtn.textContent = 'Fetching episodes…';
-          await importShowData(item.imdbId, (text) => { trackBtn.textContent = text; });
-        }
-      } catch { /* tracked anyway; the show page imports on first visit */ }
-      trackBtn.textContent = 'Tracking ✓';
     },
   });
 
   return el('div', { class: 'show-card' }, [
-    el('a', { href: `show.php?id=${item.imdbId}` }, [poster]),
-    el('h3', {}, [el('a', { href: `show.php?id=${item.imdbId}`, text: item.name + year })]),
+    el('a', { href: `show.php?id=${item.imdb_id}` }, [poster]),
+    el('h3', {}, [el('a', { href: `show.php?id=${item.imdb_id}`, text: item.name + year })]),
     source,
     trackBtn,
   ]);
@@ -335,10 +125,7 @@ function initDashboard() {
       if (!confirm('Untrack this show? Your watched history will be kept if you track it again.')) return;
       btn.disabled = true;
       try {
-        await apiPost('api/track.php', {
-          action: 'untrack',
-          show: { imdb_id: btn.dataset.showId },
-        });
+        await apiPost('api/track.php', { action: 'untrack', imdb_id: btn.dataset.showId });
         btn.closest('.show-card')?.remove();
       } catch (err) {
         btn.disabled = false;
@@ -376,17 +163,13 @@ async function initShowDetail() {
   const status = el('p', { class: 'loading', text: 'Loading show…' });
   root.replaceChildren(status);
 
-  const importShow = (statusEl) => importShowData(showId, (text) => { statusEl.textContent = text; });
-
   let data;
   try {
     data = await apiGet(`api/episodes.php?show_id=${showId}`);
-    // synced_at is only set once a full import completed — a missing or
-    // interrupted import (partial cache) triggers a fresh one.
+    // synced_at is only set once a server-side import completed.
     if (!data.show?.synced_at || !data.episodes.length) {
-      status.textContent = 'Fetching episodes (first visit for this show)…';
-      await importShow(status);
-      data = await apiGet(`api/episodes.php?show_id=${showId}`);
+      status.textContent = 'Importing episodes (first visit for this show)…';
+      data = await apiPost('api/episodes.php', { show_id: showId });
     }
   } catch (err) {
     status.textContent = `Could not load this show: ${err.message}`;
@@ -409,7 +192,7 @@ async function initShowDetail() {
       try {
         await apiPost('api/track.php', {
           action: isTracked ? 'untrack' : 'track',
-          show: { imdb_id: showId, name: show.name, image_url: show.image_url ?? '', status: show.status ?? '' },
+          imdb_id: showId,
         });
         isTracked = !isTracked;
         trackBtn.textContent = isTracked ? 'Untrack' : 'Track this show';
@@ -556,19 +339,20 @@ async function initShowDetail() {
     },
   });
 
-  // Re-import from TMDB to pick up newly aired episodes or backfilled IMDB ids.
+  // Server-side re-import: picks up newly aired episodes and backfills
+  // episode IMDB ids as TMDB gets them.
   const refreshBtn = el('button', {
     class: 'button button-small button-secondary',
     text: 'Refresh episodes',
     onclick: async () => {
       refreshBtn.disabled = true;
-      const original = refreshBtn.textContent;
+      refreshBtn.textContent = 'Refreshing…';
       try {
-        await importShow(refreshBtn);
+        await apiPost('api/episodes.php', { show_id: showId });
         location.reload();
       } catch (err) {
         alert(err.message);
-        refreshBtn.textContent = original;
+        refreshBtn.textContent = 'Refresh episodes';
         refreshBtn.disabled = false;
       }
     },

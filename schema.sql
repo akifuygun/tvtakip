@@ -36,8 +36,11 @@ CREATE TABLE IF NOT EXISTS episodes (
     number SMALLINT UNSIGNED NOT NULL,
     name VARCHAR(255) DEFAULT NULL,
     airdate DATE DEFAULT NULL,
+    -- (show, season, number) is the ONLY identity. imdb_id is deliberately
+    -- NOT unique: IMDB lists two-part episodes under one id, and a second
+    -- unique key would make upserts ambiguous (corrupting the wrong row).
     UNIQUE KEY uq_show_episode (show_imdb_id, season, number),
-    UNIQUE KEY uq_imdb (imdb_id),
+    KEY idx_show_airdate (show_imdb_id, airdate),
     FOREIGN KEY (show_imdb_id) REFERENCES shows(imdb_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

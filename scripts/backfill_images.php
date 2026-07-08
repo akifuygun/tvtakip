@@ -5,17 +5,7 @@
 if (PHP_SAPI !== 'cli') {
     exit("CLI only\n");
 }
-require __DIR__ . '/../includes/auth.php';
-
-function http_json(string $url): ?array
-{
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_FOLLOWLOCATION => true]);
-    $body = curl_exec($ch);
-    $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-    curl_close($ch);
-    return ($body !== false && $code === 200) ? json_decode($body, true) : null;
-}
+require __DIR__ . '/../includes/importer.php';
 
 $pdo = db();
 $shows = $pdo->query("SELECT imdb_id, name FROM shows WHERE image_url IS NULL OR image_url = ''")->fetchAll();
@@ -28,18 +18,15 @@ foreach ($shows as $show) {
     $image = null;
     $source = null;
 
-    $find = http_json('https://api.themoviedb.org/3/find/' . $imdbId . '?' . http_build_query([
-        'external_source' => 'imdb_id',
-        'api_key' => TMDB_API_KEY,
-    ]));
-    $poster = $find['tv_results'][0]['poster_path'] ?? null;
+    $found = http_get_json(tmdb_api_url("/find/$imdbId", ['external_source' => 'imdb_id']));
+    $poster = $found['tv_results'][0]['poster_path'] ?? null;
     if ($poster) {
-        $image = 'https://image.tmdb.org/t/p/w342' . $poster;
+        $image = TMDB_IMG_BASE . $poster;
         $source = 'TMDB';
     }
 
     if (!$image) {
-        $tvmaze = http_json('https://api.tvmaze.com/lookup/shows?imdb=' . urlencode($imdbId));
+        $tvmaze = http_get_json(TVMAZE_BASE . '/lookup/shows?imdb=' . urlencode($imdbId));
         if (!empty($tvmaze['image']['medium'])) {
             $image = $tvmaze['image']['medium'];
             $source = 'TVmaze';

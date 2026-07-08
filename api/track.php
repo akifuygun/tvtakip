@@ -1,34 +1,29 @@
 <?php
-// POST {action: "track"|"untrack", show: {imdb_id, name?, image_url?, status?}}
-require_once __DIR__ . '/../includes/auth.php';
+// POST {action: "track"|"untrack", imdb_id: "ttNNNNNNN"}
+// The client sends only the id — show metadata comes from the providers,
+// imported server-side when the cache doesn't have the show yet.
+require_once __DIR__ . '/../includes/importer.php';
 require_login_json();
 $data = read_json_post();
 
 $action = $data['action'] ?? '';
-$show = $data['show'] ?? [];
-$imdbId = $show['imdb_id'] ?? '';
+$imdbId = $data['imdb_id'] ?? ($data['show']['imdb_id'] ?? ''); // legacy shape tolerated
 
 if (!valid_imdb_id($imdbId)) {
     json_response(['error' => 'Missing or invalid IMDB id'], 400);
 }
 
 if ($action === 'track') {
-    $name = trim((string) ($show['name'] ?? ''));
-    if ($name === '') {
-        json_response(['error' => 'Missing show name'], 400);
+    $stmt = db()->prepare('SELECT synced_at FROM shows WHERE imdb_id = ?');
+    $stmt->execute([$imdbId]);
+    $show = $stmt->fetch();
+    if (!$show || $show['synced_at'] === null) {
+        try {
+            import_show(db(), $imdbId);
+        } catch (RuntimeException $e) {
+            json_response(['error' => $e->getMessage()], 404);
+        }
     }
-    $imageUrl = mb_substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null;
-    $status = normalize_show_status($show['status'] ?? null);
-
-    // Upsert the shared show cache row, then link it to the user.
-    $stmt = db()->prepare(
-        'INSERT INTO shows (imdb_id, name, image_url, status)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE name = VALUES(name),
-             image_url = COALESCE(VALUES(image_url), image_url),
-             status = COALESCE(VALUES(status), status)'
-    );
-    $stmt->execute([$imdbId, mb_substr($name, 0, 255), $imageUrl, $status]);
 
     $stmt = db()->prepare('INSERT IGNORE INTO user_shows (user_id, show_imdb_id) VALUES (?, ?)');
     $stmt->execute([current_user_id(), $imdbId]);
