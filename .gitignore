@@ -1,4 +1,5 @@
 config.php
+deploy/
 .vscode/
 Thumbs.db
 .DS_Store

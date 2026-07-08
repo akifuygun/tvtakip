@@ -1,0 +1,6 @@
+# Force HTTPS. InfinityFree terminates SSL at its proxy and passes the
+# original scheme in X-Forwarded-Proto. Using a 302 (temporary) redirect
+# while verifying; switch to 301 once confirmed working over HTTPS.
+RewriteEngine On
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=302]

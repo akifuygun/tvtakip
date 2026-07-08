@@ -15,6 +15,10 @@ if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
         'httponly' => true,
         'samesite' => 'Lax',
+        // Set the Secure flag automatically once the request is over HTTPS,
+        // so the cookie hardens after SSL goes live without breaking http.
+        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'),
     ]);
     session_start();
 }
