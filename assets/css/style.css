@@ -167,6 +167,7 @@ a:hover { color: var(--accent-hover); }
   padding: 0.5rem 0.9rem;
 }
 .season summary { cursor: pointer; font-weight: 600; }
+.season-watched-btn { float: right; }
 .episode-list { list-style: none; padding: 0.25rem 0 0; margin: 0; }
 .episode-list li { padding: 0.3rem 0; border-top: 1px solid var(--border); }
 .episode-list label { cursor: pointer; }

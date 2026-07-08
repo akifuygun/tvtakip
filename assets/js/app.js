@@ -296,6 +296,7 @@ async function initShowDetail() {
   const checkboxes = []; // all episode checkboxes, for mark-all
   const epContainer = el('div', { class: 'seasons' });
   for (const [season, eps] of seasons) {
+    const seasonCheckboxes = [];
     const list = el('ul', { class: 'episode-list' });
     for (const ep of eps) {
       const checkbox = el('input', {
@@ -313,6 +314,7 @@ async function initShowDetail() {
         },
       });
       checkboxes.push(checkbox);
+      seasonCheckboxes.push(checkbox);
       const aired = ep.airdate ? ` — ${ep.airdate}` : '';
       const label = el('label', {}, [
         checkbox,
@@ -321,8 +323,25 @@ async function initShowDetail() {
       list.append(el('li', {}, ep.imdb_id ? [label, imdbLink(ep.imdb_id)] : [label]));
     }
     const title = season === 0 ? 'Specials' : `Season ${season}`;
+    const seasonBtn = el('button', {
+      class: 'button button-small button-secondary season-watched-btn',
+      text: 'Mark season watched',
+      onclick: async (e) => {
+        // Inside <summary>: don't let the click also toggle the season open/closed.
+        e.preventDefault();
+        e.stopPropagation();
+        seasonBtn.disabled = true;
+        try {
+          await apiPost('api/watch.php', { show_id: showId, all: true, season });
+          for (const cb of seasonCheckboxes) cb.checked = true;
+        } catch (err) {
+          alert(err.message);
+        }
+        seasonBtn.disabled = false;
+      },
+    });
     epContainer.append(el('details', { class: 'season', ...(seasons.size === 1 ? { open: '' } : {}) }, [
-      el('summary', { text: `${title} (${eps.length} episodes)` }),
+      el('summary', {}, [`${title} (${eps.length} episodes)`, seasonBtn]),
       list,
     ]));
   }
