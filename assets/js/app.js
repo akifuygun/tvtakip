@@ -421,7 +421,8 @@ async function initShowDetail() {
   const allToggles = []; // per-episode setWatched fns, for mark-all
   const epContainer = el('div', { class: 'seasons' });
   for (const [season, eps] of seasons) {
-    const seasonToggles = [];
+    const seasonToggles = []; // {watched(), setWatched()} per aired episode
+    let updateSeasonBtn = null;
     const list = el('ul', { class: 'episode-list' });
     const today = new Date().toISOString().slice(0, 10);
     for (const ep of eps) {
@@ -437,6 +438,7 @@ async function initShowDetail() {
         toggleBtn.textContent = value ? `❌ Mark ${code} Not Watched` : `✅ Mark ${code} Watched`;
         toggleBtn.classList.toggle('button-secondary', value);
         li.classList.toggle('watched', value);
+        updateSeasonBtn?.();
       };
       if (hasAired) {
         setWatched(isWatched);
@@ -451,7 +453,7 @@ async function initShowDetail() {
           toggleBtn.disabled = false;
         });
         allToggles.push(setWatched);
-        seasonToggles.push(setWatched);
+        seasonToggles.push({ watched: () => isWatched, setWatched });
       } else {
         // Unaired (future or unknown airdate): not markable, and bulk actions skip it.
         toggleBtn.textContent = ep.airdate ? `📅 Airs ${ep.airdate}` : '📅 Not aired yet';
@@ -468,23 +470,29 @@ async function initShowDetail() {
       list.append(li);
     }
     const title = season === 0 ? 'Specials' : `Season ${season}`;
+    const seasonFullyWatched = () =>
+      seasonToggles.length > 0 && seasonToggles.every((t) => t.watched());
     const seasonBtn = el('button', {
       class: 'button button-small button-secondary season-watched-btn',
-      text: 'Mark season watched',
       onclick: async (e) => {
         // Inside <summary>: don't let the click also toggle the season open/closed.
         e.preventDefault();
         e.stopPropagation();
+        const unwatch = seasonFullyWatched();
         seasonBtn.disabled = true;
         try {
-          await apiPost('api/watch.php', { show_id: showId, all: true, season });
-          for (const setWatched of seasonToggles) setWatched(true);
+          await apiPost('api/watch.php', { show_id: showId, all: true, season, watched: !unwatch });
+          for (const t of seasonToggles) t.setWatched(!unwatch);
         } catch (err) {
           alert(err.message);
         }
         seasonBtn.disabled = false;
       },
     });
+    updateSeasonBtn = () => {
+      seasonBtn.textContent = seasonFullyWatched() ? 'Mark Season Unwatched' : 'Mark Season Watched';
+    };
+    updateSeasonBtn();
     epContainer.append(el('details', { class: 'season', ...(seasons.size === 1 ? { open: '' } : {}) }, [
       el('summary', {}, [`${title} (${eps.length} episodes)`, seasonBtn]),
       list,
