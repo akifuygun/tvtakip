@@ -270,3 +270,28 @@ a:hover { color: var(--accent-hover); }
   vertical-align: middle;
 }
 .imdb-link:hover { background: #ffd84d; color: #000; }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 560px) {
+  .site-header { padding: 0.6rem 0.9rem; }
+  .site-header nav { gap: 0.7rem; row-gap: 0.4rem; font-size: 0.95rem; }
+  .container { padding: 1rem 0.9rem; }
+
+  /* Episode rows: stack the title above a full-width toggle button so the
+     long "Mark SxxEyy Watched" label never forces horizontal scroll. */
+  .episode-list li { flex-direction: column; align-items: stretch; gap: 0.45rem; }
+  .ep-toggle-btn { min-width: 0; width: 100%; }
+
+  /* Season header button drops below the title, full width. */
+  .season-watched-btn { float: none; display: block; width: 100%; margin-top: 0.5rem; }
+
+  /* Show-page action buttons share the row evenly instead of overflowing. */
+  .episodes-actions { width: 100%; }
+  .episodes-actions .button { flex: 1 1 auto; }
+
+  /* Calendar rows: stack the episode text above its Watched button. */
+  #calendar .episode-list li { flex-direction: column; align-items: stretch; }
+  .cal-watch-btn { width: 100%; }
+
+  .show-header img { max-width: 140px; }
+}

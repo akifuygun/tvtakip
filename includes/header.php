@@ -10,6 +10,12 @@ $pageTitle = $pageTitle ?? 'TVTakip';
     <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token()) ?>">
     <title><?= htmlspecialchars($pageTitle) ?> — TVTakip</title>
     <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#1a1f2a">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TVTakip">
 </head>
 <body>
 <header class="site-header">

@@ -371,3 +371,10 @@ initSearch();
 initDashboard();
 initCalendar();
 initShowDetail();
+
+// PWA: register the service worker (HTTPS only — it silently no-ops on http).
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
