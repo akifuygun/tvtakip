@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS shows (
     status VARCHAR(50) DEFAULT NULL,
     overview TEXT DEFAULT NULL,
     premiered DATE DEFAULT NULL,
+    synced_at TIMESTAMP NULL DEFAULT NULL,  -- set when a full episode import completed
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

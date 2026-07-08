@@ -222,16 +222,21 @@ async function initShowDetail() {
   const status = el('p', { class: 'loading', text: 'Loading show…' });
   root.replaceChildren(status);
 
+  const importFromTMDB = async (statusEl) => {
+    const payload = await fetchShowFromTMDB(showId, (done, total) => {
+      statusEl.textContent = `Fetching episode IMDB ids… ${done}/${total}`;
+    });
+    await apiPost('api/episodes.php', payload);
+  };
+
   let data;
   try {
     data = await apiGet(`api/episodes.php?show_id=${showId}`);
-    if (!data.show || !data.episodes.length) {
-      // Not cached yet — this browser imports it from TMDB for everyone.
+    // synced_at is only set once a full import completed — a missing or
+    // interrupted import (partial cache) triggers a fresh one.
+    if (!data.show?.synced_at || !data.episodes.length) {
       status.textContent = 'Fetching episodes from TMDB (first visit for this show)…';
-      const payload = await fetchShowFromTMDB(showId, (done, total) => {
-        status.textContent = `Fetching episode IMDB ids… ${done}/${total}`;
-      });
-      await apiPost('api/episodes.php', payload);
+      await importFromTMDB(status);
       data = await apiGet(`api/episodes.php?show_id=${showId}`);
     }
   } catch (err) {
@@ -335,8 +340,29 @@ async function initShowDetail() {
     },
   });
 
+  // Re-import from TMDB to pick up newly aired episodes or backfilled IMDB ids.
+  const refreshBtn = el('button', {
+    class: 'button button-small button-secondary',
+    text: 'Refresh episodes',
+    onclick: async () => {
+      refreshBtn.disabled = true;
+      const original = refreshBtn.textContent;
+      try {
+        await importFromTMDB(refreshBtn);
+        location.reload();
+      } catch (err) {
+        alert(err.message);
+        refreshBtn.textContent = original;
+        refreshBtn.disabled = false;
+      }
+    },
+  });
+
   root.append(
-    el('div', { class: 'episodes-header' }, [el('h2', { text: 'Episodes' }), markAllBtn]),
+    el('div', { class: 'episodes-header' }, [
+      el('h2', { text: 'Episodes' }),
+      el('div', { class: 'episodes-actions' }, [refreshBtn, markAllBtn]),
+    ]),
     epContainer,
   );
 }

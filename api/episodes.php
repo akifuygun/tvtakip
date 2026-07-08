@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         json_response(['error' => 'Missing or invalid show_id'], 400);
     }
 
-    $stmt = db()->prepare('SELECT imdb_id, name, image_url, status, overview, premiered FROM shows WHERE imdb_id = ?');
+    $stmt = db()->prepare('SELECT imdb_id, name, image_url, status, overview, premiered, synced_at FROM shows WHERE imdb_id = ?');
     $stmt->execute([$imdbId]);
     $show = $stmt->fetch() ?: null;
 
@@ -59,10 +59,11 @@ $date = static function ($value): ?string {
 db()->beginTransaction();
 
 $stmt = db()->prepare(
-    'INSERT INTO shows (imdb_id, name, image_url, status, overview, premiered)
-     VALUES (?, ?, ?, ?, ?, ?)
+    'INSERT INTO shows (imdb_id, name, image_url, status, overview, premiered, synced_at)
+     VALUES (?, ?, ?, ?, ?, ?, NOW())
      ON DUPLICATE KEY UPDATE name = VALUES(name), image_url = VALUES(image_url),
-         status = VALUES(status), overview = VALUES(overview), premiered = VALUES(premiered)'
+         status = VALUES(status), overview = VALUES(overview), premiered = VALUES(premiered),
+         synced_at = NOW()'
 );
 $stmt->execute([
     $imdbId,

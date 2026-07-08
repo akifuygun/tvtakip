@@ -152,8 +152,10 @@ a:hover { color: var(--accent-hover); }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
 }
+.episodes-actions { display: flex; gap: 0.5rem; }
 
 .season {
   background: var(--surface);
