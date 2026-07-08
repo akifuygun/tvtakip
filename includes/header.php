@@ -20,7 +20,7 @@ $pageTitle = $pageTitle ?? 'tvtakip';
             <a href="index.php">Calendar</a>
             <a href="myshows.php">My Shows</a>
             <a href="search.php">Search</a>
-            <span class="nav-user"><?= htmlspecialchars(current_username()) ?></span>
+            <span class="nav-user"><?= htmlspecialchars(current_display_name()) ?></span>
             <a href="logout.php">Log out</a>
         <?php else: ?>
             <a href="login.php">Log in</a>

@@ -11,12 +11,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf($_POST['csrf_token'] ?? null)) {
         $errors[] = 'Session expired, please try again.';
     }
-    $username = trim($_POST['username'] ?? '');
+    $displayName = trim($_POST['display_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if (!preg_match('/^[a-zA-Z0-9_]{3,50}$/', $username)) {
-        $errors[] = 'Username must be 3–50 characters (letters, numbers, underscore).';
+    if (mb_strlen($displayName) < 2 || mb_strlen($displayName) > 100) {
+        $errors[] = 'Please enter your name (2–100 characters).';
     }
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Please enter a valid email address.';
@@ -26,16 +26,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$errors) {
-        $stmt = db()->prepare('SELECT id FROM users WHERE username = ? OR email = ?');
-        $stmt->execute([$username, $email]);
+        $stmt = db()->prepare('SELECT id FROM users WHERE email = ?');
+        $stmt->execute([$email]);
         if ($stmt->fetch()) {
-            $errors[] = 'That username or email is already registered.';
+            $errors[] = 'That email is already registered.';
         } else {
-            $stmt = db()->prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)');
-            $stmt->execute([$username, $email, password_hash($password, PASSWORD_DEFAULT)]);
+            $stmt = db()->prepare('INSERT INTO users (email, display_name, password_hash) VALUES (?, ?, ?)');
+            $stmt->execute([$email, $displayName, password_hash($password, PASSWORD_DEFAULT)]);
             session_regenerate_id(true);
             $_SESSION['user_id'] = (int) db()->lastInsertId();
-            $_SESSION['username'] = $username;
+            $_SESSION['display_name'] = $displayName;
             header('Location: index.php');
             exit;
         }
@@ -52,9 +52,10 @@ require __DIR__ . '/includes/header.php';
     <?php endforeach; ?>
     <form method="post">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
-        <label>Username
-            <input type="text" name="username" required minlength="3" maxlength="50"
-                   value="<?= htmlspecialchars($_POST['username'] ?? '') ?>">
+        <label>Name
+            <input type="text" name="display_name" required minlength="2" maxlength="100"
+                   placeholder="First and/or last name"
+                   value="<?= htmlspecialchars($_POST['display_name'] ?? '') ?>">
         </label>
         <label>Email
             <input type="email" name="email" required

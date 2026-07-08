@@ -14,9 +14,9 @@ function current_user_id(): ?int
     return isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
 }
 
-function current_username(): ?string
+function current_display_name(): ?string
 {
-    return $_SESSION['username'] ?? null;
+    return $_SESSION['display_name'] ?? null;
 }
 
 function is_logged_in(): bool

@@ -11,21 +11,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf($_POST['csrf_token'] ?? null)) {
         $errors[] = 'Session expired, please try again.';
     } else {
-        $username = trim($_POST['username'] ?? '');
+        $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
 
-        $stmt = db()->prepare('SELECT id, username, password_hash FROM users WHERE username = ? OR email = ?');
-        $stmt->execute([$username, $username]);
+        $stmt = db()->prepare('SELECT id, display_name, password_hash FROM users WHERE email = ?');
+        $stmt->execute([$email]);
         $user = $stmt->fetch();
 
         if ($user && password_verify($password, $user['password_hash'])) {
             session_regenerate_id(true);
             $_SESSION['user_id'] = (int) $user['id'];
-            $_SESSION['username'] = $user['username'];
+            $_SESSION['display_name'] = $user['display_name'];
             header('Location: index.php');
             exit;
         }
-        $errors[] = 'Invalid username or password.';
+        $errors[] = 'Invalid email or password.';
     }
 }
 
@@ -39,9 +39,9 @@ require __DIR__ . '/includes/header.php';
     <?php endforeach; ?>
     <form method="post">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
-        <label>Username or email
-            <input type="text" name="username" required
-                   value="<?= htmlspecialchars($_POST['username'] ?? '') ?>">
+        <label>Email
+            <input type="email" name="email" required
+                   value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
         </label>
         <label>Password
             <input type="password" name="password" required>
