@@ -19,7 +19,23 @@ $pageTitle = $pageTitle ?? 'TVTakip';
 </head>
 <body>
 <header class="site-header">
-    <a class="brand" href="index.php">📺 TVTakip</a>
+    <a class="brand" href="index.php" aria-label="TVTakip home">
+        <svg class="brand-logo" viewBox="0 0 108 48" role="img" aria-label="TVTakip">
+            <defs>
+                <linearGradient id="tvt-check" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#5aa8ff"/>
+                    <stop offset="1" stop-color="#2563eb"/>
+                </linearGradient>
+            </defs>
+            <g fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+                <g stroke="currentColor">
+                    <path d="M6 8H34M20 8V40"/>
+                    <path d="M74 8H102M88 8V40"/>
+                </g>
+                <path d="M40 18L52 40L72 6" stroke="url(#tvt-check)"/>
+            </g>
+        </svg>
+    </a>
     <nav>
         <?php if (is_logged_in()): ?>
             <span class="nav-user">Welcome <?= htmlspecialchars(current_display_name()) ?></span>

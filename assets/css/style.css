@@ -38,7 +38,8 @@ a:hover { color: var(--accent-hover); }
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-.site-header .brand { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+.site-header .brand { display: inline-flex; align-items: center; color: var(--text); }
+.brand-logo { height: 1.8rem; width: auto; display: block; }
 .site-header nav { display: flex; align-items: center; gap: 1rem; }
 .nav-user { color: var(--muted); }
 .nav-sep { color: var(--border); }
