@@ -8,30 +8,36 @@ A web app to track TV series: search shows, follow them, and mark episodes as wa
 
 ## How it works
 
-- **Search** uses [TVmaze](https://www.tvmaze.com/api) (free, no key, fuzzy) purely as a UI;
-  its results include the show's IMDB id, which is the only thing we keep.
-- **Episode data** comes from [TMDB](https://developer.themoviedb.org/) (free API key),
-  including each episode's IMDB id via the `external_ids` endpoint.
+- **Search** queries [TVmaze](https://www.tvmaze.com/api) (free, no key, fuzzy) and
+  [TMDB](https://developer.themoviedb.org/) (free API key) in parallel and merges the
+  results by IMDB id, so shows missing from either provider still appear.
+- **Episode data** comes from TMDB, including each episode's IMDB id via its
+  `external_ids` endpoint, with TVmaze as fallback for shows TMDB doesn't know
+  (their episode IMDB ids stay empty and are backfilled on refresh once TMDB has them).
 - Both are called from the browser (`assets/js/app.js`) and cached into our MySQL
-  (`shows` and `episodes` tables): the first visitor to open a show pays the TMDB calls,
-  everyone after reads our DB. Episodes are identified by show IMDB id + season + number,
+  (`shows` and `episodes` tables) when a show is tracked or first opened — everyone
+  after reads our DB. Episodes are identified by show IMDB id + season + number,
   since a few episodes (specials, unaired) have no IMDB id yet.
+- **Rules:** unaired episodes can't be marked watched; untracking keeps watched
+  history; show statuses are normalized to running/upcoming/ended/canceled.
 
 ## Project structure
 
 ```
-index.php          Calendar — aired episodes you haven't watched yet (or welcome page)
-myshows.php        Your tracked shows
-search.php         Search TVmaze and track shows
-show.php           Show detail + episode checklist
-login.php / register.php / logout.php
+index.php          Calendar — next unwatched aired episode of each tracked show
+myshows.php        Tracked shows grouped by status (Running / Upcoming / Ended)
+search.php         Search both providers and track shows
+show.php           Show detail + per-season episode toggles
+login.php / register.php / logout.php   (email login, display name in header)
 api/track.php      POST: track/untrack a show (by IMDB id)
-api/episodes.php   GET cached show+episodes+watched, POST fill cache from TMDB
-api/watch.php      POST toggle episode watched, or mark all watched
+api/episodes.php   GET cached show+episodes+watched, POST fill cache from providers
+api/watch.php      POST toggle episode watched; bulk (un)watch per show or season
 includes/          db.php, auth.php, header.php, footer.php
 assets/            css/style.css, js/app.js
+scripts/           CLI utilities: import_watchlist.php (wipe + Trakt JSON import),
+                   fill_from_tvmaze.php, backfill_images.php
 schema.sql         MySQL schema
-config.sample.php  Copy to config.php and fill in DB credentials
+config.sample.php  Copy to config.php and fill in DB credentials + TMDB key
 ```
 
 ## Local development
