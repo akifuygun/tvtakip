@@ -36,7 +36,15 @@ $pageTitle = $pageTitle ?? 'TVTrack';
             </g>
         </svg>
     </a>
-    <nav>
+    <button class="nav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round">
+            <line x1="4" y1="7" x2="20" y2="7"/>
+            <line x1="4" y1="12" x2="20" y2="12"/>
+            <line x1="4" y1="17" x2="20" y2="17"/>
+        </svg>
+    </button>
+    <nav id="site-nav">
         <?php if (is_logged_in()): ?>
             <span class="nav-user">Welcome <?= htmlspecialchars(current_display_name()) ?></span>
             <a href="index.php">📅 Calendar</a>

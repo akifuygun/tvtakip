@@ -41,6 +41,14 @@ a:hover { color: var(--accent-hover); }
 .site-header .brand { display: inline-flex; align-items: center; color: var(--text); }
 .brand-logo { height: 1.8rem; width: auto; display: block; }
 .site-header nav { display: flex; align-items: center; gap: 1rem; }
+.nav-toggle {
+  display: none;
+  background: none;
+  border: 0;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: var(--text);
+}
 .nav-user { color: var(--muted); }
 .nav-sep { color: var(--border); }
 .logout-form { display: inline-flex; margin: 0; }
@@ -275,8 +283,27 @@ a:hover { color: var(--accent-hover); }
 /* ---------- Mobile ---------- */
 @media (max-width: 560px) {
   .site-header { padding: 0.6rem 0.9rem; }
-  .site-header nav { gap: 0.7rem; row-gap: 0.4rem; font-size: 0.95rem; }
   .container { padding: 1rem 0.9rem; }
+
+  /* Collapse the nav behind a hamburger button. */
+  .nav-toggle { display: inline-flex; align-items: center; }
+  .site-header nav {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 0;
+    margin-top: 0.5rem;
+  }
+  .site-header nav.open { display: flex; }
+  .site-header nav a,
+  .site-header nav .nav-user,
+  .site-header nav .logout-form {
+    width: 100%;
+    padding: 0.7rem 0.25rem;
+    border-top: 1px solid var(--border);
+  }
+  .nav-sep { display: none; }
 
   /* Episode rows: stack the title above a full-width toggle button so the
      long "Mark SxxEyy Watched" label never forces horizontal scroll. */
