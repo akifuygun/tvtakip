@@ -46,7 +46,7 @@ require __DIR__ . '/includes/header.php';
         <label>Password
             <input type="password" name="password" required>
         </label>
-        <button type="submit">Log in</button>
+        <button type="submit" class="button">Log in</button>
     </form>
     <p>No account yet? <a href="register.php">Register</a></p>
 </div>

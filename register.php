@@ -63,7 +63,7 @@ require __DIR__ . '/includes/header.php';
         <label>Password
             <input type="password" name="password" required minlength="8">
         </label>
-        <button type="submit">Register</button>
+        <button type="submit" class="button">Register</button>
     </form>
     <p>Already have an account? <a href="login.php">Log in</a></p>
 </div>
