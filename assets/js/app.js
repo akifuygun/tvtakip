@@ -135,6 +135,37 @@ async function fetchShowFromTMDB(imdbId, onProgress) {
   };
 }
 
+/**
+ * Import a show's episodes into our cache: TMDB first (episode IMDB ids),
+ * TVmaze fallback, poster from whichever provider has one. Used by both the
+ * show page and the search page's Track button.
+ */
+async function importShowData(imdbId, onStatus = () => {}) {
+  let payload;
+  try {
+    payload = await fetchShowFromTMDB(imdbId, (done, total) => {
+      onStatus(`Fetching ${done}/${total}…`);
+    });
+  } catch {
+    onStatus('Trying TVmaze…');
+    payload = await fetchShowFromTVmaze(imdbId);
+  }
+  if (!payload.show.image_url) {
+    // Combine providers for the poster: whoever has one wins.
+    try {
+      const other = await fetch(`${TVMAZE}/lookup/shows?imdb=${imdbId}`);
+      if (other.ok) payload.show.image_url = (await other.json()).image?.medium ?? '';
+    } catch { /* poster stays empty */ }
+  }
+  await apiPost('api/episodes.php', payload);
+}
+
+/** True if the show's episode cache is complete. */
+async function isShowSynced(imdbId) {
+  const data = await apiGet(`api/episodes.php?show_id=${imdbId}`);
+  return !!data.show?.synced_at && data.episodes.length > 0;
+}
+
 function imdbLink(imdbId, cls = 'imdb-link') {
   return el('a', {
     href: `https://www.imdb.com/title/${imdbId}/`,
@@ -269,12 +300,20 @@ function renderSearchCard(item, trackedIds) {
             status: item.status,
           },
         });
-        trackBtn.textContent = 'Tracking ✓';
         trackedIds.add(item.imdbId);
       } catch (err) {
         trackBtn.disabled = false;
         alert(err.message);
+        return;
       }
+      // Tracked — now warm the episode cache so the calendar works right away.
+      try {
+        if (!(await isShowSynced(item.imdbId))) {
+          trackBtn.textContent = 'Fetching episodes…';
+          await importShowData(item.imdbId, (text) => { trackBtn.textContent = text; });
+        }
+      } catch { /* tracked anyway; the show page imports on first visit */ }
+      trackBtn.textContent = 'Tracking ✓';
     },
   });
 
@@ -334,27 +373,7 @@ async function initShowDetail() {
   const status = el('p', { class: 'loading', text: 'Loading show…' });
   root.replaceChildren(status);
 
-  // TMDB first (has episode IMDB ids); TVmaze as fallback for shows TMDB
-  // doesn't know. A later refresh retries TMDB and backfills the ids.
-  const importShow = async (statusEl) => {
-    let payload;
-    try {
-      payload = await fetchShowFromTMDB(showId, (done, total) => {
-        statusEl.textContent = `Fetching episode IMDB ids… ${done}/${total}`;
-      });
-    } catch {
-      statusEl.textContent = 'Not on TMDB yet — fetching episodes from TVmaze…';
-      payload = await fetchShowFromTVmaze(showId);
-    }
-    if (!payload.show.image_url) {
-      // Combine providers for the poster: whoever has one wins.
-      try {
-        const other = await fetch(`${TVMAZE}/lookup/shows?imdb=${showId}`);
-        if (other.ok) payload.show.image_url = (await other.json()).image?.medium ?? '';
-      } catch { /* poster stays empty */ }
-    }
-    await apiPost('api/episodes.php', payload);
-  };
+  const importShow = (statusEl) => importShowData(showId, (text) => { statusEl.textContent = text; });
 
   let data;
   try {
