@@ -40,6 +40,16 @@ function http_multi_json(array $urls, int $limit = 12): array
         return $results;
     }
 
+    // Some shared hosts (InfinityFree) disable curl_multi_* even though
+    // curl_multi_init exists. Fall back to sequential fetches — slower but
+    // functionally identical.
+    if (!function_exists('curl_multi_exec')) {
+        foreach ($urls as $i => $url) {
+            $results[$i] = http_get_json($url, 2);
+        }
+        return $results;
+    }
+
     $mh = curl_multi_init();
     $active = [];
     $next = 0;
