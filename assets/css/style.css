@@ -41,6 +41,7 @@ a:hover { color: var(--accent-hover); }
 .site-header .brand { font-size: 1.2rem; font-weight: 700; color: var(--text); }
 .site-header nav { display: flex; align-items: center; gap: 1rem; }
 .nav-user { color: var(--muted); }
+.logout-link { display: inline-flex; align-items: center; }
 
 .container {
   max-width: 1000px;
