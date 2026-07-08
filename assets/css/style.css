@@ -182,6 +182,10 @@ a:hover { color: var(--accent-hover); }
 .episode-list li.watched {
   background: rgba(95, 191, 110, 0.12);  /* watched: greenish */
 }
+.episode-list li.unaired {
+  background: transparent;               /* unaired: neutral, not markable */
+}
+.episode-list li.unaired .ep-title { color: var(--muted); }
 .episode-list li.watched .ep-title { color: var(--muted); }
 .ep-toggle-btn { flex-shrink: 0; min-width: 15rem; }
 

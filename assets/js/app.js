@@ -298,9 +298,11 @@ async function initShowDetail() {
   for (const [season, eps] of seasons) {
     const seasonToggles = [];
     const list = el('ul', { class: 'episode-list' });
+    const today = new Date().toISOString().slice(0, 10);
     for (const ep of eps) {
       const code = `S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')}`;
       const aired = ep.airdate ? ` — ${ep.airdate}` : '';
+      const hasAired = !!ep.airdate && ep.airdate <= today;
       let isWatched = watched.has(ep.id);
 
       const li = el('li', {});
@@ -311,19 +313,27 @@ async function initShowDetail() {
         toggleBtn.classList.toggle('button-secondary', value);
         li.classList.toggle('watched', value);
       };
-      setWatched(isWatched);
-      toggleBtn.addEventListener('click', async () => {
+      if (hasAired) {
+        setWatched(isWatched);
+        toggleBtn.addEventListener('click', async () => {
+          toggleBtn.disabled = true;
+          try {
+            await apiPost('api/watch.php', { episode_id: ep.id, watched: !isWatched });
+            setWatched(!isWatched);
+          } catch (err) {
+            alert(err.message);
+          }
+          toggleBtn.disabled = false;
+        });
+        allToggles.push(setWatched);
+        seasonToggles.push(setWatched);
+      } else {
+        // Unaired (future or unknown airdate): not markable, and bulk actions skip it.
+        toggleBtn.textContent = ep.airdate ? `📅 Airs ${ep.airdate}` : '📅 Not aired yet';
         toggleBtn.disabled = true;
-        try {
-          await apiPost('api/watch.php', { episode_id: ep.id, watched: !isWatched });
-          setWatched(!isWatched);
-        } catch (err) {
-          alert(err.message);
-        }
-        toggleBtn.disabled = false;
-      });
-      allToggles.push(setWatched);
-      seasonToggles.push(setWatched);
+        toggleBtn.classList.add('button-secondary');
+        li.classList.add('unaired');
+      }
 
       const title = el('span', { class: 'ep-title' }, [
         `${code} ${ep.name ?? ''}${aired} `,
@@ -358,7 +368,7 @@ async function initShowDetail() {
 
   const markAllBtn = el('button', {
     class: 'button button-small',
-    text: 'Mark all watched',
+    text: 'Mark All Episodes Watched',
     onclick: async () => {
       markAllBtn.disabled = true;
       try {

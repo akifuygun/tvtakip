@@ -12,8 +12,10 @@ if (!empty($data['all'])) {
     if (!valid_imdb_id($imdbId)) {
         json_response(['error' => 'Missing or invalid show_id'], 400);
     }
+    // Unaired episodes (future or unknown airdate) are never markable.
     $sql = 'INSERT IGNORE INTO watched_episodes (user_id, episode_id)
-            SELECT ?, id FROM episodes WHERE show_imdb_id = ?';
+            SELECT ?, id FROM episodes
+            WHERE show_imdb_id = ? AND airdate IS NOT NULL AND airdate <= CURDATE()';
     $params = [current_user_id(), $imdbId];
     if (isset($data['season'])) {
         $sql .= ' AND season = ?';
@@ -31,9 +33,16 @@ if ($episodeId <= 0) {
 }
 
 if ($watched) {
-    // Validate the episode exists in the cache before inserting.
-    $stmt = db()->prepare('INSERT IGNORE INTO watched_episodes (user_id, episode_id)
-                           SELECT ?, id FROM episodes WHERE id = ?');
+    $stmt = db()->prepare('SELECT airdate FROM episodes WHERE id = ?');
+    $stmt->execute([$episodeId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        json_response(['error' => 'Unknown episode'], 404);
+    }
+    if ($row['airdate'] === null || $row['airdate'] > date('Y-m-d')) {
+        json_response(['error' => 'This episode has not aired yet.'], 400);
+    }
+    $stmt = db()->prepare('INSERT IGNORE INTO watched_episodes (user_id, episode_id) VALUES (?, ?)');
     $stmt->execute([current_user_id(), $episodeId]);
 } else {
     $stmt = db()->prepare('DELETE FROM watched_episodes WHERE user_id = ? AND episode_id = ?');
