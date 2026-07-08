@@ -210,6 +210,8 @@ a:hover { color: var(--accent-hover); }
 @media (max-width: 900px) { .cal-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 650px) { .cal-grid { grid-template-columns: repeat(2, 1fr); } }
 
+.source-tag { font-size: 0.72rem; }
+
 .notice {
   background: rgba(79, 140, 255, 0.10);
   border: 1px solid var(--accent);

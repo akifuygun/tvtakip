@@ -1,7 +1,9 @@
 // tvtakip frontend.
-// TVmaze = search only (no key, fuzzy). TMDB = episode data incl. per-episode
-// IMDB ids. Everything is cached in our own DB keyed by IMDB ids: the first
-// browser to open a show pays the TMDB calls, everyone after reads our DB.
+// Search queries TVmaze and TMDB and merges results by IMDB id. Episode data
+// comes from TMDB (incl. per-episode IMDB ids), falling back to TVmaze for
+// shows TMDB doesn't know (their episode IMDB ids stay null and are updated
+// on refresh once TMDB has the show). Everything is cached in our own DB
+// keyed by IMDB ids: the first browser to open a show pays the API calls.
 const TVMAZE = 'https://api.tvmaze.com';
 const TMDB = 'https://api.themoviedb.org/3';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w342';
@@ -64,6 +66,32 @@ async function pool(items, limit, fn) {
   return results;
 }
 
+/** Fallback: show + episodes from TVmaze (no episode IMDB ids there). */
+async function fetchShowFromTVmaze(imdbId) {
+  const res = await fetch(`${TVMAZE}/lookup/shows?imdb=${imdbId}`);
+  if (!res.ok) throw new Error('Show not found on TVmaze either.');
+  const show = await res.json();
+  const epRes = await fetch(`${TVMAZE}/shows/${show.id}/episodes`);
+  const eps = epRes.ok ? await epRes.json() : [];
+  return {
+    show: {
+      imdb_id: imdbId,
+      name: show.name,
+      image_url: show.image?.medium ?? '',
+      status: show.status ?? '',
+      overview: (show.summary ?? '').replace(/<[^>]+>/g, ''),
+      premiered: show.premiered || null,
+    },
+    episodes: eps.map((ep) => ({
+      imdb_id: null,
+      season: ep.season,
+      number: ep.number,
+      name: ep.name ?? '',
+      airdate: ep.airdate || null,
+    })),
+  };
+}
+
 /** Full show + episodes (with per-episode IMDB ids) from TMDB, by show IMDB id. */
 async function fetchShowFromTMDB(imdbId, onProgress) {
   const found = await tmdb(`/find/${imdbId}`, { external_source: 'imdb_id' });
@@ -118,6 +146,68 @@ function imdbLink(imdbId, cls = 'imdb-link') {
 }
 
 // ---------- Search page ----------
+/** Search TVmaze and TMDB in parallel; merge results by IMDB id. */
+async function searchBoth(q) {
+  const [tvmazeRes, tmdbRes] = await Promise.allSettled([
+    fetch(`${TVMAZE}/search/shows?q=${encodeURIComponent(q)}`).then((r) => r.json()),
+    tmdb('/search/tv', { query: q }),
+  ]);
+
+  const byImdb = new Map();
+  const noId = [];
+
+  if (tvmazeRes.status === 'fulfilled') {
+    for (const { show } of tvmazeRes.value) {
+      const item = {
+        imdbId: show.externals?.imdb ?? null,
+        name: show.name,
+        year: show.premiered?.slice(0, 4) ?? null,
+        image: show.image?.medium ?? '',
+        status: show.status ?? '',
+        source: 'TVmaze',
+      };
+      if (item.imdbId) byImdb.set(item.imdbId, item);
+      else noId.push(item);
+    }
+  }
+
+  if (tmdbRes.status === 'fulfilled') {
+    const results = (tmdbRes.value.results ?? []).slice(0, 12);
+    // Search results carry no external ids — resolve each one's IMDB id.
+    const exts = await pool(results, 8, (r) => tmdb(`/tv/${r.id}/external_ids`).catch(() => null));
+    results.forEach((r, i) => {
+      const item = {
+        imdbId: exts[i]?.imdb_id || null,
+        name: r.name,
+        year: r.first_air_date?.slice(0, 4) ?? null,
+        image: r.poster_path ? TMDB_IMG + r.poster_path : '',
+        status: '',
+        source: 'TMDB',
+      };
+      if (item.imdbId) {
+        const existing = byImdb.get(item.imdbId);
+        if (existing) {
+          existing.image = existing.image || item.image;
+          existing.source = 'TVmaze + TMDB';
+        } else {
+          byImdb.set(item.imdbId, item);
+        }
+      } else {
+        // No IMDB id to merge on — drop only if it looks like a duplicate.
+        const dup = [...byImdb.values(), ...noId].some(
+          (x) => x.name.toLowerCase() === item.name.toLowerCase() && x.year === item.year,
+        );
+        if (!dup) noId.push(item);
+      }
+    });
+  }
+
+  if (tvmazeRes.status === 'rejected' && tmdbRes.status === 'rejected') {
+    throw new Error('Both search providers failed.');
+  }
+  return [...byImdb.values(), ...noId];
+}
+
 function initSearch() {
   const form = document.getElementById('search-form');
   if (!form) return;
@@ -129,17 +219,16 @@ function initSearch() {
     e.preventDefault();
     const q = input.value.trim();
     if (!q) return;
-    results.textContent = 'Searching…';
+    results.textContent = 'Searching TVmaze and TMDB…';
     try {
-      const res = await fetch(`${TVMAZE}/search/shows?q=${encodeURIComponent(q)}`);
-      const items = await res.json();
+      const items = await searchBoth(q);
       results.replaceChildren();
       if (!items.length) {
         results.textContent = 'No shows found.';
         return;
       }
-      for (const { show } of items) {
-        results.append(renderSearchCard(show, trackedIds));
+      for (const item of items) {
+        results.append(renderSearchCard(item, trackedIds));
       }
     } catch {
       results.textContent = 'Search failed. Please try again.';
@@ -147,22 +236,23 @@ function initSearch() {
   });
 }
 
-function renderSearchCard(show, trackedIds) {
-  const imdbId = show.externals?.imdb ?? null;
-  const year = show.premiered ? ` (${show.premiered.slice(0, 4)})` : '';
-  const poster = show.image?.medium
-    ? el('img', { src: show.image.medium, alt: '' })
+function renderSearchCard(item, trackedIds) {
+  const year = item.year ? ` (${item.year})` : '';
+  const poster = item.image
+    ? el('img', { src: item.image, alt: '' })
     : el('div', { class: 'no-poster', text: 'No image' });
+  const source = el('span', { class: 'muted source-tag', text: item.source });
 
-  if (!imdbId) {
+  if (!item.imdbId) {
     return el('div', { class: 'show-card' }, [
       poster,
-      el('h3', { text: show.name + year }),
+      el('h3', { text: item.name + year }),
+      source,
       el('span', { class: 'muted', text: 'No IMDB id — cannot track' }),
     ]);
   }
 
-  const isTracked = trackedIds.has(imdbId);
+  const isTracked = trackedIds.has(item.imdbId);
   const trackBtn = el('button', {
     class: 'button button-small track-btn',
     text: isTracked ? 'Tracking ✓' : 'Track',
@@ -173,14 +263,14 @@ function renderSearchCard(show, trackedIds) {
         await apiPost('api/track.php', {
           action: 'track',
           show: {
-            imdb_id: imdbId,
-            name: show.name,
-            image_url: show.image?.medium ?? '',
-            status: show.status ?? '',
+            imdb_id: item.imdbId,
+            name: item.name,
+            image_url: item.image,
+            status: item.status,
           },
         });
         trackBtn.textContent = 'Tracking ✓';
-        trackedIds.add(imdbId);
+        trackedIds.add(item.imdbId);
       } catch (err) {
         trackBtn.disabled = false;
         alert(err.message);
@@ -189,8 +279,9 @@ function renderSearchCard(show, trackedIds) {
   });
 
   return el('div', { class: 'show-card' }, [
-    el('a', { href: `show.php?id=${imdbId}` }, [poster]),
-    el('h3', {}, [el('a', { href: `show.php?id=${imdbId}`, text: show.name + year })]),
+    el('a', { href: `show.php?id=${item.imdbId}` }, [poster]),
+    el('h3', {}, [el('a', { href: `show.php?id=${item.imdbId}`, text: item.name + year })]),
+    source,
     trackBtn,
   ]);
 }
@@ -243,10 +334,18 @@ async function initShowDetail() {
   const status = el('p', { class: 'loading', text: 'Loading show…' });
   root.replaceChildren(status);
 
-  const importFromTMDB = async (statusEl) => {
-    const payload = await fetchShowFromTMDB(showId, (done, total) => {
-      statusEl.textContent = `Fetching episode IMDB ids… ${done}/${total}`;
-    });
+  // TMDB first (has episode IMDB ids); TVmaze as fallback for shows TMDB
+  // doesn't know. A later refresh retries TMDB and backfills the ids.
+  const importShow = async (statusEl) => {
+    let payload;
+    try {
+      payload = await fetchShowFromTMDB(showId, (done, total) => {
+        statusEl.textContent = `Fetching episode IMDB ids… ${done}/${total}`;
+      });
+    } catch {
+      statusEl.textContent = 'Not on TMDB yet — fetching episodes from TVmaze…';
+      payload = await fetchShowFromTVmaze(showId);
+    }
     await apiPost('api/episodes.php', payload);
   };
 
@@ -256,8 +355,8 @@ async function initShowDetail() {
     // synced_at is only set once a full import completed — a missing or
     // interrupted import (partial cache) triggers a fresh one.
     if (!data.show?.synced_at || !data.episodes.length) {
-      status.textContent = 'Fetching episodes from TMDB (first visit for this show)…';
-      await importFromTMDB(status);
+      status.textContent = 'Fetching episodes (first visit for this show)…';
+      await importShow(status);
       data = await apiGet(`api/episodes.php?show_id=${showId}`);
     }
   } catch (err) {
@@ -408,7 +507,7 @@ async function initShowDetail() {
       refreshBtn.disabled = true;
       const original = refreshBtn.textContent;
       try {
-        await importFromTMDB(refreshBtn);
+        await importShow(refreshBtn);
         location.reload();
       } catch (err) {
         alert(err.message);

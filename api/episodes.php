@@ -77,7 +77,8 @@ $stmt->execute([
 $stmt = db()->prepare(
     'INSERT INTO episodes (show_imdb_id, imdb_id, season, number, name, airdate)
      VALUES (?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE imdb_id = VALUES(imdb_id), name = VALUES(name), airdate = VALUES(airdate)'
+     ON DUPLICATE KEY UPDATE imdb_id = COALESCE(VALUES(imdb_id), imdb_id),
+         name = VALUES(name), airdate = VALUES(airdate)'
 );
 foreach ($episodes as $ep) {
     if (!is_array($ep)) {
