@@ -1,6 +1,6 @@
 {
-  "name": "TVTakip",
-  "short_name": "TVTakip",
+  "name": "TVTrack",
+  "short_name": "TVTrack",
   "description": "Track your TV series and mark episodes as watched.",
   "start_url": "/index.php",
   "scope": "/",

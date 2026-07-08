@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/auth.php';
-$pageTitle = $pageTitle ?? 'TVTakip';
+$pageTitle = $pageTitle ?? 'TVTrack';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -8,19 +8,19 @@ $pageTitle = $pageTitle ?? 'TVTakip';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token()) ?>">
-    <title><?= htmlspecialchars($pageTitle) ?> — TVTakip</title>
+    <title><?= htmlspecialchars($pageTitle) ?> — TVTrack</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="manifest" href="/manifest.webmanifest">
     <meta name="theme-color" content="#1a1f2a">
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="TVTakip">
+    <meta name="apple-mobile-web-app-title" content="TVTrack">
 </head>
 <body>
 <header class="site-header">
-    <a class="brand" href="index.php" aria-label="TVTakip home">
-        <svg class="brand-logo" viewBox="0 0 108 48" role="img" aria-label="TVTakip">
+    <a class="brand" href="index.php" aria-label="TVTrack home">
+        <svg class="brand-logo" viewBox="0 0 108 48" role="img" aria-label="TVTrack">
             <defs>
                 <linearGradient id="tvt-check" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0" stop-color="#5aa8ff"/>

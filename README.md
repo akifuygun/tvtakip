@@ -1,6 +1,7 @@
-# tvtakip
+# TVTrack
 
 A web app to track TV series: search shows, follow them, and mark episodes as watched.
+(Hosted at tvtakip.akifuygun.com; the `tvtakip` name persists in the domain, repo, and DB.)
 
 - **Live:** https://tvtakip.akifuygun.com
 - **Stack:** Plain PHP 8 + MySQL (chosen for InfinityFree hosting), vanilla JS/CSS
