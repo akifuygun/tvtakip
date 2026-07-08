@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(php -v)",
+      "PowerShell(git -C C:\\\\Users\\\\Akif\\\\Desktop\\\\tvtakip remote -v)",
+      "PowerShell(git -C C:\\\\Users\\\\Akif\\\\Desktop\\\\tvtakip status)",
+      "PowerShell(git -C C:\\\\Users\\\\Akif\\\\Desktop\\\\tvtakip log --oneline -5)",
+      "PowerShell(git -C C:\\\\Users\\\\Akif\\\\Desktop\\\\tvtakip add -A)",
+      "PowerShell(git -C C:\\\\Users\\\\Akif\\\\Desktop\\\\tvtakip log --stat --oneline -1)"
+    ]
+  }
+}

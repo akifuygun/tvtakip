@@ -1,0 +1,163 @@
+:root {
+  --bg: #0f1218;
+  --surface: #1a1f2a;
+  --border: #2a3140;
+  --text: #e8ebf0;
+  --muted: #97a0b0;
+  --accent: #4f8cff;
+  --accent-hover: #6b9fff;
+  --danger: #e05252;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.site-header .brand { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+.site-header nav { display: flex; align-items: center; gap: 1rem; }
+.nav-user { color: var(--muted); }
+
+.container { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1.25rem; }
+
+.site-footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 1.5rem;
+}
+
+.hero { text-align: center; padding: 3rem 1rem; }
+
+.button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.button:hover { background: var(--accent-hover); color: #fff; }
+.button:disabled { opacity: 0.6; cursor: default; }
+.button-secondary { background: var(--surface); border: 1px solid var(--border); }
+.button-small { padding: 0.3rem 0.7rem; font-size: 0.85rem; }
+.button-danger { background: var(--danger); }
+
+.error {
+  background: rgba(224, 82, 82, 0.12);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+}
+
+/* Auth forms */
+.auth-card {
+  max-width: 380px;
+  margin: 2rem auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+.auth-card label { display: block; margin-bottom: 0.75rem; color: var(--muted); }
+.auth-card input {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+.auth-card button { width: 100%; margin-top: 0.5rem; }
+
+/* Search */
+.search-form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+.search-form input {
+  flex: 1;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Show grid */
+.show-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+}
+.show-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.show-card img, .no-poster {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.no-poster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--muted);
+}
+.show-card h3 { margin: 0; font-size: 0.95rem; }
+.show-card h3 a { color: var(--text); }
+
+.status { font-size: 0.75rem; color: var(--muted); }
+.status-running { color: #5fbf6e; }
+.status-ended { color: var(--muted); }
+
+/* Show detail */
+.show-header { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.show-header img { border-radius: var(--radius); max-width: 210px; align-self: flex-start; }
+.show-header > div { flex: 1; min-width: 260px; }
+.show-header h1 { margin-top: 0; }
+.muted { color: var(--muted); }
+.show-summary { color: var(--muted); margin-bottom: 1rem; }
+
+.season {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.6rem;
+  padding: 0.5rem 0.9rem;
+}
+.season summary { cursor: pointer; font-weight: 600; }
+.episode-list { list-style: none; padding: 0.25rem 0 0; margin: 0; }
+.episode-list li { padding: 0.3rem 0; border-top: 1px solid var(--border); }
+.episode-list label { cursor: pointer; }
+
+.loading { color: var(--muted); }
