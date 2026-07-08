@@ -1,6 +1,6 @@
 @echo off
-rem Start local dev environment: MySQL (XAMPP) + PHP built-in server.
-rem Site: http://localhost:8000
+rem Start local dev environment: MySQL + Apache (phpMyAdmin) + PHP built-in server.
+rem Site: http://localhost:8000  |  phpMyAdmin: http://localhost/phpmyadmin
 
 tasklist /FI "IMAGENAME eq mysqld.exe" | find /I "mysqld.exe" >nul
 if errorlevel 1 (
@@ -9,6 +9,14 @@ if errorlevel 1 (
     timeout /t 3 /nobreak >nul
 ) else (
     echo MySQL already running.
+)
+
+tasklist /FI "IMAGENAME eq httpd.exe" | find /I "httpd.exe" >nul
+if errorlevel 1 (
+    echo Starting Apache for phpMyAdmin at http://localhost/phpmyadmin ...
+    start "" /B C:\xampp\apache\bin\httpd.exe
+) else (
+    echo Apache already running.
 )
 
 echo Starting PHP dev server at http://localhost:8000 ...
