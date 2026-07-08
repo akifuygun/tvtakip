@@ -187,7 +187,7 @@ function renderSearchCard(show, trackedIds) {
   });
 
   return el('div', { class: 'show-card' }, [
-    poster,
+    el('a', { href: `show.php?id=${imdbId}` }, [poster]),
     el('h3', {}, [el('a', { href: `show.php?id=${imdbId}`, text: show.name + year })]),
     trackBtn,
   ]);
