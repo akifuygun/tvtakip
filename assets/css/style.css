@@ -1,5 +1,6 @@
 :root {
   --bg: #0f1218;
+  --bg-raised: #14181f;  /* slightly lighter than the page background */
   --surface: #1a1f2a;
   --border: #2a3140;
   --text: #e8ebf0;
@@ -229,7 +230,7 @@ a:hover { color: var(--accent-hover); }
   background: var(--surface);
 }
 .show-group[open] > summary { border-bottom: 1px solid var(--border); }
-.show-group > .show-grid { padding: 1rem; }
+.show-group > .show-grid { padding: 1rem; background: var(--bg-raised); }
 
 .notice {
   background: rgba(79, 140, 255, 0.10);
