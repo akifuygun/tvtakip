@@ -17,11 +17,11 @@ $pageTitle = $pageTitle ?? 'TVTakip';
     <a class="brand" href="index.php">📺 TVTakip</a>
     <nav>
         <?php if (is_logged_in()): ?>
-            <a href="index.php">Calendar</a>
-            <a href="myshows.php">My Shows</a>
-            <a href="search.php">Search</a>
+            <a href="index.php">📅 Calendar</a>
+            <a href="myshows.php">🎬 My Shows</a>
+            <a href="search.php">🔍 Search</a>
             <span class="nav-user"><?= htmlspecialchars(current_display_name()) ?></span>
-            <a href="logout.php">Log out</a>
+            <a href="logout.php" title="Log out">🚪</a>
         <?php else: ?>
             <a href="login.php">Log in</a>
             <a href="register.php">Register</a>
