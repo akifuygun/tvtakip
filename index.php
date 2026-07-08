@@ -7,7 +7,7 @@ if (is_logged_in()) {
     // For each tracked show: its earliest aired episode that isn't watched yet.
     $stmt = db()->prepare(
         'SELECT e.id, e.imdb_id, e.season, e.number, e.name AS ep_name, e.airdate,
-                s.imdb_id AS show_imdb_id, s.name AS show_name
+                s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url
          FROM user_shows us
          JOIN shows s ON s.imdb_id = us.show_imdb_id
          JOIN episodes e ON e.show_imdb_id = us.show_imdb_id
@@ -67,23 +67,26 @@ require __DIR__ . '/includes/header.php';
             <p>No unwatched aired episodes. <a href="search.php">Find more shows to track</a>.</p>
         </div>
     <?php else: ?>
-        <div id="calendar">
-            <ul class="episode-list">
-                <?php foreach ($items as $ep): ?>
-                    <li>
-                        <span class="ep-title">
-                            <a class="cal-show" href="show.php?id=<?= htmlspecialchars($ep['show_imdb_id']) ?>"><?= htmlspecialchars($ep['show_name']) ?></a>
-                            S<?= str_pad((string) $ep['season'], 2, '0', STR_PAD_LEFT) ?>E<?= str_pad((string) $ep['number'], 2, '0', STR_PAD_LEFT) ?>
-                            <?= htmlspecialchars($ep['ep_name'] ?? '') ?>
-                            <span class="muted">— <?= date('j M Y', strtotime($ep['airdate'])) ?></span>
-                            <?php if ($ep['imdb_id']): ?>
-                                <a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($ep['imdb_id']) ?>/" target="_blank" rel="noopener">IMDB</a>
-                            <?php endif; ?>
-                        </span>
-                        <button class="button button-small cal-watch-btn" data-episode-id="<?= (int) $ep['id'] ?>">✅ Mark Watched</button>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
+        <div id="calendar" class="cal-grid">
+            <?php foreach ($items as $ep): ?>
+                <?php
+                $showUrl = 'show.php?id=' . htmlspecialchars($ep['show_imdb_id']);
+                $code = 'S' . str_pad((string) $ep['season'], 2, '0', STR_PAD_LEFT)
+                      . 'E' . str_pad((string) $ep['number'], 2, '0', STR_PAD_LEFT);
+                ?>
+                <div class="show-card">
+                    <a href="<?= $showUrl ?>">
+                        <?php if ($ep['image_url']): ?>
+                            <img src="<?= htmlspecialchars($ep['image_url']) ?>" alt="">
+                        <?php else: ?>
+                            <div class="no-poster">No image</div>
+                        <?php endif; ?>
+                    </a>
+                    <h3><a href="<?= $showUrl ?>"><?= htmlspecialchars($ep['show_name']) ?></a></h3>
+                    <span class="muted"><?= $code ?></span>
+                    <button class="button button-small cal-watch-btn" data-episode-id="<?= (int) $ep['id'] ?>">Watched</button>
+                </div>
+            <?php endforeach; ?>
         </div>
     <?php endif; ?>
 <?php endif; ?>

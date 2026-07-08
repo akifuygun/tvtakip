@@ -192,7 +192,13 @@ a:hover { color: var(--accent-hover); }
 .loading { color: var(--muted); }
 
 /* Calendar */
-.cal-show { font-weight: 600; }
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+@media (max-width: 900px) { .cal-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 650px) { .cal-grid { grid-template-columns: repeat(2, 1fr); } }
 
 .notice {
   background: rgba(79, 140, 255, 0.10);
