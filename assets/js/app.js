@@ -293,34 +293,44 @@ async function initShowDetail() {
     seasons.get(ep.season).push(ep);
   }
 
-  const checkboxes = []; // all episode checkboxes, for mark-all
+  const allToggles = []; // per-episode setWatched fns, for mark-all
   const epContainer = el('div', { class: 'seasons' });
   for (const [season, eps] of seasons) {
-    const seasonCheckboxes = [];
+    const seasonToggles = [];
     const list = el('ul', { class: 'episode-list' });
     for (const ep of eps) {
-      const checkbox = el('input', {
-        type: 'checkbox',
-        ...(watched.has(ep.id) ? { checked: '' } : {}),
-        onchange: async () => {
-          checkbox.disabled = true;
-          try {
-            await apiPost('api/watch.php', { episode_id: ep.id, watched: checkbox.checked });
-          } catch (err) {
-            checkbox.checked = !checkbox.checked;
-            alert(err.message);
-          }
-          checkbox.disabled = false;
-        },
-      });
-      checkboxes.push(checkbox);
-      seasonCheckboxes.push(checkbox);
+      const code = `S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')}`;
       const aired = ep.airdate ? ` — ${ep.airdate}` : '';
-      const label = el('label', {}, [
-        checkbox,
-        ` S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')} ${ep.name ?? ''}${aired} `,
+      let isWatched = watched.has(ep.id);
+
+      const li = el('li', {});
+      const toggleBtn = el('button', { class: 'button button-small ep-toggle-btn' });
+      const setWatched = (value) => {
+        isWatched = value;
+        toggleBtn.textContent = value ? `Mark ${code} Not Watched` : `Mark ${code} Watched`;
+        toggleBtn.classList.toggle('button-secondary', value);
+        li.classList.toggle('watched', value);
+      };
+      setWatched(isWatched);
+      toggleBtn.addEventListener('click', async () => {
+        toggleBtn.disabled = true;
+        try {
+          await apiPost('api/watch.php', { episode_id: ep.id, watched: !isWatched });
+          setWatched(!isWatched);
+        } catch (err) {
+          alert(err.message);
+        }
+        toggleBtn.disabled = false;
+      });
+      allToggles.push(setWatched);
+      seasonToggles.push(setWatched);
+
+      const title = el('span', { class: 'ep-title' }, [
+        `${code} ${ep.name ?? ''}${aired} `,
+        ...(ep.imdb_id ? [imdbLink(ep.imdb_id)] : []),
       ]);
-      list.append(el('li', {}, ep.imdb_id ? [label, imdbLink(ep.imdb_id)] : [label]));
+      li.append(title, toggleBtn);
+      list.append(li);
     }
     const title = season === 0 ? 'Specials' : `Season ${season}`;
     const seasonBtn = el('button', {
@@ -333,7 +343,7 @@ async function initShowDetail() {
         seasonBtn.disabled = true;
         try {
           await apiPost('api/watch.php', { show_id: showId, all: true, season });
-          for (const cb of seasonCheckboxes) cb.checked = true;
+          for (const setWatched of seasonToggles) setWatched(true);
         } catch (err) {
           alert(err.message);
         }
@@ -353,7 +363,7 @@ async function initShowDetail() {
       markAllBtn.disabled = true;
       try {
         await apiPost('api/watch.php', { show_id: showId, all: true });
-        for (const cb of checkboxes) cb.checked = true;
+        for (const setWatched of allToggles) setWatched(true);
       } catch (err) {
         alert(err.message);
       }
