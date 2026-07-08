@@ -3,12 +3,30 @@ require_once __DIR__ . '/includes/auth.php';
 require_login();
 
 $stmt = db()->prepare(
-    'SELECT s.imdb_id, s.name, s.image_url, s.status
+    'SELECT s.imdb_id, s.name, s.image_url, s.status,
+            (SELECT MIN(e.airdate) FROM episodes e
+             WHERE e.show_imdb_id = s.imdb_id AND e.airdate >= CURDATE()) AS next_airdate
      FROM user_shows us JOIN shows s ON s.imdb_id = us.show_imdb_id
      WHERE us.user_id = ? ORDER BY s.name'
 );
 $stmt->execute([current_user_id()]);
 $shows = $stmt->fetchAll();
+
+/** "Airs today" / "N days remaining" label for a coming airdate. */
+function next_episode_label(?string $airdate): string
+{
+    if (!$airdate) {
+        return '';
+    }
+    $days = (int) (new DateTimeImmutable('today'))->diff(new DateTimeImmutable($airdate))->format('%r%a');
+    if ($days < 0) {
+        return '';
+    }
+    if ($days === 0) {
+        return 'Airs today';
+    }
+    return $days === 1 ? '1 day remaining' : "$days days remaining";
+}
 
 // Group by status: running | upcoming (incl. unknown) | ended+canceled.
 $groups = [
@@ -24,6 +42,23 @@ foreach ($shows as $show) {
     };
     $groups[$key]['shows'][] = $show;
 }
+
+// Running and Upcoming: soonest next episode / premiere first;
+// shows without a scheduled date last.
+$byNextAirdate = static function ($a, $b) {
+    if ($a['next_airdate'] === $b['next_airdate']) {
+        return strcmp($a['name'], $b['name']);
+    }
+    if ($a['next_airdate'] === null) {
+        return 1;
+    }
+    if ($b['next_airdate'] === null) {
+        return -1;
+    }
+    return strcmp($a['next_airdate'], $b['next_airdate']);
+};
+usort($groups['running']['shows'], $byNextAirdate);
+usort($groups['upcoming']['shows'], $byNextAirdate);
 
 $pageTitle = 'My Shows';
 require __DIR__ . '/includes/header.php';
@@ -53,6 +88,9 @@ require __DIR__ . '/includes/header.php';
                         </a>
                         <?php if (status_label($show['status'])): ?>
                             <span class="status status-<?= htmlspecialchars($show['status']) ?>"><?= status_label($show['status']) ?></span>
+                        <?php endif; ?>
+                        <?php if ($label = next_episode_label($show['next_airdate'])): ?>
+                            <span class="next-ep">📅 <?= $label ?></span>
                         <?php endif; ?>
                         <button class="button button-small button-danger untrack-btn"
                                 data-show-id="<?= $imdbId ?>">Untrack</button>

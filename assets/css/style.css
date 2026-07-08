@@ -212,6 +212,8 @@ a:hover { color: var(--accent-hover); }
 
 .source-tag { font-size: 0.72rem; }
 
+.next-ep { font-size: 0.78rem; color: #e0b352; }
+
 /* My Shows groups */
 .show-group { margin-bottom: 1rem; }
 .show-group > summary {
