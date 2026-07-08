@@ -290,7 +290,7 @@ function renderSearchCard(item, trackedIds) {
 function initDashboard() {
   document.querySelectorAll('.untrack-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Untrack this show? Your watched history for it will be removed.')) return;
+      if (!confirm('Untrack this show? Your watched history will be kept if you track it again.')) return;
       btn.disabled = true;
       try {
         await apiPost('api/track.php', {
@@ -506,6 +506,22 @@ async function initShowDetail() {
     },
   });
 
+  const unmarkAllBtn = el('button', {
+    class: 'button button-small button-danger',
+    text: 'Mark All Unwatched',
+    onclick: async () => {
+      if (!confirm('Remove your watched history for this whole show?')) return;
+      unmarkAllBtn.disabled = true;
+      try {
+        await apiPost('api/watch.php', { show_id: showId, all: true, watched: false });
+        for (const setWatched of allToggles) setWatched(false);
+      } catch (err) {
+        alert(err.message);
+      }
+      unmarkAllBtn.disabled = false;
+    },
+  });
+
   // Re-import from TMDB to pick up newly aired episodes or backfilled IMDB ids.
   const refreshBtn = el('button', {
     class: 'button button-small button-secondary',
@@ -527,7 +543,7 @@ async function initShowDetail() {
   root.append(
     el('div', { class: 'episodes-header' }, [
       el('h2', { text: 'Episodes' }),
-      el('div', { class: 'episodes-actions' }, [refreshBtn, markAllBtn]),
+      el('div', { class: 'episodes-actions' }, [refreshBtn, markAllBtn, unmarkAllBtn]),
     ]),
     epContainer,
   );

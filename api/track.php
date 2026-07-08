@@ -36,14 +36,8 @@ if ($action === 'track') {
 }
 
 if ($action === 'untrack') {
+    // Watched history is intentionally kept — re-tracking picks it back up.
     $stmt = db()->prepare('DELETE FROM user_shows WHERE user_id = ? AND show_imdb_id = ?');
-    $stmt->execute([current_user_id(), $imdbId]);
-    // Clear this user's watched history for the show (episode cache stays for other users).
-    $stmt = db()->prepare(
-        'DELETE we FROM watched_episodes we
-         JOIN episodes e ON e.id = we.episode_id
-         WHERE we.user_id = ? AND e.show_imdb_id = ?'
-    );
     $stmt->execute([current_user_id(), $imdbId]);
     json_response(['ok' => true, 'tracked' => false]);
 }
