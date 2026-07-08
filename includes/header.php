@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/auth.php';
-$pageTitle = $pageTitle ?? 'tvtakip';
+$pageTitle = $pageTitle ?? 'TVTakip';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -9,12 +9,12 @@ $pageTitle = $pageTitle ?? 'tvtakip';
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token()) ?>">
     <meta name="tmdb-key" content="<?= htmlspecialchars(TMDB_API_KEY) ?>">
-    <title><?= htmlspecialchars($pageTitle) ?> — tvtakip</title>
+    <title><?= htmlspecialchars($pageTitle) ?> — TVTakip</title>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 <header class="site-header">
-    <a class="brand" href="index.php">📺 tvtakip</a>
+    <a class="brand" href="index.php">📺 TVTakip</a>
     <nav>
         <?php if (is_logged_in()): ?>
             <a href="index.php">Calendar</a>

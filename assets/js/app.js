@@ -268,7 +268,7 @@ async function initShowDetail() {
   const show = data.show;
   const episodes = data.episodes;
   const watched = new Set(data.watched || []);
-  document.title = `${show.name} — tvtakip`;
+  document.title = `${show.name} — TVTakip`;
   root.replaceChildren();
 
   const trackBtn = el('button', {
