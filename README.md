@@ -28,10 +28,15 @@ config.sample.php  Copy to config.php and fill in DB credentials
 
 ## Local development
 
-1. Install a PHP+MySQL stack (e.g. [Laragon](https://laragon.org/) or XAMPP).
-2. Create a database and import `schema.sql`.
-3. `copy config.sample.php config.php` and fill in your local DB credentials.
-4. Serve the project root (e.g. `php -S localhost:8000` from this directory).
+Requires XAMPP (installed at `C:\xampp`, PHP 8.2 + MariaDB). One-time setup:
+
+1. Create the database and import the schema:
+   `C:\xampp\mysql\bin\mysql.exe -u root -e "CREATE DATABASE tvtakip CHARACTER SET utf8mb4"` then
+   `C:\xampp\mysql\bin\mysql.exe -u root tvtakip < schema.sql`
+2. `copy config.sample.php config.php` (defaults already match XAMPP: root, no password).
+
+Then run `start-dev.bat` — it starts MySQL if needed and serves the site at
+http://localhost:8000.
 
 ## Deploying to InfinityFree
 
