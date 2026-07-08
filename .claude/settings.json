@@ -6,7 +6,15 @@
       "PowerShell(git -C C:\\\\Users\\\\Akif\\\\Desktop\\\\tvtakip status)",
       "PowerShell(git -C C:\\\\Users\\\\Akif\\\\Desktop\\\\tvtakip log --oneline -5)",
       "PowerShell(git -C C:\\\\Users\\\\Akif\\\\Desktop\\\\tvtakip add -A)",
-      "PowerShell(git -C C:\\\\Users\\\\Akif\\\\Desktop\\\\tvtakip log --stat --oneline -1)"
+      "PowerShell(git -C C:\\\\Users\\\\Akif\\\\Desktop\\\\tvtakip log --stat --oneline -1)",
+      "Read(//c//**)",
+      "PowerShell(winget install --id ApacheFriends.Xampp.8.2 --source winget --accept-package-agreements --accept-source-agreements --silent)",
+      "Read(//c/xampp/php/**)",
+      "PowerShell(Start-Process -FilePath C:\\\\xampp\\\\mysql\\\\bin\\\\mysqld.exe -ArgumentList '--defaults-file=C:\\\\xampp\\\\mysql\\\\bin\\\\my.ini','--standalone' -WindowStyle Hidden)",
+      "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root -e \"SELECT VERSION\\(\\);\")",
+      "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root -e \"CREATE DATABASE IF NOT EXISTS tvtakip CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\")",
+      "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root tvtakip)",
+      "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root -e \"SHOW TABLES FROM tvtakip;\")"
     ]
   }
 }

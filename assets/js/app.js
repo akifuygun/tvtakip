@@ -178,6 +178,7 @@ async function initShowDetail() {
     seasons.get(ep.season).push(ep);
   }
 
+  const checkboxes = new Map(); // episode id -> checkbox
   const epContainer = el('div', { class: 'seasons' });
   for (const [season, eps] of seasons) {
     const list = el('ul', { class: 'episode-list' });
@@ -200,6 +201,7 @@ async function initShowDetail() {
           checkbox.disabled = false;
         },
       });
+      checkboxes.set(ep.id, checkbox);
       const aired = ep.airdate ? ` — ${ep.airdate}` : '';
       list.append(el('li', {}, [
         el('label', {}, [checkbox, ` S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')} ${ep.name ?? ''}${aired}`]),
@@ -210,7 +212,28 @@ async function initShowDetail() {
       list,
     ]));
   }
-  root.append(el('h2', { text: 'Episodes' }), epContainer);
+  const markAllBtn = el('button', {
+    class: 'button button-small',
+    text: 'Mark all watched',
+    onclick: async () => {
+      markAllBtn.disabled = true;
+      try {
+        await apiPost('api/watch.php', {
+          show_id: showId,
+          episodes: episodes.map((ep) => ({ id: ep.id, season: ep.season, number: ep.number })),
+        });
+        for (const cb of checkboxes.values()) cb.checked = true;
+      } catch (err) {
+        alert(err.message);
+      }
+      markAllBtn.disabled = false;
+    },
+  });
+
+  root.append(
+    el('div', { class: 'episodes-header' }, [el('h2', { text: 'Episodes' }), markAllBtn]),
+    epContainer,
+  );
 }
 
 initSearch();

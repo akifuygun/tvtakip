@@ -148,6 +148,13 @@ a:hover { color: var(--accent-hover); }
 .muted { color: var(--muted); }
 .show-summary { color: var(--muted); margin-bottom: 1rem; }
 
+.episodes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .season {
   background: var(--surface);
   border: 1px solid var(--border);

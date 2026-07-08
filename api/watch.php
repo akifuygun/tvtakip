@@ -1,6 +1,7 @@
 <?php
 // GET  ?show_id=N                 -> {watched: [episodeId, ...]}
 // POST {show_id, episode: {id, season, number}, watched: bool}
+// POST {show_id, episodes: [{id, season, number}, ...]}  -> mark all watched
 require_once __DIR__ . '/../includes/auth.php';
 require_login_json();
 
@@ -16,6 +17,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 $data = read_json_post();
 $showId = (int) ($data['show_id'] ?? 0);
+
+// Bulk: mark a whole list of episodes as watched in one request.
+if (isset($data['episodes'])) {
+    if ($showId <= 0 || !is_array($data['episodes']) || !$data['episodes']) {
+        json_response(['error' => 'Missing show_id or episodes'], 400);
+    }
+    if (count($data['episodes']) > 2000) {
+        json_response(['error' => 'Too many episodes'], 400);
+    }
+    $stmt = db()->prepare(
+        'INSERT IGNORE INTO watched_episodes (user_id, tvmaze_show_id, tvmaze_episode_id, season, episode)
+         VALUES (?, ?, ?, ?, ?)'
+    );
+    db()->beginTransaction();
+    foreach ($data['episodes'] as $ep) {
+        $episodeId = (int) (is_array($ep) ? ($ep['id'] ?? 0) : 0);
+        if ($episodeId <= 0) {
+            continue;
+        }
+        $stmt->execute([
+            current_user_id(),
+            $showId,
+            $episodeId,
+            max(0, (int) ($ep['season'] ?? 0)),
+            max(0, (int) ($ep['number'] ?? 0)),
+        ]);
+    }
+    db()->commit();
+    json_response(['ok' => true]);
+}
+
 $episode = $data['episode'] ?? [];
 $episodeId = (int) ($episode['id'] ?? 0);
 $watched = (bool) ($data['watched'] ?? false);
