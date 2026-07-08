@@ -224,13 +224,8 @@ function initCalendar() {
       btn.disabled = true;
       try {
         await apiPost('api/watch.php', { episode_id: Number(btn.dataset.episodeId), watched: true });
-        const li = btn.closest('li');
-        const group = li?.closest('.cal-group');
-        li?.remove();
-        if (group && !group.querySelector('li')) group.remove();
-        if (!cal.querySelector('li')) {
-          cal.replaceChildren(el('div', { class: 'hero' }, [el('h2', { text: '🎉 All caught up!' })]));
-        }
+        // Reload so the show's next unwatched episode takes this row's place.
+        location.reload();
       } catch (err) {
         btn.disabled = false;
         alert(err.message);
