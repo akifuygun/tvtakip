@@ -139,6 +139,8 @@ a:hover { color: var(--accent-hover); }
 .status { font-size: 0.75rem; color: var(--muted); }
 .status-running { color: #5fbf6e; }
 .status-ended { color: var(--muted); }
+.status-canceled { color: var(--danger); }
+.status-upcoming { color: #e0b352; }
 
 /* Show detail */
 .show-header { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.5rem; }

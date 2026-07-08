@@ -69,7 +69,7 @@ $stmt->execute([
     $imdbId,
     substr($name, 0, 255),
     substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null,
-    substr((string) ($show['status'] ?? ''), 0, 50) ?: null,
+    normalize_show_status($show['status'] ?? null),
     trim((string) ($show['overview'] ?? '')) ?: null,
     $date($show['premiered'] ?? null),
 ]);

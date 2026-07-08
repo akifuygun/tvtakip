@@ -18,7 +18,7 @@ if ($action === 'track') {
         json_response(['error' => 'Missing show name'], 400);
     }
     $imageUrl = substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null;
-    $status = substr((string) ($show['status'] ?? ''), 0, 50) ?: null;
+    $status = normalize_show_status($show['status'] ?? null);
 
     // Upsert the shared show cache row, then link it to the user.
     $stmt = db()->prepare(

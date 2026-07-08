@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS shows (
     imdb_id VARCHAR(12) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     image_url VARCHAR(500) DEFAULT NULL,
-    status VARCHAR(50) DEFAULT NULL,
+    status VARCHAR(50) DEFAULT NULL,  -- canonical: running|ended|canceled|upcoming|unknown (normalize_show_status)
     overview TEXT DEFAULT NULL,
     premiered DATE DEFAULT NULL,
     synced_at TIMESTAMP NULL DEFAULT NULL,  -- set when a full episode import completed

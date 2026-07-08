@@ -7,6 +7,8 @@ const TMDB = 'https://api.themoviedb.org/3';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w342';
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 const TMDB_KEY = document.querySelector('meta[name="tmdb-key"]')?.content ?? '';
+// Display labels for canonical status values (normalized server-side).
+const STATUS_LABELS = { running: 'Running', ended: 'Ended', canceled: 'Canceled', upcoming: 'Upcoming' };
 
 async function apiPost(url, body) {
   const res = await fetch(url, {
@@ -276,7 +278,7 @@ async function initShowDetail() {
         el('h1', {}, [show.name + ' ', imdbLink(showId)]),
         el('p', {
           class: 'muted',
-          text: [show.premiered?.slice(0, 4), show.status].filter(Boolean).join(' · '),
+          text: [show.premiered?.slice(0, 4), STATUS_LABELS[show.status]].filter(Boolean).join(' · '),
         }),
         el('p', { class: 'show-summary', text: show.overview ?? '' }),
         trackBtn,

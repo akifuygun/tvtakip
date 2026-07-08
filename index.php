@@ -43,8 +43,8 @@ require __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                     <h3><?= htmlspecialchars($show['name']) ?></h3>
                 </a>
-                <?php if ($show['status']): ?>
-                    <span class="status status-<?= preg_replace('/[^a-z0-9]+/', '-', strtolower($show['status'])) ?>"><?= htmlspecialchars($show['status']) ?></span>
+                <?php if (status_label($show['status'])): ?>
+                    <span class="status status-<?= htmlspecialchars($show['status']) ?>"><?= status_label($show['status']) ?></span>
                 <?php endif; ?>
                 <button class="button button-small button-danger untrack-btn"
                         data-show-id="<?= $imdbId ?>">Untrack</button>
