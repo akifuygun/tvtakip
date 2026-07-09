@@ -35,13 +35,32 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-// Prompt for an image URL and set it on the show, replacing `node` with the
-// new poster <img> on success. Used by the show page and My Shows cards.
+// Resolve only if the URL actually loads as an image (in the browser, so the
+// server never fetches user-supplied URLs). Rejects on error or timeout.
+function loadImage(url, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const timer = setTimeout(() => { img.src = ''; reject(new Error('timeout')); }, timeout);
+    img.onload = () => { clearTimeout(timer); img.naturalWidth > 0 ? resolve() : reject(new Error('empty')); };
+    img.onerror = () => { clearTimeout(timer); reject(new Error('not an image')); };
+    img.src = url;
+  });
+}
+
+// Prompt for an image URL, verify it loads, then set it on the show, replacing
+// `node` with the new poster <img>. Used by the show page and My Shows cards.
 async function promptSetImage(showId, node) {
   const url = prompt('Paste an image URL for this show:');
   if (!url || !url.trim()) return;
+  const clean = url.trim();
   try {
-    const res = await apiPost('api/image.php', { imdb_id: showId, image_url: url.trim() });
+    await loadImage(clean);
+  } catch {
+    alert("That URL doesn't load as an image. Check the link (it must point directly to an image file).");
+    return;
+  }
+  try {
+    const res = await apiPost('api/image.php', { imdb_id: showId, image_url: clean });
     node.replaceWith(el('img', { src: res.image_url, alt: '' }));
   } catch (err) {
     alert(err.message);
