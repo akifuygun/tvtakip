@@ -106,38 +106,6 @@ function posterEl(showId, imageUrl) {
   return wrap;
 }
 
-// Wire tracked-show cards: clickable "No image" placeholders (anyone) and an
-// admin ✕ to remove an existing poster.
-function initPosterEdit() {
-  document.querySelectorAll('.show-card[data-show-id]').forEach((card) => {
-    const showId = card.dataset.showId;
-    const noPoster = card.querySelector('.no-poster');
-    if (noPoster) {
-      noPoster.style.cursor = 'pointer';
-      noPoster.title = 'Click to add an image';
-      noPoster.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        promptSetImage(showId, noPoster);
-      });
-    }
-    if (IS_ADMIN) {
-      const img = card.querySelector('a img');
-      if (img) {
-        const rm = makeRemoveButton(showId, () => {
-          const ph = el('div', { class: 'no-poster', title: 'Click to add an image' });
-          ph.textContent = 'No image';
-          ph.style.cursor = 'pointer';
-          ph.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); promptSetImage(showId, ph); });
-          img.replaceWith(ph);
-          rm.remove();
-        });
-        card.appendChild(rm);
-      }
-    }
-  });
-}
-
 function imdbLink(imdbId, cls = 'imdb-link') {
   return el('a', {
     href: `https://www.imdb.com/title/${imdbId}/`,
@@ -484,7 +452,6 @@ function initNav() {
 initNav();
 initSearch();
 initDashboard();
-initPosterEdit();
 initCalendar();
 initShowDetail();
 
