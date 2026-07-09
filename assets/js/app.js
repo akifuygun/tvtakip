@@ -3,6 +3,7 @@
 // api/search.php, and imports happen inside api/episodes.php / api/track.php —
 // the browser only ever sends IMDB ids and reads our own cache.
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+const IS_ADMIN = document.querySelector('meta[name="is-admin"]')?.content === '1';
 // Display labels for canonical status values (normalized server-side).
 const STATUS_LABELS = { running: 'Running', ended: 'Ended', canceled: 'Canceled', upcoming: 'Upcoming' };
 
@@ -67,10 +68,26 @@ async function promptSetImage(showId, node) {
   }
 }
 
-// Poster for the show-detail header: an <img>, or a clickable "add image" box.
-function posterEl(showId, imageUrl) {
-  if (imageUrl) return el('img', { src: imageUrl, alt: '' });
-  const ph = el('button', { type: 'button', class: 'no-poster no-poster-edit', title: 'Click to add an image' }, [
+// Admin-only ✕ button that removes a show's poster, then runs onRemoved().
+function makeRemoveButton(showId, onRemoved) {
+  const rm = el('button', { type: 'button', class: 'poster-remove', title: 'Remove poster (admin)', text: '✕' });
+  rm.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm('Remove this poster?')) return;
+    try {
+      await apiPost('api/image.php', { imdb_id: showId, remove: true });
+      onRemoved();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+  return rm;
+}
+
+// A clickable "No image / Click to add" placeholder box.
+function addImagePlaceholder(showId, extraClass = '') {
+  const ph = el('button', { type: 'button', class: `no-poster no-poster-edit ${extraClass}`.trim(), title: 'Click to add an image' }, [
     el('span', { text: 'No image' }),
     el('span', { class: 'muted', text: 'Click to add' }),
   ]);
@@ -78,18 +95,46 @@ function posterEl(showId, imageUrl) {
   return ph;
 }
 
-// Make server-rendered "No image" placeholders on tracked-show cards clickable.
+// Poster for the show-detail header: an <img> (with an admin remove overlay),
+// or a clickable "add image" box.
+function posterEl(showId, imageUrl) {
+  if (!imageUrl) return addImagePlaceholder(showId);
+  const img = el('img', { src: imageUrl, alt: '' });
+  if (!IS_ADMIN) return img;
+  const wrap = el('div', { class: 'poster-wrap' }, [img]);
+  wrap.append(makeRemoveButton(showId, () => wrap.replaceWith(posterEl(showId, null))));
+  return wrap;
+}
+
+// Wire tracked-show cards: clickable "No image" placeholders (anyone) and an
+// admin ✕ to remove an existing poster.
 function initPosterEdit() {
-  document.querySelectorAll('.show-card .no-poster').forEach((node) => {
-    const card = node.closest('[data-show-id]');
-    if (!card) return; // search cards have no DB row yet — skip
-    node.style.cursor = 'pointer';
-    node.title = 'Click to add an image';
-    node.addEventListener('click', (e) => {
-      e.preventDefault(); // it sits inside the card's link
-      e.stopPropagation();
-      promptSetImage(card.dataset.showId, node);
-    });
+  document.querySelectorAll('.show-card[data-show-id]').forEach((card) => {
+    const showId = card.dataset.showId;
+    const noPoster = card.querySelector('.no-poster');
+    if (noPoster) {
+      noPoster.style.cursor = 'pointer';
+      noPoster.title = 'Click to add an image';
+      noPoster.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        promptSetImage(showId, noPoster);
+      });
+    }
+    if (IS_ADMIN) {
+      const img = card.querySelector('a img');
+      if (img) {
+        const rm = makeRemoveButton(showId, () => {
+          const ph = el('div', { class: 'no-poster', title: 'Click to add an image' });
+          ph.textContent = 'No image';
+          ph.style.cursor = 'pointer';
+          ph.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); promptSetImage(showId, ph); });
+          img.replaceWith(ph);
+          rm.remove();
+        });
+        card.appendChild(rm);
+      }
+    }
   });
 }
 

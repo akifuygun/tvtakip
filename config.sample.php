@@ -8,5 +8,7 @@ define('DB_USER', 'root');             // e.g. epiz_12345678
 define('DB_PASS', '');
 
 // TMDB API key (v3) — https://www.themoviedb.org/settings/api
-// Used from the browser to fetch episode data; cached in our DB afterwards.
 define('TMDB_API_KEY', '');
+
+// Comma-separated emails that get admin controls (e.g. removing posters).
+define('ADMIN_EMAILS', '');

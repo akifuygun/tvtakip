@@ -8,6 +8,7 @@ $pageTitle = $pageTitle ?? 'TVTrack';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token()) ?>">
+    <?php if (is_admin()): ?><meta name="is-admin" content="1"><?php endif; ?>
     <title><?= htmlspecialchars($pageTitle) ?> — TVTrack</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="manifest" href="/manifest.webmanifest">

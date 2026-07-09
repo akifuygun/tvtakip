@@ -38,6 +38,17 @@ function is_logged_in(): bool
     return current_user_id() !== null;
 }
 
+/** True if the logged-in user's email is listed in ADMIN_EMAILS. */
+function is_admin(): bool
+{
+    $email = strtolower(trim($_SESSION['email'] ?? ''));
+    if ($email === '' || !defined('ADMIN_EMAILS') || ADMIN_EMAILS === '') {
+        return false;
+    }
+    $admins = array_map('trim', explode(',', strtolower(ADMIN_EMAILS)));
+    return in_array($email, $admins, true);
+}
+
 /** Redirect to login for pages that require a session. */
 function require_login(): void
 {

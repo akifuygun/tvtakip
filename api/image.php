@@ -11,6 +11,17 @@ $url = trim((string) ($data['image_url'] ?? ''));
 if (!valid_imdb_id($imdbId)) {
     json_response(['error' => 'Invalid show id'], 400);
 }
+
+// Admin-only: remove a show's poster.
+if (!empty($data['remove'])) {
+    if (!is_admin()) {
+        json_response(['error' => 'Admins only'], 403);
+    }
+    $stmt = db()->prepare('UPDATE shows SET image_url = NULL WHERE imdb_id = ?');
+    $stmt->execute([$imdbId]);
+    json_response(['ok' => true, 'removed' => true]);
+}
+
 if ($url === '' || mb_strlen($url) > 500) {
     json_response(['error' => 'Image URL required (max 500 characters).'], 400);
 }

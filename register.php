@@ -36,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
             $_SESSION['user_id'] = (int) db()->lastInsertId();
             $_SESSION['display_name'] = $displayName;
+            $_SESSION['email'] = $email;
             header('Location: index.php');
             exit;
         }

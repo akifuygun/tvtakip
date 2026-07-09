@@ -148,6 +148,7 @@ a:hover { color: var(--accent-hover); }
   gap: 1rem;
 }
 .show-card {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -157,6 +158,27 @@ a:hover { color: var(--accent-hover); }
   flex-direction: column;
   gap: 0.5rem;
 }
+
+/* Admin poster-remove overlay */
+.poster-wrap { position: relative; display: inline-block; align-self: flex-start; }
+.poster-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: rgba(15, 18, 24, 0.82);
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.poster-remove:hover { background: var(--danger); }
 .show-card img, .no-poster {
   width: 100%;
   aspect-ratio: 2 / 3;
