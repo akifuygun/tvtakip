@@ -188,6 +188,16 @@ a:hover { color: var(--accent-hover); }
 /* Show detail */
 .show-header { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
 .show-header img { border-radius: var(--radius); max-width: 210px; align-self: flex-start; }
+.show-header .no-poster { width: 180px; align-self: flex-start; border-radius: var(--radius); }
+.no-poster-edit {
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.no-poster-edit:hover { border-color: var(--accent); color: var(--text); }
 .show-header > div { flex: 1; min-width: 260px; }
 .show-header h1 { margin-top: 0; }
 .muted { color: var(--muted); }

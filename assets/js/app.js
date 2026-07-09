@@ -35,6 +35,45 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
+// Prompt for an image URL and set it on the show, replacing `node` with the
+// new poster <img> on success. Used by the show page and My Shows cards.
+async function promptSetImage(showId, node) {
+  const url = prompt('Paste an image URL for this show:');
+  if (!url || !url.trim()) return;
+  try {
+    const res = await apiPost('api/image.php', { imdb_id: showId, image_url: url.trim() });
+    node.replaceWith(el('img', { src: res.image_url, alt: '' }));
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// Poster for the show-detail header: an <img>, or a clickable "add image" box.
+function posterEl(showId, imageUrl) {
+  if (imageUrl) return el('img', { src: imageUrl, alt: '' });
+  const ph = el('button', { type: 'button', class: 'no-poster no-poster-edit', title: 'Click to add an image' }, [
+    el('span', { text: 'No image' }),
+    el('span', { class: 'muted', text: 'Click to add' }),
+  ]);
+  ph.addEventListener('click', () => promptSetImage(showId, ph));
+  return ph;
+}
+
+// Make server-rendered "No image" placeholders on tracked-show cards clickable.
+function initPosterEdit() {
+  document.querySelectorAll('.show-card .no-poster').forEach((node) => {
+    const card = node.closest('[data-show-id]');
+    if (!card) return; // search cards have no DB row yet — skip
+    node.style.cursor = 'pointer';
+    node.title = 'Click to add an image';
+    node.addEventListener('click', (e) => {
+      e.preventDefault(); // it sits inside the card's link
+      e.stopPropagation();
+      promptSetImage(card.dataset.showId, node);
+    });
+  });
+}
+
 function imdbLink(imdbId, cls = 'imdb-link') {
   return el('a', {
     href: `https://www.imdb.com/title/${imdbId}/`,
@@ -205,7 +244,7 @@ async function initShowDetail() {
 
   root.append(
     el('div', { class: 'show-header' }, [
-      show.image_url ? el('img', { src: show.image_url, alt: '' }) : '',
+      posterEl(showId, show.image_url),
       el('div', {}, [
         el('h1', {}, [show.name + ' ', imdbLink(showId)]),
         el('p', {
@@ -381,6 +420,7 @@ function initNav() {
 initNav();
 initSearch();
 initDashboard();
+initPosterEdit();
 initCalendar();
 initShowDetail();
 
