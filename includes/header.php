@@ -51,6 +51,7 @@ $pageTitle = $pageTitle ?? 'TVTrack';
             <a href="index.php">📅 Calendar</a>
             <a href="myshows.php">🎬 My Shows</a>
             <a href="search.php">🔍 Search</a>
+            <a href="change-password.php">🔑 Password</a>
             <span class="nav-sep">|</span>
             <form method="post" action="logout.php" class="logout-form">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">

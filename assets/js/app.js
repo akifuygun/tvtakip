@@ -98,7 +98,10 @@ function addImagePlaceholder(showId, extraClass = '') {
 // Poster for the show-detail header: an <img> (with an admin remove overlay),
 // or a clickable "add image" box.
 function posterEl(showId, imageUrl) {
-  if (!imageUrl) return addImagePlaceholder(showId);
+  if (!imageUrl) {
+    // Only admins can set posters; others just see a plain placeholder.
+    return IS_ADMIN ? addImagePlaceholder(showId) : el('div', { class: 'no-poster', text: 'No image' });
+  }
   const img = el('img', { src: imageUrl, alt: '' });
   if (!IS_ADMIN) return img;
   const wrap = el('div', { class: 'poster-wrap' }, [img]);

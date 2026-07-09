@@ -107,6 +107,12 @@ a:hover { color: var(--accent-hover); }
   border-radius: var(--radius);
   padding: 0.5rem 0.75rem;
 }
+.success {
+  background: rgba(95, 191, 110, 0.12);
+  border: 1px solid #5fbf6e;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+}
 
 /* Auth forms */
 .auth-card {

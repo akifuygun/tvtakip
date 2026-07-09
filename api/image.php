@@ -3,8 +3,13 @@
 // Set a show's poster (shared cache). Used when a provider gave us no image.
 require_once __DIR__ . '/../includes/auth.php';
 require_login_json();
-$data = read_json_post();
 
+// Posters are a shared resource — only admins may set or remove them.
+if (!is_admin()) {
+    json_response(['error' => 'Admins only'], 403);
+}
+
+$data = read_json_post();
 $imdbId = $data['imdb_id'] ?? '';
 $url = trim((string) ($data['image_url'] ?? ''));
 
@@ -12,11 +17,8 @@ if (!valid_imdb_id($imdbId)) {
     json_response(['error' => 'Invalid show id'], 400);
 }
 
-// Admin-only: remove a show's poster.
+// Remove a show's poster.
 if (!empty($data['remove'])) {
-    if (!is_admin()) {
-        json_response(['error' => 'Admins only'], 403);
-    }
     $stmt = db()->prepare('UPDATE shows SET image_url = NULL WHERE imdb_id = ?');
     $stmt->execute([$imdbId]);
     json_response(['ok' => true, 'removed' => true]);
