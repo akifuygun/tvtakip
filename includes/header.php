@@ -47,11 +47,10 @@ $pageTitle = $pageTitle ?? 'TVTrack';
     </button>
     <nav id="site-nav">
         <?php if (is_logged_in()): ?>
-            <span class="nav-user">Welcome <?= htmlspecialchars(current_display_name()) ?></span>
+            <span class="nav-user">Welcome <a href="change-password.php" title="Change password"><?= htmlspecialchars(current_display_name()) ?></a></span>
             <a href="index.php">📅 Calendar</a>
             <a href="myshows.php">🎬 My Shows</a>
             <a href="search.php">🔍 Search</a>
-            <a href="change-password.php">🔑 Password</a>
             <span class="nav-sep">|</span>
             <form method="post" action="logout.php" class="logout-form">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">

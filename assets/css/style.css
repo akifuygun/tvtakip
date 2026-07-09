@@ -50,6 +50,8 @@ a:hover { color: var(--accent-hover); }
   color: var(--text);
 }
 .nav-user { color: var(--muted); }
+.nav-user a { color: var(--text); }
+.nav-user a:hover { color: var(--accent); }
 .nav-sep { color: var(--border); }
 .logout-form { display: inline-flex; margin: 0; }
 .logout-link {
