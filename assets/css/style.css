@@ -226,7 +226,7 @@ a:hover { color: var(--accent-hover); }
   cursor: pointer;
 }
 .no-poster-edit:hover { border-color: var(--accent); color: var(--text); }
-.show-header > div { flex: 1; min-width: 260px; }
+.show-header .show-info { flex: 1; min-width: 260px; }
 .show-header h1 { margin-top: 0; }
 .muted { color: var(--muted); }
 .show-summary { color: var(--muted); margin-bottom: 1rem; }

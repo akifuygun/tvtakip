@@ -280,7 +280,7 @@ async function initShowDetail() {
   root.append(
     el('div', { class: 'show-header' }, [
       posterEl(showId, show.image_url),
-      el('div', {}, [
+      el('div', { class: 'show-info' }, [
         el('h1', {}, [show.name + ' ', imdbLink(showId)]),
         el('p', {
           class: 'muted',
