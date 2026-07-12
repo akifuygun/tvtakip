@@ -66,6 +66,7 @@ if (!$groups['running']['shows'] && !$groups['upcoming']['shows']) {
 }
 
 $pageTitle = t('myshows_title');
+$noindex = true;
 require __DIR__ . '/includes/header.php';
 ?>
 <?php if (!$shows): ?>

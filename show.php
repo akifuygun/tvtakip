@@ -13,6 +13,7 @@ $stmt->execute([current_user_id(), $showId]);
 $isTracked = (bool) $stmt->fetch();
 
 $pageTitle = app_name();
+$noindex = true;
 require __DIR__ . '/includes/header.php';
 ?>
 <div id="show-detail" data-show-id="<?= htmlspecialchars($showId) ?>" data-tracked="<?= $isTracked ? '1' : '0' ?>">

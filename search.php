@@ -8,6 +8,7 @@ $stmt->execute([current_user_id()]);
 $trackedIds = array_column($stmt->fetchAll(), 'show_imdb_id');
 
 $pageTitle = t('search_title');
+$noindex = true;
 require __DIR__ . '/includes/header.php';
 ?>
 <h1><?= t('search_title') ?></h1>

@@ -46,6 +46,8 @@ $GLOBALS['I18N'] = [
         'nav_search' => 'Search', 'logout' => 'Logout', 'login' => 'Log in', 'register' => 'Register',
         'change_password' => 'Change password', 'menu' => 'Menu',
         'lang_tr' => 'Türkçe', 'lang_en' => 'English',
+        'meta_description' => "Track your favorite TV series, follow upcoming episodes, and mark what you've watched — a free, no-clutter personal TV episode tracker.",
+        'tagline' => 'Track your TV series and never miss an episode.',
         // calendar
         'calendar_title' => 'Calendar',
         'calendar_sub' => "The next unwatched episode of each show you track.",
@@ -111,6 +113,8 @@ $GLOBALS['I18N'] = [
         'nav_search' => 'Ara', 'logout' => 'Çıkış', 'login' => 'Giriş yap', 'register' => 'Kayıt ol',
         'change_password' => 'Şifre değiştir', 'menu' => 'Menü',
         'lang_tr' => 'Türkçe', 'lang_en' => 'English',
+        'meta_description' => 'Favori dizilerini takip et, yeni bölümleri kaçırma ve izlediklerini işaretle — ücretsiz, sade bir kişisel dizi takip uygulaması.',
+        'tagline' => 'Dizilerini takip et, hiçbir bölümü kaçırma.',
         'calendar_title' => 'Takvim',
         'calendar_sub' => 'Takip ettiğin her dizinin izlemediğin ilk bölümü.',
         'all_caught_up' => '🎉 Her şeyi izledin!',

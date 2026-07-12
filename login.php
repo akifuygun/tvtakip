@@ -31,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $pageTitle = t('login_title');
+$noindex = true;
 require __DIR__ . '/includes/header.php';
 ?>
 <div class="auth-card">

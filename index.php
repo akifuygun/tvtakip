@@ -35,7 +35,12 @@ if (is_logged_in()) {
     $unsynced = $stmt->fetchAll();
 }
 
-$pageTitle = t('calendar_title');
+if (is_logged_in()) {
+    $pageTitle = t('calendar_title');
+    $noindex = true; // personal, gated content
+} else {
+    $pageTitle = t('welcome_h1'); // public landing — the one indexable page
+}
 require __DIR__ . '/includes/header.php';
 ?>
 <?php if (!is_logged_in()): ?>

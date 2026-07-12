@@ -1,6 +1,14 @@
 <?php
 require_once __DIR__ . '/auth.php';
 $pageTitle = $pageTitle ?? app_name();
+$fullTitle = app_name() . ' — ' . $pageTitle;
+$metaDescription = $metaDescription ?? t('meta_description');
+$noindex = $noindex ?? false;
+
+$seoBase = (request_is_https() ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'tvtakip.akifuygun.com');
+$seoCanonical = $seoBase . strtok($_SERVER['REQUEST_URI'], '?');
+$seoImage = $seoBase . '/assets/icons/og.png';
+$seoLocale = current_lang() === 'tr' ? 'tr_TR' : 'en_US';
 ?>
 <!DOCTYPE html>
 <html lang="<?= current_lang() ?>">
@@ -9,7 +17,23 @@ $pageTitle = $pageTitle ?? app_name();
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token()) ?>">
     <?php if (is_admin()): ?><meta name="is-admin" content="1"><?php endif; ?>
-    <title><?= app_name() ?> — <?= htmlspecialchars($pageTitle) ?></title>
+    <title><?= htmlspecialchars($fullTitle) ?></title>
+    <meta name="description" content="<?= htmlspecialchars($metaDescription) ?>">
+    <meta name="robots" content="<?= $noindex ? 'noindex, follow' : 'index, follow' ?>">
+    <link rel="canonical" href="<?= htmlspecialchars($seoCanonical) ?>">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="<?= app_name() ?>">
+    <meta property="og:title" content="<?= htmlspecialchars($fullTitle) ?>">
+    <meta property="og:description" content="<?= htmlspecialchars($metaDescription) ?>">
+    <meta property="og:url" content="<?= htmlspecialchars($seoCanonical) ?>">
+    <meta property="og:image" content="<?= htmlspecialchars($seoImage) ?>">
+    <meta property="og:locale" content="<?= $seoLocale ?>">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<?= htmlspecialchars($fullTitle) ?>">
+    <meta name="twitter:description" content="<?= htmlspecialchars($metaDescription) ?>">
+    <meta name="twitter:image" content="<?= htmlspecialchars($seoImage) ?>">
+
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg">
@@ -19,6 +43,9 @@ $pageTitle = $pageTitle ?? app_name();
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="<?= app_name() ?>">
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"WebApplication","name":"<?= app_name() ?>","url":"<?= $seoBase ?>/","applicationCategory":"EntertainmentApplication","operatingSystem":"Web","description":"<?= htmlspecialchars($metaDescription, ENT_QUOTES) ?>","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+    </script>
     <script>window.I18N = <?= i18n_js() ?>;</script>
 </head>
 <body>
