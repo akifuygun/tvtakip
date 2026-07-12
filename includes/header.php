@@ -11,6 +11,8 @@ $pageTitle = $pageTitle ?? app_name();
     <?php if (is_admin()): ?><meta name="is-admin" content="1"><?php endif; ?>
     <title><?= app_name() ?> — <?= htmlspecialchars($pageTitle) ?></title>
     <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg">
     <link rel="manifest" href="/manifest.webmanifest">
     <meta name="theme-color" content="#1a1f2a">
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
