@@ -555,7 +555,23 @@ function initNav() {
   });
 }
 
+// Footer sun/moon toggle. The theme is applied server-side on <html data-theme>
+// (no flash); here we switch it live and remember the choice in a cookie.
+function initTheme() {
+  const buttons = document.querySelectorAll('.theme-btn');
+  if (!buttons.length) return;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  const apply = (theme) => {
+    document.documentElement.dataset.theme = theme;
+    document.cookie = `theme=${theme}; path=/; max-age=31536000; SameSite=Lax`;
+    if (meta) meta.content = theme === 'light' ? '#ffffff' : '#1a1f2a';
+    buttons.forEach((b) => b.classList.toggle('theme-active', b.dataset.themeValue === theme));
+  };
+  buttons.forEach((b) => b.addEventListener('click', () => apply(b.dataset.themeValue)));
+}
+
 initNav();
+initTheme();
 initSearch();
 initDashboard();
 initCalendar();

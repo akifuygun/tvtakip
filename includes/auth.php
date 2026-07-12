@@ -39,6 +39,14 @@ function request_is_https(): bool
         || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 }
 
+/** User's colour theme from the `theme` cookie ('light' or 'dark'), defaulting
+ *  to dark (the site's original look). app.js writes the cookie on toggle; it's
+ *  read here so the right theme is set on <html> before first paint (no flash). */
+function app_theme(): string
+{
+    return ($_COOKIE['theme'] ?? '') === 'light' ? 'light' : 'dark';
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     // Long-lived session so users aren't logged out during normal use; the
     // remember-me token below restores it if the shared host GCs it early.

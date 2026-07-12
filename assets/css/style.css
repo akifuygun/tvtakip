@@ -1,4 +1,4 @@
-:root {
+:root, :root[data-theme="dark"] {
   --bg: #0f1218;
   --bg-raised: #14181f;  /* slightly lighter than the page background */
   --surface: #1a1f2a;
@@ -8,7 +8,26 @@
   --accent: #4f8cff;
   --accent-hover: #6b9fff;
   --danger: #e05252;
+  --success: #5fbf6e;
+  --warning: #e0b352;
   --radius: 10px;
+}
+
+/* Light theme: overrides the palette; layout/vars structure is unchanged.
+   Applied via data-theme on <html> (set server-side from the theme cookie
+   so there's no flash, and toggled client-side in app.js). */
+:root[data-theme="light"] {
+  --bg: #eef1f6;
+  --bg-raised: #e4e9f1;
+  --surface: #ffffff;
+  --border: #d5dce6;
+  --text: #1b2430;
+  --muted: #5b6673;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --danger: #d64343;
+  --success: #2e9e4f;
+  --warning: #b07d1a;
 }
 
 * { box-sizing: border-box; }
@@ -101,11 +120,34 @@ a:hover { color: var(--accent-hover); }
   border-top: 1px solid var(--border);
   padding: 0.75rem 1.25rem;
 }
+.footer-controls { display: flex; align-items: center; gap: 1rem; }
 .footer-flags { display: flex; align-items: center; gap: 0.5rem; }
 .flag { display: inline-flex; line-height: 0; opacity: 0.5; border-radius: 3px; }
 .flag svg { display: block; border-radius: 3px; }
 .flag:hover { opacity: 1; }
 .flag-active { opacity: 1; outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Theme switch — sun/moon buttons styled to match the language flags. */
+.footer-themes { display: flex; align-items: center; gap: 0.4rem; }
+.theme-btn {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  padding: 2px;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--muted);
+  opacity: 0.5;
+}
+.theme-btn:hover { opacity: 1; color: var(--text); }
+.theme-btn.theme-active {
+  opacity: 1;
+  color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 
 .hero { text-align: center; padding: 3rem 1rem; }
 
@@ -121,7 +163,7 @@ a:hover { color: var(--accent-hover); }
 }
 .button:hover { background: var(--accent-hover); color: #fff; }
 .button:disabled { opacity: 0.6; cursor: default; }
-.button-secondary { background: var(--surface); border: 1px solid var(--border); }
+.button-secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
 .button-small { padding: 0.3rem 0.7rem; font-size: 0.85rem; }
 .button-danger { background: var(--danger); }
 
@@ -133,7 +175,7 @@ a:hover { color: var(--accent-hover); }
 }
 .success {
   background: rgba(95, 191, 110, 0.12);
-  border: 1px solid #5fbf6e;
+  border: 1px solid var(--success);
   border-radius: var(--radius);
   padding: 0.5rem 0.75rem;
 }
@@ -234,10 +276,10 @@ a:hover { color: var(--accent-hover); }
 .cal-grid .show-card > .muted { margin-top: auto; }
 
 .status { font-size: 0.75rem; color: var(--muted); }
-.status-running { color: #5fbf6e; }
+.status-running { color: var(--success); }
 .status-ended { color: var(--muted); }
 .status-canceled { color: var(--danger); }
-.status-upcoming { color: #e0b352; }
+.status-upcoming { color: var(--warning); }
 
 /* Show detail */
 .show-header { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
@@ -362,7 +404,7 @@ a:hover { color: var(--accent-hover); }
 }
 .episode-list-plain li { background: transparent; }
 
-.next-ep { font-size: 0.78rem; color: #e0b352; }
+.next-ep { font-size: 0.78rem; color: var(--warning); }
 
 /* My Shows groups — the bordered box contains both the header and its cards */
 .show-group {

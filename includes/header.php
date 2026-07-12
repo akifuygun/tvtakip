@@ -32,7 +32,7 @@ $seoJsonLd = $jsonLd ?? json_encode([
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
 ?>
 <!DOCTYPE html>
-<html lang="<?= current_lang() ?>">
+<html lang="<?= current_lang() ?>" data-theme="<?= app_theme() ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -64,7 +64,7 @@ $seoJsonLd = $jsonLd ?? json_encode([
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg">
     <link rel="manifest" href="/manifest.webmanifest">
-    <meta name="theme-color" content="#1a1f2a">
+    <meta name="theme-color" content="<?= app_theme() === 'light' ? '#ffffff' : '#1a1f2a' ?>">
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">

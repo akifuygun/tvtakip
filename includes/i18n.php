@@ -98,6 +98,7 @@ $GLOBALS['I18N'] = [
         'nav_search' => 'Search', 'logout' => 'Logout', 'login' => 'Log in', 'register' => 'Register',
         'change_password' => 'Change password', 'menu' => 'Menu',
         'lang_tr' => 'Türkçe', 'lang_en' => 'English',
+        'theme_light' => 'Light mode', 'theme_dark' => 'Dark mode',
         'meta_description' => "Track your favorite TV series, follow upcoming episodes, and mark what you've watched — a free, no-clutter personal TV episode tracker.",
         'tagline' => 'Track your TV series and never miss an episode.',
         // public pages & landing
@@ -199,6 +200,7 @@ $GLOBALS['I18N'] = [
         'nav_search' => 'Ara', 'logout' => 'Çıkış', 'login' => 'Giriş yap', 'register' => 'Kayıt ol',
         'change_password' => 'Şifre değiştir', 'menu' => 'Menü',
         'lang_tr' => 'Türkçe', 'lang_en' => 'English',
+        'theme_light' => 'Açık tema', 'theme_dark' => 'Koyu tema',
         'meta_description' => 'Favori dizilerini takip et, yeni bölümleri kaçırma ve izlediklerini işaretle — ücretsiz, sade bir kişisel dizi takip uygulaması.',
         'tagline' => 'Dizilerini takip et, hiçbir bölümü kaçırma.',
         'nav_browse' => 'Diziler', 'nav_upcoming' => 'Yaklaşanlar',
