@@ -78,12 +78,20 @@ a:hover { color: var(--accent-hover); }
 }
 
 .site-footer {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   color: var(--muted);
   font-size: 0.85rem;
   border-top: 1px solid var(--border);
+  padding: 0.75rem 1.25rem;
 }
-.site-footer p { margin: 0.5rem 0; }
+.footer-flags { display: flex; align-items: center; gap: 0.5rem; }
+.flag { display: inline-flex; line-height: 0; opacity: 0.5; border-radius: 3px; }
+.flag svg { display: block; border-radius: 3px; }
+.flag:hover { opacity: 1; }
+.flag-active { opacity: 1; outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .hero { text-align: center; padding: 3rem 1rem; }
 

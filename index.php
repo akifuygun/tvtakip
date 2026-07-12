@@ -35,36 +35,36 @@ if (is_logged_in()) {
     $unsynced = $stmt->fetchAll();
 }
 
-$pageTitle = 'Calendar';
+$pageTitle = t('calendar_title');
 require __DIR__ . '/includes/header.php';
 ?>
 <?php if (!is_logged_in()): ?>
     <div class="hero">
-        <h1>Track your TV series</h1>
-        <p>Search for shows, follow them, and keep track of every episode you've watched.</p>
+        <h1><?= t('welcome_h1') ?></h1>
+        <p><?= t('welcome_p') ?></p>
         <p>
-            <a class="button" href="register.php">Get started</a>
-            <a class="button button-secondary" href="login.php">Log in</a>
+            <a class="button" href="register.php"><?= t('get_started') ?></a>
+            <a class="button button-secondary" href="login.php"><?= t('login') ?></a>
         </p>
     </div>
 <?php else: ?>
-    <h1>Calendar</h1>
-    <p class="muted">The next unwatched episode of each show you track.</p>
+    <h1><?= t('calendar_title') ?></h1>
+    <p class="muted"><?= t('calendar_sub') ?></p>
 
     <?php if ($unsynced): ?>
         <div class="notice">
-            No episode data yet for
+            <?= t('notice_no_data') ?>
             <?php foreach ($unsynced as $i => $s): ?>
                 <a href="show.php?id=<?= htmlspecialchars($s['imdb_id']) ?>"><?= htmlspecialchars($s['name']) ?></a><?= $i < count($unsynced) - 1 ? ', ' : '' ?>
             <?php endforeach; ?>
-            — open <?= count($unsynced) === 1 ? 'it' : 'each' ?> once to import episodes.
+            <?= count($unsynced) === 1 ? t('notice_open_one') : t('notice_open_many') ?>
         </div>
     <?php endif; ?>
 
     <?php if (!$items): ?>
         <div class="hero">
-            <h2>🎉 All caught up!</h2>
-            <p>No unwatched aired episodes. <a href="search.php">Find more shows to track</a>.</p>
+            <h2><?= t('all_caught_up') ?></h2>
+            <p><?= t('no_unwatched') ?> <a href="search.php"><?= t('find_more') ?></a>.</p>
         </div>
     <?php else: ?>
         <div id="calendar" class="cal-grid">
@@ -79,12 +79,12 @@ require __DIR__ . '/includes/header.php';
                         <?php if ($ep['image_url']): ?>
                             <img src="<?= htmlspecialchars($ep['image_url']) ?>" alt="">
                         <?php else: ?>
-                            <div class="no-poster">No image</div>
+                            <div class="no-poster"><?= t('no_image') ?></div>
                         <?php endif; ?>
                     </a>
                     <h3><a href="<?= $showUrl ?>"><?= htmlspecialchars($ep['show_name']) ?></a></h3>
                     <span class="muted"><?= $code ?></span>
-                    <button class="button button-small cal-watch-btn" data-episode-id="<?= (int) $ep['id'] ?>">Watched</button>
+                    <button class="button button-small cal-watch-btn" data-episode-id="<?= (int) $ep['id'] ?>"><?= t('mark_watched') ?></button>
                 </div>
             <?php endforeach; ?>
         </div>

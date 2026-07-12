@@ -1,27 +1,28 @@
 <?php
 require_once __DIR__ . '/auth.php';
-$pageTitle = $pageTitle ?? 'TVTrack';
+$pageTitle = $pageTitle ?? app_name();
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= current_lang() ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token()) ?>">
     <?php if (is_admin()): ?><meta name="is-admin" content="1"><?php endif; ?>
-    <title><?= htmlspecialchars($pageTitle) ?> — TVTrack</title>
+    <title><?= htmlspecialchars($pageTitle) ?> — <?= app_name() ?></title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="manifest" href="/manifest.webmanifest">
     <meta name="theme-color" content="#1a1f2a">
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="TVTrack">
+    <meta name="apple-mobile-web-app-title" content="<?= app_name() ?>">
+    <script>window.I18N = <?= i18n_js() ?>;</script>
 </head>
 <body>
 <header class="site-header">
-    <a class="brand" href="index.php" aria-label="TVTrack home">
-        <svg class="brand-logo" viewBox="0 0 108 48" role="img" aria-label="TVTrack">
+    <a class="brand" href="index.php" aria-label="<?= app_name() ?> home">
+        <svg class="brand-logo" viewBox="0 0 108 48" role="img" aria-label="<?= app_name() ?>">
             <defs>
                 <linearGradient id="tvt-check" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0" stop-color="#5aa8ff"/>
@@ -37,7 +38,7 @@ $pageTitle = $pageTitle ?? 'TVTrack';
             </g>
         </svg>
     </a>
-    <button class="nav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
+    <button class="nav-toggle" aria-label="<?= t('menu') ?>" aria-expanded="false" aria-controls="site-nav">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round">
             <line x1="4" y1="7" x2="20" y2="7"/>
@@ -47,26 +48,26 @@ $pageTitle = $pageTitle ?? 'TVTrack';
     </button>
     <nav id="site-nav">
         <?php if (is_logged_in()): ?>
-            <span class="nav-user">Welcome <a href="change-password.php" title="Change password"><?= htmlspecialchars(current_display_name()) ?></a></span>
-            <a href="index.php">📅 Calendar</a>
-            <a href="myshows.php">🎬 My Shows</a>
-            <a href="search.php">🔍 Search</a>
+            <span class="nav-user"><?= t('welcome') ?> <a href="change-password.php" title="<?= t('change_password') ?>"><?= htmlspecialchars(current_display_name()) ?></a></span>
+            <a href="index.php">📅 <?= t('nav_calendar') ?></a>
+            <a href="myshows.php">🎬 <?= t('nav_myshows') ?></a>
+            <a href="search.php">🔍 <?= t('nav_search') ?></a>
             <span class="nav-sep">|</span>
             <form method="post" action="logout.php" class="logout-form">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
-                <button type="submit" title="Log out" class="logout-link">
+                <button type="submit" title="<?= t('logout') ?>" class="logout-link">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Log out">
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="<?= t('logout') ?>">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                         <polyline points="16 17 21 12 16 7"/>
                         <line x1="21" y1="12" x2="9" y2="12"/>
                     </svg>
-                    <span class="logout-label">Logout</span>
+                    <span class="logout-label"><?= t('logout') ?></span>
                 </button>
             </form>
         <?php else: ?>
-            <a href="login.php">Log in</a>
-            <a href="register.php">Register</a>
+            <a href="login.php"><?= t('login') ?></a>
+            <a href="register.php"><?= t('register') ?></a>
         <?php endif; ?>
     </nav>
 </header>

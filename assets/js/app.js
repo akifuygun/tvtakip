@@ -4,8 +4,17 @@
 // the browser only ever sends IMDB ids and reads our own cache.
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 const IS_ADMIN = document.querySelector('meta[name="is-admin"]')?.content === '1';
-// Display labels for canonical status values (normalized server-side).
-const STATUS_LABELS = { running: 'Running', ended: 'Ended', canceled: 'Canceled', upcoming: 'Upcoming' };
+
+// Translations shared with PHP via window.I18N (current language).
+const I18N = window.I18N || { lang: 'en', app: 'TVTrack', t: {} };
+function t(key, ...args) {
+  let i = 0;
+  return (I18N.t[key] ?? key).replace(/%[sd]/g, () => args[i++]);
+}
+const STATUS_LABELS = {
+  running: t('status_running'), ended: t('status_ended'),
+  canceled: t('status_canceled'), upcoming: t('status_upcoming'),
+};
 
 async function apiPost(url, body) {
   const res = await fetch(url, {
@@ -51,13 +60,13 @@ function loadImage(url, timeout = 10000) {
 // Prompt for an image URL, verify it loads, then set it on the show, replacing
 // `node` with the new poster <img>. Used by the show page and My Shows cards.
 async function promptSetImage(showId, node) {
-  const url = prompt('Paste an image URL for this show:');
+  const url = prompt(t('add_image_prompt'));
   if (!url || !url.trim()) return;
   const clean = url.trim();
   try {
     await loadImage(clean);
   } catch {
-    alert("That URL doesn't load as an image. Check the link (it must point directly to an image file).");
+    alert(t('invalid_image_url'));
     return;
   }
   try {
@@ -70,11 +79,11 @@ async function promptSetImage(showId, node) {
 
 // Admin-only ✕ button that removes a show's poster, then runs onRemoved().
 function makeRemoveButton(showId, onRemoved) {
-  const rm = el('button', { type: 'button', class: 'poster-remove', title: 'Remove poster (admin)', text: '✕' });
+  const rm = el('button', { type: 'button', class: 'poster-remove', title: t('remove_poster_title'), text: '✕' });
   rm.addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm('Remove this poster?')) return;
+    if (!confirm(t('remove_poster_confirm'))) return;
     try {
       await apiPost('api/image.php', { imdb_id: showId, remove: true });
       onRemoved();
@@ -87,9 +96,9 @@ function makeRemoveButton(showId, onRemoved) {
 
 // A clickable "No image / Click to add" placeholder box.
 function addImagePlaceholder(showId, extraClass = '') {
-  const ph = el('button', { type: 'button', class: `no-poster no-poster-edit ${extraClass}`.trim(), title: 'Click to add an image' }, [
-    el('span', { text: 'No image' }),
-    el('span', { class: 'muted', text: 'Click to add' }),
+  const ph = el('button', { type: 'button', class: `no-poster no-poster-edit ${extraClass}`.trim(), title: t('add_image_title') }, [
+    el('span', { text: t('no_image') }),
+    el('span', { class: 'muted', text: t('click_to_add') }),
   ]);
   ph.addEventListener('click', () => promptSetImage(showId, ph));
   return ph;
@@ -100,7 +109,7 @@ function addImagePlaceholder(showId, extraClass = '') {
 function posterEl(showId, imageUrl) {
   if (!imageUrl) {
     // Only admins can set posters; others just see a plain placeholder.
-    return IS_ADMIN ? addImagePlaceholder(showId) : el('div', { class: 'no-poster', text: 'No image' });
+    return IS_ADMIN ? addImagePlaceholder(showId) : el('div', { class: 'no-poster', text: t('no_image') });
   }
   const img = el('img', { src: imageUrl, alt: '' });
   if (!IS_ADMIN) return img;
@@ -131,19 +140,19 @@ function initSearch() {
     e.preventDefault();
     const q = input.value.trim();
     if (!q) return;
-    results.textContent = 'Searching TVmaze and TMDB…';
+    results.textContent = t('searching');
     try {
       const { results: items } = await apiGet(`api/search.php?q=${encodeURIComponent(q)}`);
       results.replaceChildren();
       if (!items.length) {
-        results.textContent = 'No shows found.';
+        results.textContent = t('no_shows_found');
         return;
       }
       for (const item of items) {
         results.append(renderSearchCard(item, trackedIds));
       }
     } catch (err) {
-      results.textContent = `Search failed: ${err.message}`;
+      results.textContent = t('search_failed', err.message);
     }
   });
 }
@@ -152,7 +161,7 @@ function renderSearchCard(item, trackedIds) {
   const year = item.year ? ` (${item.year})` : '';
   const poster = item.image
     ? el('img', { src: item.image, alt: '' })
-    : el('div', { class: 'no-poster', text: 'No image' });
+    : el('div', { class: 'no-poster', text: t('no_image') });
   const source = el('span', { class: 'muted source-tag', text: item.source });
 
   if (!item.imdb_id) {
@@ -160,25 +169,25 @@ function renderSearchCard(item, trackedIds) {
       poster,
       el('h3', { text: item.name + year }),
       source,
-      el('span', { class: 'muted', text: 'No IMDB id — cannot track' }),
+      el('span', { class: 'muted', text: t('no_imdb') }),
     ]);
   }
 
   const isTracked = trackedIds.has(item.imdb_id);
   const trackBtn = el('button', {
     class: 'button button-small track-btn',
-    text: isTracked ? 'Tracking ✓' : 'Track',
+    text: isTracked ? t('tracking') : t('track'),
     ...(isTracked ? { disabled: '' } : {}),
     onclick: async () => {
       trackBtn.disabled = true;
-      trackBtn.textContent = 'Importing…';
+      trackBtn.textContent = t('importing');
       try {
         await apiPost('api/track.php', { action: 'track', imdb_id: item.imdb_id });
         trackedIds.add(item.imdb_id);
-        trackBtn.textContent = 'Tracking ✓';
+        trackBtn.textContent = t('tracking');
       } catch (err) {
         trackBtn.disabled = false;
-        trackBtn.textContent = 'Track';
+        trackBtn.textContent = t('track');
         alert(err.message);
       }
     },
@@ -196,7 +205,7 @@ function renderSearchCard(item, trackedIds) {
 function initDashboard() {
   document.querySelectorAll('.untrack-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Untrack this show? Your watched history will be kept if you track it again.')) return;
+      if (!confirm(t('untrack_confirm'))) return;
       btn.disabled = true;
       try {
         await apiPost('api/track.php', { action: 'untrack', imdb_id: btn.dataset.showId });
@@ -234,7 +243,7 @@ async function initShowDetail() {
   if (!root) return;
   const showId = root.dataset.showId;
   let isTracked = root.dataset.tracked === '1';
-  const status = el('p', { class: 'loading', text: 'Loading show…' });
+  const status = el('p', { class: 'loading', text: t('loading_show') });
   root.replaceChildren(status);
 
   let data;
@@ -242,11 +251,11 @@ async function initShowDetail() {
     data = await apiGet(`api/episodes.php?show_id=${showId}`);
     // synced_at is only set once a server-side import completed.
     if (!data.show?.synced_at || !data.episodes.length) {
-      status.textContent = 'Importing episodes (first visit for this show)…';
+      status.textContent = t('importing_first');
       data = await apiPost('api/episodes.php', { show_id: showId });
     }
   } catch (err) {
-    status.textContent = `Could not load this show: ${err.message}`;
+    status.textContent = t('could_not_load', err.message);
     return;
   }
 
@@ -255,12 +264,12 @@ async function initShowDetail() {
   const watched = new Set(data.watched || []);
   // Server clock, not browser clock — keeps aired-ness in sync with the API.
   const today = data.today ?? new Date().toISOString().slice(0, 10);
-  document.title = `${show.name} — TVTrack`;
+  document.title = `${show.name} — ${I18N.app}`;
   root.replaceChildren();
 
   const trackBtn = el('button', {
     class: 'button',
-    text: isTracked ? 'Untrack' : 'Track this show',
+    text: isTracked ? t('untrack') : t('track_show'),
     onclick: async () => {
       trackBtn.disabled = true;
       try {
@@ -269,7 +278,7 @@ async function initShowDetail() {
           imdb_id: showId,
         });
         isTracked = !isTracked;
-        trackBtn.textContent = isTracked ? 'Untrack' : 'Track this show';
+        trackBtn.textContent = isTracked ? t('untrack') : t('track_show');
       } catch (err) {
         alert(err.message);
       }
@@ -318,7 +327,7 @@ async function initShowDetail() {
       const toggleBtn = el('button', { class: 'button button-small ep-toggle-btn' });
       const setWatched = (value) => {
         isWatched = value;
-        toggleBtn.textContent = value ? `❌ Mark ${code} Not Watched` : `✅ Mark ${code} Watched`;
+        toggleBtn.textContent = value ? t('mark_ep_unwatched', code) : t('mark_ep_watched', code);
         toggleBtn.classList.toggle('button-secondary', value);
         li.classList.toggle('watched', value);
         updateSeasonBtn?.();
@@ -339,7 +348,7 @@ async function initShowDetail() {
         seasonToggles.push({ watched: () => isWatched, setWatched });
       } else {
         // Unaired (future or unknown airdate): not markable, and bulk actions skip it.
-        toggleBtn.textContent = ep.airdate ? `📅 Airs ${ep.airdate}` : '📅 Not aired yet';
+        toggleBtn.textContent = ep.airdate ? t('airs_on', ep.airdate) : t('not_aired');
         toggleBtn.disabled = true;
         toggleBtn.classList.add('button-secondary');
         li.classList.add('unaired');
@@ -352,9 +361,9 @@ async function initShowDetail() {
       li.append(title, toggleBtn);
       list.append(li);
     }
-    const title = season === 0 ? 'Specials' : `Season ${season}`;
+    const title = season === 0 ? t('specials') : t('season_n', season);
     const seasonFullyWatched = () =>
-      seasonToggles.length > 0 && seasonToggles.every((t) => t.watched());
+      seasonToggles.length > 0 && seasonToggles.every((tog) => tog.watched());
     const seasonBtn = el('button', {
       class: 'button button-small button-secondary season-watched-btn',
       onclick: async (e) => {
@@ -365,7 +374,7 @@ async function initShowDetail() {
         seasonBtn.disabled = true;
         try {
           await apiPost('api/watch.php', { show_id: showId, all: true, season, watched: !unwatch });
-          for (const t of seasonToggles) t.setWatched(!unwatch);
+          for (const tog of seasonToggles) tog.setWatched(!unwatch);
         } catch (err) {
           alert(err.message);
         }
@@ -373,18 +382,18 @@ async function initShowDetail() {
       },
     });
     updateSeasonBtn = () => {
-      seasonBtn.textContent = seasonFullyWatched() ? 'Mark Season Unwatched' : 'Mark Season Watched';
+      seasonBtn.textContent = seasonFullyWatched() ? t('mark_season_unwatched') : t('mark_season_watched');
     };
     updateSeasonBtn();
     epContainer.append(el('details', { class: 'season', ...(season === newestSeason ? { open: '' } : {}) }, [
-      el('summary', {}, [`${title} (${eps.length} episodes)`, seasonBtn]),
+      el('summary', {}, [`${title} ${t('episodes_count', eps.length)}`, seasonBtn]),
       list,
     ]));
   }
 
   const markAllBtn = el('button', {
     class: 'button button-small',
-    text: 'Mark All Episodes Watched',
+    text: t('mark_all_watched'),
     onclick: async () => {
       markAllBtn.disabled = true;
       try {
@@ -399,9 +408,9 @@ async function initShowDetail() {
 
   const unmarkAllBtn = el('button', {
     class: 'button button-small button-danger',
-    text: 'Mark All Unwatched',
+    text: t('mark_all_unwatched'),
     onclick: async () => {
-      if (!confirm('Remove your watched history for this whole show?')) return;
+      if (!confirm(t('unwatch_all_confirm'))) return;
       unmarkAllBtn.disabled = true;
       try {
         await apiPost('api/watch.php', { show_id: showId, all: true, watched: false });
@@ -417,16 +426,16 @@ async function initShowDetail() {
   // episode IMDB ids as TMDB gets them.
   const refreshBtn = el('button', {
     class: 'button button-small button-secondary',
-    text: 'Refresh episodes',
+    text: t('refresh_episodes'),
     onclick: async () => {
       refreshBtn.disabled = true;
-      refreshBtn.textContent = 'Refreshing…';
+      refreshBtn.textContent = t('refreshing');
       try {
         await apiPost('api/episodes.php', { show_id: showId });
         location.reload();
       } catch (err) {
         alert(err.message);
-        refreshBtn.textContent = 'Refresh episodes';
+        refreshBtn.textContent = t('refresh_episodes');
         refreshBtn.disabled = false;
       }
     },
@@ -434,7 +443,7 @@ async function initShowDetail() {
 
   root.append(
     el('div', { class: 'episodes-header' }, [
-      el('h2', { text: 'Episodes' }),
+      el('h2', { text: t('episodes') }),
       el('div', { class: 'episodes-actions' }, [refreshBtn, markAllBtn, unmarkAllBtn]),
     ]),
     epContainer,

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/i18n.php';
 
 // One clock for the whole app. Every "has this episode aired" comparison —
 // SQL, PHP, and the value handed to the browser — uses this date, so the
@@ -251,12 +252,13 @@ function normalize_show_status(?string $status): ?string
 /** Display label for a canonical status; empty string hides the badge. */
 function status_label(?string $status): string
 {
-    return [
-        'running' => 'Running',
-        'ended' => 'Ended',
-        'canceled' => 'Canceled',
-        'upcoming' => 'Upcoming',
-    ][$status] ?? '';
+    return match ($status) {
+        'running' => t('status_running'),
+        'ended' => t('status_ended'),
+        'canceled' => t('status_canceled'),
+        'upcoming' => t('status_upcoming'),
+        default => '',
+    };
 }
 
 /** Read and validate a JSON POST body for API endpoints. CSRF token comes in the X-CSRF-Token header. */

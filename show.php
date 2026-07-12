@@ -12,10 +12,10 @@ $stmt = db()->prepare('SELECT 1 FROM user_shows WHERE user_id = ? AND show_imdb_
 $stmt->execute([current_user_id(), $showId]);
 $isTracked = (bool) $stmt->fetch();
 
-$pageTitle = 'Show';
+$pageTitle = app_name();
 require __DIR__ . '/includes/header.php';
 ?>
 <div id="show-detail" data-show-id="<?= htmlspecialchars($showId) ?>" data-tracked="<?= $isTracked ? '1' : '0' ?>">
-    <p class="loading">Loading show…</p>
+    <p class="loading"><?= t('loading_show') ?></p>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

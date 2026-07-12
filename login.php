@@ -9,7 +9,7 @@ if (is_logged_in()) {
 $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf($_POST['csrf_token'] ?? null)) {
-        $errors[] = 'Session expired, please try again.';
+        $errors[] = t('session_expired');
     } else {
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
@@ -26,32 +26,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: index.php');
             exit;
         }
-        $errors[] = 'Invalid email or password.';
+        $errors[] = t('invalid_login');
     }
 }
 
-$pageTitle = 'Log in';
+$pageTitle = t('login_title');
 require __DIR__ . '/includes/header.php';
 ?>
 <div class="auth-card">
-    <h1>Log in</h1>
+    <h1><?= t('login_title') ?></h1>
     <?php foreach ($errors as $error): ?>
         <p class="error"><?= htmlspecialchars($error) ?></p>
     <?php endforeach; ?>
     <form method="post">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
-        <label>Email
+        <label><?= t('email') ?>
             <input type="email" name="email" required
                    value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
         </label>
-        <label>Password
+        <label><?= t('password') ?>
             <input type="password" name="password" required>
         </label>
         <label class="remember">
-            <input type="checkbox" name="remember" value="1" checked> Remember me
+            <input type="checkbox" name="remember" value="1" checked> <?= t('remember_me') ?>
         </label>
-        <button type="submit" class="button">Log in</button>
+        <button type="submit" class="button"><?= t('login_title') ?></button>
     </form>
-    <p>No account yet? <a href="register.php">Register</a></p>
+    <p><?= t('no_account') ?> <a href="register.php"><?= t('register') ?></a></p>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

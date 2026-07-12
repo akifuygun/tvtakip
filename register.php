@@ -9,27 +9,27 @@ if (is_logged_in()) {
 $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf($_POST['csrf_token'] ?? null)) {
-        $errors[] = 'Session expired, please try again.';
+        $errors[] = t('session_expired');
     }
     $displayName = trim($_POST['display_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
     if (mb_strlen($displayName) < 2 || mb_strlen($displayName) > 100) {
-        $errors[] = 'Please enter your name (2–100 characters).';
+        $errors[] = t('err_name');
     }
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Please enter a valid email address.';
+        $errors[] = t('err_email');
     }
     if (strlen($password) < 8) {
-        $errors[] = 'Password must be at least 8 characters.';
+        $errors[] = t('err_password');
     }
 
     if (!$errors) {
         $stmt = db()->prepare('SELECT id FROM users WHERE email = ?');
         $stmt->execute([$email]);
         if ($stmt->fetch()) {
-            $errors[] = 'That email is already registered.';
+            $errors[] = t('err_email_taken');
         } else {
             $stmt = db()->prepare('INSERT INTO users (email, display_name, password_hash) VALUES (?, ?, ?)');
             $stmt->execute([$email, $displayName, password_hash($password, PASSWORD_DEFAULT)]);
@@ -42,30 +42,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pageTitle = 'Register';
+$pageTitle = t('register_title');
 require __DIR__ . '/includes/header.php';
 ?>
 <div class="auth-card">
-    <h1>Create an account</h1>
+    <h1><?= t('register_title') ?></h1>
     <?php foreach ($errors as $error): ?>
         <p class="error"><?= htmlspecialchars($error) ?></p>
     <?php endforeach; ?>
     <form method="post">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
-        <label>Name
+        <label><?= t('name') ?>
             <input type="text" name="display_name" required minlength="2" maxlength="100"
-                   placeholder="Your name"
+                   placeholder="<?= t('name_placeholder') ?>"
                    value="<?= htmlspecialchars($_POST['display_name'] ?? '') ?>">
         </label>
-        <label>Email
+        <label><?= t('email') ?>
             <input type="email" name="email" required
                    value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
         </label>
-        <label>Password
+        <label><?= t('password') ?>
             <input type="password" name="password" required minlength="8">
         </label>
-        <button type="submit" class="button">Register</button>
+        <button type="submit" class="button"><?= t('register') ?></button>
     </form>
-    <p>Already have an account? <a href="login.php">Log in</a></p>
+    <p><?= t('have_account') ?> <a href="login.php"><?= t('login') ?></a></p>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

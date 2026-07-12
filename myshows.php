@@ -23,16 +23,16 @@ function next_episode_label(?string $airdate): string
         return '';
     }
     if ($days === 0) {
-        return 'Airs today';
+        return t('airs_today');
     }
-    return $days === 1 ? '1 day remaining' : "$days days remaining";
+    return $days === 1 ? t('day_remaining', 1) : t('days_remaining', $days);
 }
 
 // Group by status: running | upcoming (incl. unknown) | ended+canceled.
 $groups = [
-    'running' => ['title' => 'Running', 'open' => true, 'shows' => []],
-    'upcoming' => ['title' => 'Upcoming', 'open' => true, 'shows' => []],
-    'finished' => ['title' => 'Cancelled / Ended', 'open' => false, 'shows' => []],
+    'running' => ['title' => t('group_running'), 'open' => true, 'shows' => []],
+    'upcoming' => ['title' => t('group_upcoming'), 'open' => true, 'shows' => []],
+    'finished' => ['title' => t('group_finished'), 'open' => false, 'shows' => []],
 ];
 foreach ($shows as $show) {
     $key = match ($show['status']) {
@@ -65,16 +65,16 @@ if (!$groups['running']['shows'] && !$groups['upcoming']['shows']) {
     $groups['finished']['open'] = true;
 }
 
-$pageTitle = 'My Shows';
+$pageTitle = t('myshows_title');
 require __DIR__ . '/includes/header.php';
 ?>
 <?php if (!$shows): ?>
     <div class="hero">
-        <h1>You're not tracking any shows yet</h1>
-        <p><a class="button" href="search.php">Search for a show</a></p>
+        <h1><?= t('no_shows_yet') ?></h1>
+        <p><a class="button" href="search.php"><?= t('search_for_show') ?></a></p>
     </div>
 <?php else: ?>
-    <h1>My Shows</h1>
+    <h1><?= t('myshows_title') ?></h1>
     <?php foreach ($groups as $group): ?>
         <?php if (!$group['shows']) continue; ?>
         <details class="show-group"<?= $group['open'] ? ' open' : '' ?>>
@@ -87,7 +87,7 @@ require __DIR__ . '/includes/header.php';
                             <?php if ($show['image_url']): ?>
                                 <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="">
                             <?php else: ?>
-                                <div class="no-poster">No image</div>
+                                <div class="no-poster"><?= t('no_image') ?></div>
                             <?php endif; ?>
                             <h3><?= htmlspecialchars($show['name']) ?></h3>
                         </a>
@@ -98,7 +98,7 @@ require __DIR__ . '/includes/header.php';
                             <span class="next-ep">📅 <?= $label ?></span>
                         <?php endif; ?>
                         <button class="button button-small button-danger untrack-btn"
-                                data-show-id="<?= $imdbId ?>">Untrack</button>
+                                data-show-id="<?= $imdbId ?>"><?= t('untrack') ?></button>
                     </div>
                 <?php endforeach; ?>
             </div>
