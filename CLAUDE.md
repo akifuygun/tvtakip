@@ -38,7 +38,7 @@ Requires XAMPP at `C:\xampp` (PHP 8.2 + MariaDB). MySQL is started standalone, n
 **Aired-gating** (whether an episode can be marked watched / shows on the calendar) uses the exact UTC `airstamp` when known, date-only fallback otherwise — via `aired_sql()` in `auth.php` (it appends one positional param; callers pass `today()`). Timezone is **per-user**: the browser reports its zone in a `tz` cookie, `app_timezone()` validates it (Istanbul fallback for crawlers/first hits). Do not reintroduce date-only aired checks.
 
 **Pages** — public (indexable) vs app (login-gated):
-- `series.php` (`/series/ttNNN`) is the **unified show page**: guests get server-rendered read-only content (SEO); logged-in users get the interactive app — `app.js` fills `#show-detail` and removes the `#series-static` no-JS fallback. `show.php` is a 301 redirect here.
+- `series.php` (`/series/ttNNN`) is the **unified show page**: guests get server-rendered read-only content (SEO); logged-in users get the interactive app — `app.js` fills `#show-detail`, while the read-only markup is wrapped in `<noscript>` as the no-JS fallback. `show.php` is a 301 redirect here.
 - Public server-rendered: `browse.php`, `upcoming.php`, `series.php`, `sitemap.php`, plus the guest landing in `index.php`. App pages (`index.php` calendar when logged in, `myshows.php`, `search.php`, auth pages) set `$noindex = true`.
 - `/upcoming` is dual-purpose: full public catalog for guests, tracked-shows-only for logged-in users.
 

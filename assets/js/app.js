@@ -26,9 +26,24 @@ const STATUS_LABELS = {
   canceled: t('status_canceled'), upcoming: t('status_upcoming'),
 };
 
-// Root-absolute so calls work from subpaths like /series/ttNNN too.
+// Backstop: root-anchor so calls work from subpaths like /series/ttNNN too.
 function apiUrl(url) {
-  return url.startsWith('/') || url.startsWith('http') ? url : '/' + url;
+  return url.startsWith('/') ? url : '/' + url;
+}
+
+// Mirrors PHP series_url()/lang_path(): language-prefixed public show URL.
+function seriesUrl(imdbId) {
+  return (I18N.lang === 'tr' ? '/tr' : '') + `/series/${imdbId}`;
+}
+
+// Mirrors PHP episode_code(): S01E05.
+function epCode(ep) {
+  return `S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')}`;
+}
+
+// The API sends airstamps as MySQL UTC datetimes ("2026-07-12 01:00:00").
+function airstampDate(airstamp) {
+  return new Date(airstamp.replace(' ', 'T') + 'Z');
 }
 
 async function apiPost(url, body) {
@@ -85,7 +100,7 @@ async function promptSetImage(showId, node) {
     return;
   }
   try {
-    const res = await apiPost('api/image.php', { imdb_id: showId, image_url: clean });
+    const res = await apiPost('/api/image.php', { imdb_id: showId, image_url: clean });
     node.replaceWith(el('img', { src: res.image_url, alt: '' }));
   } catch (err) {
     alert(err.message);
@@ -100,7 +115,7 @@ function makeRemoveButton(showId, onRemoved) {
     e.stopPropagation();
     if (!confirm(t('remove_poster_confirm'))) return;
     try {
-      await apiPost('api/image.php', { imdb_id: showId, remove: true });
+      await apiPost('/api/image.php', { imdb_id: showId, remove: true });
       onRemoved();
     } catch (err) {
       alert(err.message);
@@ -162,7 +177,7 @@ function initSearch() {
     if (!q) return;
     results.textContent = t('searching');
     try {
-      const { results: items } = await apiGet(`api/search.php?q=${encodeURIComponent(q)}`);
+      const { results: items } = await apiGet(`/api/search.php?q=${encodeURIComponent(q)}`);
       results.replaceChildren();
       if (!items.length) {
         results.textContent = t('no_shows_found');
@@ -202,7 +217,7 @@ function renderSearchCard(item, trackedIds) {
       trackBtn.disabled = true;
       trackBtn.textContent = t('importing');
       try {
-        await apiPost('api/track.php', { action: 'track', imdb_id: item.imdb_id });
+        await apiPost('/api/track.php', { action: 'track', imdb_id: item.imdb_id });
         trackedIds.add(item.imdb_id);
         trackBtn.textContent = t('tracking');
       } catch (err) {
@@ -214,8 +229,8 @@ function renderSearchCard(item, trackedIds) {
   });
 
   return el('div', { class: 'show-card' }, [
-    el('a', { href: `/series/${item.imdb_id}` }, [poster]),
-    el('h3', {}, [el('a', { href: `/series/${item.imdb_id}`, text: item.name + year })]),
+    el('a', { href: seriesUrl(item.imdb_id) }, [poster]),
+    el('h3', {}, [el('a', { href: seriesUrl(item.imdb_id), text: item.name + year })]),
     source,
     trackBtn,
   ]);
@@ -228,7 +243,7 @@ function initDashboard() {
       if (!confirm(t('untrack_confirm'))) return;
       btn.disabled = true;
       try {
-        await apiPost('api/track.php', { action: 'untrack', imdb_id: btn.dataset.showId });
+        await apiPost('/api/track.php', { action: 'untrack', imdb_id: btn.dataset.showId });
         btn.closest('.show-card')?.remove();
       } catch (err) {
         btn.disabled = false;
@@ -246,7 +261,7 @@ function initCalendar() {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       try {
-        await apiPost('api/watch.php', { episode_id: Number(btn.dataset.episodeId), watched: true });
+        await apiPost('/api/watch.php', { episode_id: Number(btn.dataset.episodeId), watched: true });
         // Reload so the show's next unwatched episode takes this row's place.
         location.reload();
       } catch (err) {
@@ -261,8 +276,6 @@ function initCalendar() {
 async function initShowDetail() {
   const root = document.getElementById('show-detail');
   if (!root) return;
-  // Drop the server-rendered read-only fallback now that we're taking over.
-  document.getElementById('series-static')?.remove();
   const showId = root.dataset.showId;
   let isTracked = root.dataset.tracked === '1';
   const status = el('p', { class: 'loading', text: t('loading_show') });
@@ -270,11 +283,11 @@ async function initShowDetail() {
 
   let data;
   try {
-    data = await apiGet(`api/episodes.php?show_id=${showId}`);
+    data = await apiGet(`/api/episodes.php?show_id=${showId}`);
     // synced_at is only set once a server-side import completed.
     if (!data.show?.synced_at || !data.episodes.length) {
       status.textContent = t('importing_first');
-      data = await apiPost('api/episodes.php', { show_id: showId });
+      data = await apiPost('/api/episodes.php', { show_id: showId });
     }
   } catch (err) {
     status.textContent = t('could_not_load', err.message);
@@ -292,18 +305,19 @@ async function initShowDetail() {
   // "Airs …" in the viewer's local time when we know the exact time.
   const airsLabel = (ep) => {
     if (ep.airstamp) {
-      const d = new Date(ep.airstamp.replace(' ', 'T') + 'Z');
-      return d.toLocaleString(I18N.lang === 'tr' ? 'tr-TR' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+      return airstampDate(ep.airstamp)
+        .toLocaleString(I18N.lang === 'tr' ? 'tr-TR' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' });
     }
     return ep.airdate;
   };
 
   // Live countdown box for the next upcoming episode.
   function buildCountdown(n) {
-    const code = `S${String(n.ep.season).padStart(2, '0')}E${String(n.ep.number).padStart(2, '0')}`;
     const box = el('div', { class: 'countdown' });
-    const label = el('div', { class: 'countdown-label' });
-    label.textContent = `${t('next_episode')}: ${code}${n.ep.name ? ' · ' + n.ep.name : ''}`;
+    const label = el('div', {
+      class: 'countdown-label',
+      text: `${t('next_episode')}: ${epCode(n.ep)}${n.ep.name ? ' · ' + n.ep.name : ''}`,
+    });
     const timer = el('div', { class: 'countdown-timer' });
     const sub = el('div', { class: 'countdown-sub muted', text: airsLabel(n.ep) });
     box.append(label, timer, sub);
@@ -311,14 +325,13 @@ async function initShowDetail() {
       const ms = n.target.getTime() - Date.now();
       if (ms <= 0) {
         timer.textContent = t('airing_now');
-        clearInterval(id);
         return;
       }
       const d = Math.floor(ms / 86400000);
       const h = Math.floor(ms / 3600000) % 24;
       const m = Math.floor(ms / 60000) % 60;
       const s = Math.floor(ms / 1000) % 60;
-      if (!n.exact) {
+      if (!n.ep.airstamp) {
         timer.textContent = d <= 1 ? t('in_day') : t('in_days', d);
       } else if (d > 0) {
         timer.textContent = `${d}${t('unit_d')} ${h}${t('unit_h')} ${m}${t('unit_m')}`;
@@ -327,9 +340,10 @@ async function initShowDetail() {
       } else {
         timer.textContent = `${m}${t('unit_m')} ${s}${t('unit_s')}`;
       }
+      // Tick per second only while seconds are on screen (under a day out).
+      setTimeout(render, n.ep.airstamp && d === 0 ? 1000 : 60000);
     };
     render();
-    const id = setInterval(render, n.exact ? 1000 : 60000);
     return box;
   }
   document.title = `${I18N.app} — ${show.name}`;
@@ -340,10 +354,10 @@ async function initShowDetail() {
   for (const ep of episodes) {
     if (epHasAired(ep)) continue;
     const target = ep.airstamp
-      ? new Date(ep.airstamp.replace(' ', 'T') + 'Z')
+      ? airstampDate(ep.airstamp)
       : (ep.airdate ? new Date(ep.airdate + 'T00:00:00') : null);
     if (target && (!nextUp || target < nextUp.target)) {
-      nextUp = { ep, target, exact: !!ep.airstamp };
+      nextUp = { ep, target };
     }
   }
 
@@ -353,7 +367,7 @@ async function initShowDetail() {
     onclick: async () => {
       trackBtn.disabled = true;
       try {
-        await apiPost('api/track.php', {
+        await apiPost('/api/track.php', {
           action: isTracked ? 'untrack' : 'track',
           imdb_id: showId,
         });
@@ -398,7 +412,7 @@ async function initShowDetail() {
     let updateSeasonBtn = null;
     const list = el('ul', { class: 'episode-list' });
     for (const ep of eps) {
-      const code = `S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')}`;
+      const code = epCode(ep);
       const aired = ep.airdate ? ` — ${ep.airdate}` : '';
       const hasAired = epHasAired(ep);
       let isWatched = watched.has(ep.id);
@@ -417,7 +431,7 @@ async function initShowDetail() {
         toggleBtn.addEventListener('click', async () => {
           toggleBtn.disabled = true;
           try {
-            await apiPost('api/watch.php', { episode_id: ep.id, watched: !isWatched });
+            await apiPost('/api/watch.php', { episode_id: ep.id, watched: !isWatched });
             setWatched(!isWatched);
           } catch (err) {
             alert(err.message);
@@ -453,7 +467,7 @@ async function initShowDetail() {
         const unwatch = seasonFullyWatched();
         seasonBtn.disabled = true;
         try {
-          await apiPost('api/watch.php', { show_id: showId, all: true, season, watched: !unwatch });
+          await apiPost('/api/watch.php', { show_id: showId, all: true, season, watched: !unwatch });
           for (const tog of seasonToggles) tog.setWatched(!unwatch);
         } catch (err) {
           alert(err.message);
@@ -477,7 +491,7 @@ async function initShowDetail() {
     onclick: async () => {
       markAllBtn.disabled = true;
       try {
-        await apiPost('api/watch.php', { show_id: showId, all: true });
+        await apiPost('/api/watch.php', { show_id: showId, all: true });
         for (const setWatched of allToggles) setWatched(true);
       } catch (err) {
         alert(err.message);
@@ -493,7 +507,7 @@ async function initShowDetail() {
       if (!confirm(t('unwatch_all_confirm'))) return;
       unmarkAllBtn.disabled = true;
       try {
-        await apiPost('api/watch.php', { show_id: showId, all: true, watched: false });
+        await apiPost('/api/watch.php', { show_id: showId, all: true, watched: false });
         for (const setWatched of allToggles) setWatched(false);
       } catch (err) {
         alert(err.message);
@@ -511,7 +525,7 @@ async function initShowDetail() {
       refreshBtn.disabled = true;
       refreshBtn.textContent = t('refreshing');
       try {
-        await apiPost('api/episodes.php', { show_id: showId });
+        await apiPost('/api/episodes.php', { show_id: showId });
         location.reload();
       } catch (err) {
         alert(err.message);

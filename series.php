@@ -87,13 +87,13 @@ if (is_logged_in()) {
 require __DIR__ . '/includes/header.php';
 ?>
 <?php if (is_logged_in()): ?>
-    <!-- Interactive app view — app.js fills this and removes #series-static
-         below. The static markup stays as a no-JS fallback. -->
+    <!-- Interactive app view — app.js fills this. The static markup below is
+         wrapped in <noscript> so it only renders as the no-JS fallback. -->
     <div id="show-detail" data-show-id="<?= htmlspecialchars($showId) ?>" data-tracked="<?= $isTracked ? '1' : '0' ?>">
         <p class="loading"><?= t('loading_show') ?></p>
     </div>
+    <noscript>
 <?php endif; ?>
-<div id="series-static">
     <article class="show-header">
         <?php if ($show['image_url']): ?>
             <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="<?= htmlspecialchars($show['name']) ?>">
@@ -141,5 +141,7 @@ require __DIR__ . '/includes/header.php';
             <?php $first = false; ?>
         <?php endforeach; ?>
     <?php endif; ?>
-</div>
+<?php if (is_logged_in()): ?>
+    </noscript>
+<?php endif; ?>
 <?php require __DIR__ . '/includes/footer.php'; ?>
