@@ -2,11 +2,25 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/i18n.php';
 
-// One clock for the whole app. Every "has this episode aired" comparison —
-// SQL, PHP, and the value handed to the browser — uses this date, so the
-// UI, the API, and bulk SQL can never disagree around midnight. Istanbul
-// because the audience is Turkish: "today" matches the visitor's calendar.
-date_default_timezone_set('Europe/Istanbul');
+/**
+ * The user's timezone, reported by the browser via the 'tz' cookie
+ * (Intl.DateTimeFormat, set in app.js) and validated against PHP's identifier
+ * list. Falls back to Istanbul (primary audience) for first hits and crawlers.
+ */
+function app_timezone(): string
+{
+    static $tz = null;
+    if ($tz === null) {
+        $candidate = (string) ($_COOKIE['tz'] ?? '');
+        $tz = in_array($candidate, DateTimeZone::listIdentifiers(), true)
+            ? $candidate : 'Europe/Istanbul';
+    }
+    return $tz;
+}
+
+// One clock per request, in the user's timezone. Exact aired-gating uses UTC
+// airstamps (timezone-independent); date-only fallbacks and display use this.
+date_default_timezone_set(app_timezone());
 
 function today(): string
 {
@@ -242,6 +256,18 @@ function seo_base(): string
         $host = 'tvtakip.akifuygun.com';
     }
     return (request_is_https() ? 'https' : 'http') . '://' . $host;
+}
+
+/**
+ * SQL condition: has this episode aired? Exact when the UTC airstamp is known
+ * (TVmaze), date-granular fallback otherwise. Adds ONE positional param —
+ * callers must append today() at this position in their parameter list.
+ */
+function aired_sql(string $alias = ''): string
+{
+    $p = $alias !== '' ? $alias . '.' : '';
+    return "(({$p}airstamp IS NOT NULL AND {$p}airstamp <= UTC_TIMESTAMP())
+        OR ({$p}airstamp IS NULL AND {$p}airdate IS NOT NULL AND {$p}airdate <= ?))";
 }
 
 /** SxxEyy code for an episode. */

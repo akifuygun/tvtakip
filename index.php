@@ -27,7 +27,7 @@ if (is_logged_in()) {
          JOIN episodes e ON e.show_imdb_id = us.show_imdb_id
          LEFT JOIN watched_episodes we ON we.episode_id = e.id AND we.user_id = us.user_id
          WHERE us.user_id = ? AND we.episode_id IS NULL
-           AND e.airdate IS NOT NULL AND e.airdate <= ?
+           AND e.airdate IS NOT NULL AND ' . aired_sql('e') . '
          ORDER BY e.airdate, e.season, e.number'
     );
     $stmt->execute([current_user_id(), today()]);

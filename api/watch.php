@@ -20,10 +20,10 @@ if (!empty($data['all'])) {
                 WHERE we.user_id = ? AND e.show_imdb_id = ?';
         $seasonColumn = 'e.season';
     } else {
-        // Unaired episodes (future or unknown airdate) are never markable.
+        // Unaired episodes (future airstamp/date, or unknown) are never markable.
         $sql = 'INSERT IGNORE INTO watched_episodes (user_id, episode_id)
                 SELECT ?, id FROM episodes
-                WHERE show_imdb_id = ? AND airdate IS NOT NULL AND airdate <= ?';
+                WHERE show_imdb_id = ? AND ' . aired_sql();
         $params[] = today();
         $seasonColumn = 'season';
     }
@@ -43,13 +43,17 @@ if ($episodeId <= 0) {
 }
 
 if ($watched) {
-    $stmt = db()->prepare('SELECT airdate FROM episodes WHERE id = ?');
+    $stmt = db()->prepare('SELECT airdate, airstamp FROM episodes WHERE id = ?');
     $stmt->execute([$episodeId]);
     $row = $stmt->fetch();
     if (!$row) {
         json_response(['error' => 'Unknown episode'], 404);
     }
-    if ($row['airdate'] === null || $row['airdate'] > today()) {
+    // Exact UTC airstamp when known; date-granular fallback otherwise.
+    $aired = $row['airstamp'] !== null
+        ? $row['airstamp'] <= gmdate('Y-m-d H:i:s')
+        : ($row['airdate'] !== null && $row['airdate'] <= today());
+    if (!$aired) {
         json_response(['error' => 'This episode has not aired yet.'], 400);
     }
     $stmt = db()->prepare('INSERT IGNORE INTO watched_episodes (user_id, episode_id) VALUES (?, ?)');

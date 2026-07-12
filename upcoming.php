@@ -5,19 +5,38 @@ require_once __DIR__ . '/includes/auth.php';
 
 const UPCOMING_DAYS = 30;
 
+// Padded by a day on both sides: the airstamp shifts a US-evening episode
+// into the next local (Istanbul) day, which is what we group and filter by.
 $stmt = db()->prepare(
-    'SELECT e.season, e.number, e.name AS ep_name, e.airdate,
+    'SELECT e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp,
             s.imdb_id, s.name AS show_name
      FROM episodes e JOIN shows s ON s.imdb_id = e.show_imdb_id
      WHERE e.airdate >= ? AND e.airdate <= ?
-     ORDER BY e.airdate, s.name, e.season, e.number'
+     ORDER BY e.airstamp, e.airdate, s.name, e.season, e.number'
 );
-$stmt->execute([today(), date('Y-m-d', strtotime(today() . ' +' . UPCOMING_DAYS . ' days'))]);
+$stmt->execute([
+    date('Y-m-d', strtotime(today() . ' -1 day')),
+    date('Y-m-d', strtotime(today() . ' +' . (UPCOMING_DAYS + 1) . ' days')),
+]);
 
+$tz = new DateTimeZone(app_timezone());
+$windowEnd = date('Y-m-d', strtotime(today() . ' +' . UPCOMING_DAYS . ' days'));
 $byDate = [];
 foreach ($stmt->fetchAll() as $row) {
-    $byDate[$row['airdate']][] = $row;
+    if ($row['airstamp'] !== null) {
+        $dt = (new DateTime($row['airstamp'], new DateTimeZone('UTC')))->setTimezone($tz);
+        $row['local_date'] = $dt->format('Y-m-d');
+        $row['local_time'] = $dt->format('H:i');
+    } else {
+        $row['local_date'] = $row['airdate'];
+        $row['local_time'] = null;
+    }
+    if ($row['local_date'] < today() || $row['local_date'] > $windowEnd) {
+        continue;
+    }
+    $byDate[$row['local_date']][] = $row;
 }
+ksort($byDate);
 
 $pageTitle = t('pub_upcoming_title');
 $canonicalUrl = seo_base() . lang_path('/upcoming');
@@ -50,6 +69,7 @@ require __DIR__ . '/includes/header.php';
                     <a class="cal-show" href="<?= htmlspecialchars(series_url($ep['imdb_id'])) ?>"><?= htmlspecialchars($ep['show_name']) ?></a>
                     <?= episode_code((int) $ep['season'], (int) $ep['number']) ?>
                     <?= htmlspecialchars($ep['ep_name'] ?? '') ?>
+                    <?php if ($ep['local_time']): ?><span class="muted">· <?= $ep['local_time'] ?></span><?php endif; ?>
                 </span></li>
             <?php endforeach; ?>
         </ul>

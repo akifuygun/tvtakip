@@ -5,6 +5,16 @@
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 const IS_ADMIN = document.querySelector('meta[name="is-admin"]')?.content === '1';
 
+// Report the browser's timezone so server-rendered dates ("aired today",
+// upcoming groupings) match the user's clock. Takes effect from the next
+// request; PHP validates the value and falls back to Europe/Istanbul.
+try {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (tz && !document.cookie.includes(`tz=${encodeURIComponent(tz)}`)) {
+    document.cookie = `tz=${encodeURIComponent(tz)}; path=/; max-age=31536000; SameSite=Lax`;
+  }
+} catch { /* keep server default */ }
+
 // Translations shared with PHP via window.I18N (current language).
 const I18N = window.I18N || { lang: 'en', app: 'TVTrack', t: {} };
 function t(key, ...args) {
@@ -264,6 +274,17 @@ async function initShowDetail() {
   const watched = new Set(data.watched || []);
   // Server clock, not browser clock — keeps aired-ness in sync with the API.
   const today = data.today ?? new Date().toISOString().slice(0, 10);
+  const nowUtc = data.now ?? new Date().toISOString().slice(0, 19).replace('T', ' ');
+  // Exact UTC airstamp when known (string compare works: same format), else date.
+  const epHasAired = (ep) => (ep.airstamp ? ep.airstamp <= nowUtc : !!ep.airdate && ep.airdate <= today);
+  // "Airs …" in the viewer's local time when we know the exact time.
+  const airsLabel = (ep) => {
+    if (ep.airstamp) {
+      const d = new Date(ep.airstamp.replace(' ', 'T') + 'Z');
+      return d.toLocaleString(I18N.lang === 'tr' ? 'tr-TR' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+    return ep.airdate;
+  };
   document.title = `${I18N.app} — ${show.name}`;
   root.replaceChildren();
 
@@ -320,7 +341,7 @@ async function initShowDetail() {
     for (const ep of eps) {
       const code = `S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')}`;
       const aired = ep.airdate ? ` — ${ep.airdate}` : '';
-      const hasAired = !!ep.airdate && ep.airdate <= today;
+      const hasAired = epHasAired(ep);
       let isWatched = watched.has(ep.id);
 
       const li = el('li', {});
@@ -348,7 +369,7 @@ async function initShowDetail() {
         seasonToggles.push({ watched: () => isWatched, setWatched });
       } else {
         // Unaired (future or unknown airdate): not markable, and bulk actions skip it.
-        toggleBtn.textContent = ep.airdate ? t('airs_on', ep.airdate) : t('not_aired');
+        toggleBtn.textContent = (ep.airstamp || ep.airdate) ? t('airs_on', airsLabel(ep)) : t('not_aired');
         toggleBtn.disabled = true;
         toggleBtn.classList.add('button-secondary');
         li.classList.add('unaired');

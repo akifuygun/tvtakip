@@ -80,6 +80,34 @@ function fetch_base_from_tmdb(string $imdbId): ?array
     ];
 }
 
+/** ISO airstamp -> UTC DATETIME string, or null. */
+function utc_stamp(?string $iso): ?string
+{
+    $ts = $iso ? strtotime($iso) : false;
+    return $ts ? gmdate('Y-m-d H:i:s', $ts) : null;
+}
+
+/**
+ * Exact air times from TVmaze, keyed "season-number" (UTC DATETIME strings).
+ * TMDB has no air times, so this is the only source; empty map when the show
+ * isn't on TVmaze.
+ */
+function tvmaze_airstamps(string $imdbId): array
+{
+    $show = http_get_json(TVMAZE_BASE . '/lookup/shows?imdb=' . urlencode($imdbId));
+    if (!$show || !isset($show['id'])) {
+        return [];
+    }
+    $map = [];
+    foreach (http_get_json(TVMAZE_BASE . '/shows/' . $show['id'] . '/episodes') ?? [] as $ep) {
+        $stamp = utc_stamp($ep['airstamp'] ?? null);
+        if ($stamp !== null && isset($ep['season'], $ep['number'])) {
+            $map[$ep['season'] . '-' . $ep['number']] = $stamp;
+        }
+    }
+    return $map;
+}
+
 /** Base show + episodes from TVmaze (no episode IMDB ids there). */
 function fetch_base_from_tvmaze(string $imdbId): ?array
 {
@@ -95,6 +123,7 @@ function fetch_base_from_tvmaze(string $imdbId): ?array
             'number' => max(0, (int) ($ep['number'] ?? 0)),
             'name' => trim((string) ($ep['name'] ?? '')),
             'airdate' => valid_date($ep['airdate'] ?? null),
+            'airstamp' => utc_stamp($ep['airstamp'] ?? null),
         ];
     }
     return [
@@ -152,21 +181,23 @@ function upsert_episodes(PDO $pdo, string $showImdbId, array $episodes): int
         $placeholders = [];
         $params = [];
         foreach ($chunk as $ep) {
-            $placeholders[] = '(?, ?, ?, ?, ?, ?)';
+            $placeholders[] = '(?, ?, ?, ?, ?, ?, ?)';
             $params[] = $showImdbId;
             $params[] = valid_imdb_id($ep['imdb_id'] ?? null) ? $ep['imdb_id'] : null;
             $params[] = max(0, (int) ($ep['season'] ?? 0));
             $params[] = max(0, (int) ($ep['number'] ?? 0));
             $params[] = mb_substr(trim((string) ($ep['name'] ?? '')), 0, 255) ?: null;
             $params[] = valid_date($ep['airdate'] ?? null);
+            $params[] = $ep['airstamp'] ?? null;
         }
         $stmt = $pdo->prepare(
-            'INSERT INTO episodes (show_imdb_id, imdb_id, season, number, name, airdate)
+            'INSERT INTO episodes (show_imdb_id, imdb_id, season, number, name, airdate, airstamp)
              VALUES ' . implode(', ', $placeholders) . '
              ON DUPLICATE KEY UPDATE
                  imdb_id = COALESCE(VALUES(imdb_id), imdb_id),
                  name = VALUES(name),
-                 airdate = VALUES(airdate)'
+                 airdate = VALUES(airdate),
+                 airstamp = COALESCE(VALUES(airstamp), airstamp)'
         );
         $stmt->execute($params);
         $count += count($chunk);
@@ -240,6 +271,18 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
     $payload = fetch_base_from_tmdb($imdbId) ?? fetch_base_from_tvmaze($imdbId);
     if (!$payload) {
         throw new RuntimeException('Show not found on TMDB or TVmaze.');
+    }
+
+    // TMDB has no air times — enrich its episodes with TVmaze's UTC airstamps
+    // so aired-gating can be exact (the TVmaze path already carries them).
+    if ($payload['source'] === 'tmdb') {
+        $stamps = tvmaze_airstamps($imdbId);
+        if ($stamps) {
+            foreach ($payload['episodes'] as &$ep) {
+                $ep['airstamp'] = $stamps[$ep['season'] . '-' . $ep['number']] ?? null;
+            }
+            unset($ep);
+        }
     }
 
     // Combine providers for the poster: whoever has one wins.

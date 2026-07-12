@@ -19,7 +19,7 @@ function cache_payload(string $imdbId): array
     $show = $stmt->fetch() ?: null;
 
     $stmt = db()->prepare(
-        'SELECT id, imdb_id, season, number, name, airdate FROM episodes
+        'SELECT id, imdb_id, season, number, name, airdate, airstamp FROM episodes
          WHERE show_imdb_id = ? ORDER BY season, number'
     );
     $stmt->execute([$imdbId]);
@@ -33,9 +33,15 @@ function cache_payload(string $imdbId): array
     $stmt->execute([current_user_id(), $imdbId]);
     $watched = array_map('intval', array_column($stmt->fetchAll(), 'episode_id'));
 
-    // 'today' is the server's date — the client uses it for aired-ness so the
-    // UI can never disagree with the API's own clock.
-    return ['show' => $show, 'episodes' => $episodes, 'watched' => $watched, 'today' => today()];
+    // 'today'/'now' are the server's clock — the client uses them for
+    // aired-ness so the UI can never disagree with the API.
+    return [
+        'show' => $show,
+        'episodes' => $episodes,
+        'watched' => $watched,
+        'today' => today(),
+        'now' => gmdate('Y-m-d H:i:s'), // UTC, same format as episodes.airstamp
+    ];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {

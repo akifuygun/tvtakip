@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     number SMALLINT UNSIGNED NOT NULL,
     name VARCHAR(255) DEFAULT NULL,
     airdate DATE DEFAULT NULL,
+    airstamp DATETIME DEFAULT NULL,  -- exact air time in UTC (TVmaze), when known
     -- (show, season, number) is the ONLY identity. imdb_id is deliberately
     -- NOT unique: IMDB lists two-part episodes under one id, and a second
     -- unique key would make upserts ambiguous (corrupting the wrong row).
