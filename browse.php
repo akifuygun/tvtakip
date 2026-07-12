@@ -3,7 +3,16 @@
 // Pretty URL /browse rewrites here.
 require_once __DIR__ . '/includes/auth.php';
 
-$shows = db()->query('SELECT imdb_id, name, image_url, status FROM shows ORDER BY name')->fetchAll();
+// Upcoming first, then running, then finished shows; alphabetical within.
+$shows = db()->query(
+    "SELECT imdb_id, name, image_url, status FROM shows
+     ORDER BY CASE status
+         WHEN 'upcoming' THEN 1
+         WHEN 'running' THEN 2
+         WHEN 'canceled' THEN 3
+         WHEN 'ended' THEN 4
+         ELSE 5 END, name"
+)->fetchAll();
 
 $pageTitle = t('pub_browse_title');
 $canonicalUrl = seo_base() . lang_path('/browse');
