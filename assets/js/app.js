@@ -26,8 +26,13 @@ const STATUS_LABELS = {
   canceled: t('status_canceled'), upcoming: t('status_upcoming'),
 };
 
+// Root-absolute so calls work from subpaths like /series/ttNNN too.
+function apiUrl(url) {
+  return url.startsWith('/') || url.startsWith('http') ? url : '/' + url;
+}
+
 async function apiPost(url, body) {
-  const res = await fetch(url, {
+  const res = await fetch(apiUrl(url), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN },
     body: JSON.stringify(body),
@@ -38,7 +43,7 @@ async function apiPost(url, body) {
 }
 
 async function apiGet(url) {
-  const res = await fetch(url);
+  const res = await fetch(apiUrl(url));
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
