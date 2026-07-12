@@ -290,8 +290,55 @@ async function initShowDetail() {
     }
     return ep.airdate;
   };
+
+  // Live countdown box for the next upcoming episode.
+  function buildCountdown(n) {
+    const code = `S${String(n.ep.season).padStart(2, '0')}E${String(n.ep.number).padStart(2, '0')}`;
+    const box = el('div', { class: 'countdown' });
+    const label = el('div', { class: 'countdown-label' });
+    label.textContent = `${t('next_episode')}: ${code}${n.ep.name ? ' · ' + n.ep.name : ''}`;
+    const timer = el('div', { class: 'countdown-timer' });
+    const sub = el('div', { class: 'countdown-sub muted', text: airsLabel(n.ep) });
+    box.append(label, timer, sub);
+    const render = () => {
+      const ms = n.target.getTime() - Date.now();
+      if (ms <= 0) {
+        timer.textContent = t('airing_now');
+        clearInterval(id);
+        return;
+      }
+      const d = Math.floor(ms / 86400000);
+      const h = Math.floor(ms / 3600000) % 24;
+      const m = Math.floor(ms / 60000) % 60;
+      const s = Math.floor(ms / 1000) % 60;
+      if (!n.exact) {
+        timer.textContent = d <= 1 ? t('in_day') : t('in_days', d);
+      } else if (d > 0) {
+        timer.textContent = `${d}${t('unit_d')} ${h}${t('unit_h')} ${m}${t('unit_m')}`;
+      } else if (h > 0) {
+        timer.textContent = `${h}${t('unit_h')} ${m}${t('unit_m')} ${s}${t('unit_s')}`;
+      } else {
+        timer.textContent = `${m}${t('unit_m')} ${s}${t('unit_s')}`;
+      }
+    };
+    render();
+    const id = setInterval(render, n.exact ? 1000 : 60000);
+    return box;
+  }
   document.title = `${I18N.app} — ${show.name}`;
   root.replaceChildren();
+
+  // Soonest unaired episode with a known air time → live countdown.
+  let nextUp = null;
+  for (const ep of episodes) {
+    if (epHasAired(ep)) continue;
+    const target = ep.airstamp
+      ? new Date(ep.airstamp.replace(' ', 'T') + 'Z')
+      : (ep.airdate ? new Date(ep.airdate + 'T00:00:00') : null);
+    if (target && (!nextUp || target < nextUp.target)) {
+      nextUp = { ep, target, exact: !!ep.airstamp };
+    }
+  }
 
   const trackBtn = el('button', {
     class: 'button',
@@ -312,20 +359,20 @@ async function initShowDetail() {
     },
   });
 
-  root.append(
-    el('div', { class: 'show-header' }, [
-      posterEl(showId, show.image_url),
-      el('div', { class: 'show-info' }, [
-        el('h1', {}, [show.name + ' ', imdbLink(showId)]),
-        el('p', {
-          class: 'muted',
-          text: [show.premiered?.slice(0, 4), STATUS_LABELS[show.status]].filter(Boolean).join(' · '),
-        }),
-        el('p', { class: 'show-summary', text: show.overview ?? '' }),
-        trackBtn,
-      ]),
-    ]),
+  const info = el('div', { class: 'show-info' }, [
+    el('h1', {}, [show.name + ' ', imdbLink(showId)]),
+    el('p', {
+      class: 'muted',
+      text: [show.premiered?.slice(0, 4), STATUS_LABELS[show.status]].filter(Boolean).join(' · '),
+    }),
+  ]);
+  if (nextUp) info.append(buildCountdown(nextUp));
+  info.append(
+    el('p', { class: 'show-summary', text: show.overview ?? '' }),
+    trackBtn,
   );
+
+  root.append(el('div', { class: 'show-header' }, [posterEl(showId, show.image_url), info]));
 
   // Episodes grouped by season
   const seasons = new Map();
