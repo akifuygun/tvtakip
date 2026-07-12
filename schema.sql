@@ -53,6 +53,17 @@ CREATE TABLE IF NOT EXISTS user_shows (
     FOREIGN KEY (show_imdb_id) REFERENCES shows(imdb_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Persistent "remember me" login tokens (selector/validator pattern).
+CREATE TABLE IF NOT EXISTS remember_tokens (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    selector CHAR(32) NOT NULL,
+    validator_hash CHAR(64) NOT NULL,   -- sha256 of the validator, never the raw value
+    expires_at DATETIME NOT NULL,
+    UNIQUE KEY uq_selector (selector),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS watched_episodes (
     user_id INT UNSIGNED NOT NULL,
     episode_id INT UNSIGNED NOT NULL,

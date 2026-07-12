@@ -19,10 +19,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $stmt->fetch();
 
         if ($user && password_verify($password, $user['password_hash'])) {
-            session_regenerate_id(true);
-            $_SESSION['user_id'] = (int) $user['id'];
-            $_SESSION['display_name'] = $user['display_name'];
-            $_SESSION['email'] = $email;
+            login_user((int) $user['id'], $user['display_name'], $email);
+            if (!empty($_POST['remember'])) {
+                remember_user((int) $user['id']);
+            }
             header('Location: index.php');
             exit;
         }
@@ -46,6 +46,9 @@ require __DIR__ . '/includes/header.php';
         </label>
         <label>Password
             <input type="password" name="password" required>
+        </label>
+        <label class="remember">
+            <input type="checkbox" name="remember" value="1" checked> Remember me
         </label>
         <button type="submit" class="button">Log in</button>
     </form>

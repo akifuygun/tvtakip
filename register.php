@@ -33,10 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $stmt = db()->prepare('INSERT INTO users (email, display_name, password_hash) VALUES (?, ?, ?)');
             $stmt->execute([$email, $displayName, password_hash($password, PASSWORD_DEFAULT)]);
-            session_regenerate_id(true);
-            $_SESSION['user_id'] = (int) db()->lastInsertId();
-            $_SESSION['display_name'] = $displayName;
-            $_SESSION['email'] = $email;
+            $userId = (int) db()->lastInsertId();
+            login_user($userId, $displayName, $email);
+            remember_user($userId);
             header('Location: index.php');
             exit;
         }

@@ -11,17 +11,34 @@ function today(): string
     return date('Y-m-d');
 }
 
+const SESSION_LIFETIME = 60 * 60 * 24 * 30;   // 30 days
+const REMEMBER_COOKIE = 'tvtrack_remember';
+const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
+
+/** True when the current request reached us over HTTPS (directly or via the
+ *  InfinityFree proxy), so cookies can carry the Secure flag. */
+function request_is_https(): bool
+{
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+}
+
 if (session_status() === PHP_SESSION_NONE) {
+    // Long-lived session so users aren't logged out during normal use; the
+    // remember-me token below restores it if the shared host GCs it early.
+    ini_set('session.gc_maxlifetime', (string) SESSION_LIFETIME);
     session_set_cookie_params([
+        'lifetime' => SESSION_LIFETIME,
+        'path' => '/',
         'httponly' => true,
         'samesite' => 'Lax',
-        // Set the Secure flag automatically once the request is over HTTPS,
-        // so the cookie hardens after SSL goes live without breaking http.
-        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'),
+        'secure' => request_is_https(),
     ]);
     session_start();
 }
+
+// If the session lapsed but a valid remember-me cookie is present, log back in.
+attempt_remember_login();
 
 function current_user_id(): ?int
 {
@@ -36,6 +53,116 @@ function current_display_name(): ?string
 function is_logged_in(): bool
 {
     return current_user_id() !== null;
+}
+
+/** Establish a logged-in session for a user. */
+function login_user(int $userId, string $displayName, string $email): void
+{
+    session_regenerate_id(true);
+    $_SESSION['user_id'] = $userId;
+    $_SESSION['display_name'] = $displayName;
+    $_SESSION['email'] = $email;
+}
+
+/** Issue a remember-me cookie + DB token (selector:validator). Fail-safe:
+ *  if the token can't be stored, the user just keeps a normal session. */
+function remember_user(int $userId): void
+{
+    try {
+        $selector = bin2hex(random_bytes(16));    // 32 hex chars
+        $validator = bin2hex(random_bytes(32));   // 64 hex chars
+        $expires = time() + REMEMBER_LIFETIME;
+
+        $stmt = db()->prepare(
+            'INSERT INTO remember_tokens (user_id, selector, validator_hash, expires_at) VALUES (?, ?, ?, ?)'
+        );
+        $stmt->execute([$userId, $selector, hash('sha256', $validator), date('Y-m-d H:i:s', $expires)]);
+
+        setcookie(REMEMBER_COOKIE, $selector . ':' . $validator, [
+            'expires' => $expires,
+            'path' => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+            'secure' => request_is_https(),
+        ]);
+    } catch (Throwable $e) {
+        // remember-me unavailable (e.g. table missing) — ignore
+    }
+}
+
+/** Delete the current remember-me token (DB row + cookie), if any. */
+function forget_user(): void
+{
+    if (!empty($_COOKIE[REMEMBER_COOKIE])) {
+        [$selector] = array_pad(explode(':', $_COOKIE[REMEMBER_COOKIE], 2), 2, '');
+        if ($selector !== '') {
+            try {
+                $stmt = db()->prepare('DELETE FROM remember_tokens WHERE selector = ?');
+                $stmt->execute([$selector]);
+            } catch (Throwable $e) {
+                // ignore — still clear the cookie below
+            }
+        }
+    }
+    setcookie(REMEMBER_COOKIE, '', [
+        'expires' => time() - 3600,
+        'path' => '/',
+        'httponly' => true,
+        'samesite' => 'Lax',
+        'secure' => request_is_https(),
+    ]);
+}
+
+/** Restore a session from a valid remember-me cookie, rotating the validator. */
+function attempt_remember_login(): void
+{
+    if (is_logged_in() || empty($_COOKIE[REMEMBER_COOKIE])) {
+        return;
+    }
+    [$selector, $validator] = array_pad(explode(':', $_COOKIE[REMEMBER_COOKIE], 2), 2, '');
+    if ($selector === '' || $validator === '') {
+        forget_user();
+        return;
+    }
+
+    try {
+        $stmt = db()->prepare(
+            'SELECT rt.id, rt.user_id, rt.validator_hash, rt.expires_at, u.display_name, u.email
+             FROM remember_tokens rt JOIN users u ON u.id = rt.user_id WHERE rt.selector = ?'
+        );
+        $stmt->execute([$selector]);
+        $row = $stmt->fetch();
+
+        if (!$row) {
+            forget_user();
+            return;
+        }
+        // Constant-time compare; drop the token if expired or the validator is wrong.
+        if (strtotime($row['expires_at']) < time()
+            || !hash_equals($row['validator_hash'], hash('sha256', $validator))) {
+            $del = db()->prepare('DELETE FROM remember_tokens WHERE id = ?');
+            $del->execute([$row['id']]);
+            forget_user();
+            return;
+        }
+
+        login_user((int) $row['user_id'], $row['display_name'], $row['email']);
+
+        // Rotate the validator so a stolen cookie is single-use.
+        $newValidator = bin2hex(random_bytes(32));
+        $expires = time() + REMEMBER_LIFETIME;
+        $upd = db()->prepare('UPDATE remember_tokens SET validator_hash = ?, expires_at = ? WHERE id = ?');
+        $upd->execute([hash('sha256', $newValidator), date('Y-m-d H:i:s', $expires), $row['id']]);
+        setcookie(REMEMBER_COOKIE, $selector . ':' . $newValidator, [
+            'expires' => $expires,
+            'path' => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+            'secure' => request_is_https(),
+        ]);
+    } catch (Throwable $e) {
+        // remember-me unavailable (e.g. table missing) — stay on a normal session
+    }
 }
 
 /** True if the logged-in user's email is listed in ADMIN_EMAILS. */

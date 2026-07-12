@@ -137,6 +137,8 @@ a:hover { color: var(--accent-hover); }
   color: var(--text);
 }
 .auth-card button { width: 100%; margin-top: 0.5rem; }
+.auth-card label.remember { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); }
+.auth-card label.remember input { width: auto; margin: 0; }
 
 /* Search */
 .search-form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
