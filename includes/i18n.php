@@ -4,8 +4,35 @@
 
 function current_lang(): string
 {
+    // A /tr/ URL prefix wins (crawlable Turkish pages); the cookie otherwise.
+    $path = strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?');
+    if ($path === '/tr' || str_starts_with($path, '/tr/')) {
+        return 'tr';
+    }
     $l = $_COOKIE['lang'] ?? 'en';
     return in_array($l, ['en', 'tr'], true) ? $l : 'en';
+}
+
+/** Strip the /tr prefix from a path ('/tr/browse' -> '/browse', '/tr' -> '/'). */
+function bare_path(string $path): string
+{
+    return preg_replace('#^/tr(?=/|$)#', '', $path) ?: '/';
+}
+
+/** Language-prefixed variant of a bare public path. */
+function lang_path(string $path, ?string $lang = null): string
+{
+    if (($lang ?? current_lang()) !== 'tr') {
+        return $path;
+    }
+    return $path === '/' ? '/tr/' : '/tr' . $path;
+}
+
+/** Public pages exist under both / and /tr/ URLs; app pages don't. */
+function is_public_path(string $barePath): bool
+{
+    return $barePath === '/' || $barePath === '/index.php'
+        || preg_match('#^/(browse|upcoming|series/tt\d{6,10})/?$#', $barePath) === 1;
 }
 
 // Handle a language switch before any output, then redirect to the same page
@@ -14,7 +41,7 @@ function current_lang(): string
 function lang_switch_params(): array
 {
     $q = $_GET;
-    if (preg_match('#^/series/#', strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?'))) {
+    if (preg_match('#^(?:/tr)?/series/#', strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?'))) {
         unset($q['id']); // injected by the /series/ttNNN rewrite
     }
     return $q;
@@ -30,6 +57,11 @@ if (isset($_GET['lang'])) {
     $q = lang_switch_params();
     unset($q['lang']);
     $path = strtok($_SERVER['REQUEST_URI'], '?');
+    // Public pages have per-language URLs — switch the /tr prefix too.
+    $bare = bare_path($path);
+    if (is_public_path($bare)) {
+        $path = lang_path($bare === '/index.php' ? '/' : $bare, $to);
+    }
     header('Location: ' . $path . ($q ? '?' . http_build_query($q) : ''));
     exit;
 }

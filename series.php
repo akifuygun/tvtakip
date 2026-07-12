@@ -7,7 +7,7 @@ require_once __DIR__ . '/includes/auth.php';
 // visitor-supplied ?id= after the path's id (PHP would keep the last one),
 // and router.php resolves it the other way — the path is the one truth.
 $showId = is_string($_GET['id'] ?? null) ? $_GET['id'] : '';
-if (preg_match('#^/series/(tt\d{6,10})#', strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?'), $m)) {
+if (preg_match('#^(?:/tr)?/series/(tt\d{6,10})#', strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?'), $m)) {
     $showId = $m[1];
 }
 if (!valid_imdb_id($showId)) {

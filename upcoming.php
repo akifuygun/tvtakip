@@ -20,7 +20,7 @@ foreach ($stmt->fetchAll() as $row) {
 }
 
 $pageTitle = t('pub_upcoming_title');
-$canonicalUrl = seo_base() . '/upcoming';
+$canonicalUrl = seo_base() . lang_path('/upcoming');
 $metaDescription = t('pub_upcoming_sub', UPCOMING_DAYS);
 
 function upcoming_date_label(string $date): string

@@ -223,10 +223,10 @@ function valid_imdb_id(?string $id): bool
     return is_string($id) && preg_match('/^tt\d{6,10}$/', $id) === 1;
 }
 
-/** Public (SEO) URL of a show's series page. */
-function series_url(string $imdbId): string
+/** Public (SEO) URL of a show's series page, in the given/current language. */
+function series_url(string $imdbId, ?string $lang = null): string
 {
-    return '/series/' . $imdbId;
+    return lang_path('/series/' . $imdbId, $lang);
 }
 
 /**

@@ -6,7 +6,7 @@ require_once __DIR__ . '/includes/auth.php';
 $shows = db()->query('SELECT imdb_id, name, image_url, status FROM shows ORDER BY name')->fetchAll();
 
 $pageTitle = t('pub_browse_title');
-$canonicalUrl = seo_base() . '/browse';
+$canonicalUrl = seo_base() . lang_path('/browse');
 $metaDescription = t('pub_browse_sub', count($shows));
 
 require __DIR__ . '/includes/header.php';

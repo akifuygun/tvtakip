@@ -1,27 +1,32 @@
 <?php
 // Router for PHP's built-in dev server — mirrors the .htaccess rewrites so
-// pretty URLs work locally too. Production (Apache) never uses this file.
+// pretty URLs (including the /tr/ language prefix) work locally too.
+// Production (Apache) never uses this file.
 // Usage: php -S localhost:8000 router.php
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-if (preg_match('#^/series/(tt\d{6,10})/?$#', $path, $m)) {
+if (preg_match('#^(?:/tr)?/series/(tt\d{6,10})/?$#', $path, $m)) {
     $_GET['id'] = $m[1];
     require __DIR__ . '/series.php';
     return true;
 }
-if (preg_match('#^/series(/|$)#', $path)) {
+if (preg_match('#^(?:/tr)?/series(/|$)#', $path)) {
     // Non-matching /series/* — mirror Apache, which 404s (no path-walking
     // fallback to index.php like the built-in server would do).
     http_response_code(404);
     echo 'Not Found';
     return true;
 }
-if (preg_match('#^/browse/?$#', $path)) {
+if (preg_match('#^(?:/tr)?/browse/?$#', $path)) {
     require __DIR__ . '/browse.php';
     return true;
 }
-if (preg_match('#^/upcoming/?$#', $path)) {
+if (preg_match('#^(?:/tr)?/upcoming/?$#', $path)) {
     require __DIR__ . '/upcoming.php';
+    return true;
+}
+if (preg_match('#^/tr/?$#', $path)) {
+    require __DIR__ . '/index.php';
     return true;
 }
 if ($path === '/sitemap.xml') {

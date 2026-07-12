@@ -5,14 +5,16 @@ $items = [];
 $unsynced = [];
 $popular = [];
 if (!is_logged_in()) {
-    // Landing page: most-tracked shows with posters, linking to public pages.
+    // Landing page: most-tracked running/upcoming shows with posters,
+    // linking to the public series pages.
     $popular = db()->query(
         "SELECT s.imdb_id, s.name, s.image_url, s.status, COUNT(us.user_id) AS trackers
          FROM shows s LEFT JOIN user_shows us ON us.show_imdb_id = s.imdb_id
          WHERE s.image_url IS NOT NULL AND s.image_url <> ''
+           AND s.status IN ('running', 'upcoming')
          GROUP BY s.imdb_id, s.name, s.image_url, s.status
          ORDER BY trackers DESC, s.name
-         LIMIT 12"
+         LIMIT 10"
     )->fetchAll();
 }
 if (is_logged_in()) {
@@ -97,8 +99,8 @@ require __DIR__ . '/includes/header.php';
     <?php endif; ?>
 
     <div class="cta-row">
-        <a class="button button-secondary" href="/browse"><?= t('browse_all_shows') ?></a>
-        <a class="button button-secondary" href="/upcoming"><?= t('see_upcoming') ?></a>
+        <a class="button button-secondary" href="<?= lang_path('/browse') ?>"><?= t('browse_all_shows') ?></a>
+        <a class="button button-secondary" href="<?= lang_path('/upcoming') ?>"><?= t('see_upcoming') ?></a>
     </div>
 <?php else: ?>
     <h1><?= t('calendar_title') ?></h1>

@@ -5,7 +5,9 @@ RewriteCond %{HTTP:X-Forwarded-Proto} !https
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Pretty URLs for the public SEO pages (mirrored by router.php for local dev).
-RewriteRule ^series/(tt\d{6,10})/?$ series.php?id=$1 [L,QSA]
-RewriteRule ^browse/?$ browse.php [L,QSA]
-RewriteRule ^upcoming/?$ upcoming.php [L,QSA]
+# Each public page also exists under /tr/ for crawlable Turkish content.
+RewriteRule ^(?:tr/)?series/(tt\d{6,10})/?$ series.php?id=$1 [L,QSA]
+RewriteRule ^(?:tr/)?browse/?$ browse.php [L,QSA]
+RewriteRule ^(?:tr/)?upcoming/?$ upcoming.php [L,QSA]
+RewriteRule ^tr/?$ index.php [L,QSA]
 RewriteRule ^sitemap\.xml$ sitemap.php [L]

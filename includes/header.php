@@ -9,10 +9,14 @@ $seoBase = seo_base();
 // Pages may override: $canonicalUrl (full URL), $ogImage (absolute image URL),
 // $twitterCard, $jsonLd (pre-encoded JSON replacing the WebApplication blob).
 $seoPath = strtok($_SERVER['REQUEST_URI'], '?');
-if ($seoPath === '/index.php') {
-    $seoPath = '/'; // one canonical for the landing page
+if (in_array($seoPath, ['/index.php', '/tr', '/tr/index.php'], true)) {
+    // one canonical per language for the landing page
+    $seoPath = str_starts_with($seoPath, '/tr') ? '/tr/' : '/';
 }
 $seoCanonical = $canonicalUrl ?? $seoBase . $seoPath;
+// hreflang alternates for the public pages (each language has its own URL).
+$seoBarePath = bare_path(substr($seoCanonical, strlen($seoBase)) ?: '/');
+$seoAlternates = !$noindex && is_public_path($seoBarePath);
 $seoImage = $ogImage ?? $seoBase . '/assets/icons/og.png';
 $seoTwitterCard = $twitterCard ?? 'summary_large_image';
 $seoLocale = current_lang() === 'tr' ? 'tr_TR' : 'en_US';
@@ -38,6 +42,11 @@ $seoJsonLd = $jsonLd ?? json_encode([
     <meta name="description" content="<?= htmlspecialchars($metaDescription) ?>">
     <meta name="robots" content="<?= $noindex ? 'noindex, follow' : 'index, follow' ?>">
     <link rel="canonical" href="<?= htmlspecialchars($seoCanonical) ?>">
+    <?php if ($seoAlternates): ?>
+    <link rel="alternate" hreflang="en" href="<?= htmlspecialchars($seoBase . $seoBarePath) ?>">
+    <link rel="alternate" hreflang="tr" href="<?= htmlspecialchars($seoBase . lang_path($seoBarePath, 'tr')) ?>">
+    <link rel="alternate" hreflang="x-default" href="<?= htmlspecialchars($seoBase . $seoBarePath) ?>">
+    <?php endif; ?>
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="<?= app_name() ?>">
@@ -65,7 +74,7 @@ $seoJsonLd = $jsonLd ?? json_encode([
 </head>
 <body>
 <header class="site-header">
-    <a class="brand" href="/" title="<?= app_name() ?>" aria-label="<?= app_name() ?> home">
+    <a class="brand" href="<?= is_logged_in() ? '/' : lang_path('/') ?>" title="<?= app_name() ?>" aria-label="<?= app_name() ?> home">
         <svg class="brand-logo" viewBox="0 0 108 48" role="img" aria-label="<?= app_name() ?>">
             <defs>
                 <linearGradient id="tvt-check" x1="0" y1="0" x2="1" y2="1">
@@ -110,8 +119,8 @@ $seoJsonLd = $jsonLd ?? json_encode([
                 </button>
             </form>
         <?php else: ?>
-            <a href="/browse">🎬 <?= t('nav_browse') ?></a>
-            <a href="/upcoming">📅 <?= t('nav_upcoming') ?></a>
+            <a href="<?= lang_path('/browse') ?>">🎬 <?= t('nav_browse') ?></a>
+            <a href="<?= lang_path('/upcoming') ?>">📅 <?= t('nav_upcoming') ?></a>
             <span class="nav-sep">|</span>
             <a href="/login.php"><?= t('login') ?></a>
             <a href="/register.php"><?= t('register') ?></a>
