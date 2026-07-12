@@ -76,55 +76,70 @@ $jsonLd = json_encode(array_filter([
     'sameAs' => 'https://www.imdb.com/title/' . $showId . '/',
 ]), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
 
+// Whether the viewer already tracks this show (drives the interactive header).
+$isTracked = false;
+if (is_logged_in()) {
+    $t = db()->prepare('SELECT 1 FROM user_shows WHERE user_id = ? AND show_imdb_id = ?');
+    $t->execute([current_user_id(), $showId]);
+    $isTracked = (bool) $t->fetch();
+}
+
 require __DIR__ . '/includes/header.php';
 ?>
-<article class="show-header">
-    <?php if ($show['image_url']): ?>
-        <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="<?= htmlspecialchars($show['name']) ?>">
-    <?php else: ?>
-        <div class="no-poster"><?= t('no_image') ?></div>
-    <?php endif; ?>
-    <div class="show-info">
-        <h1><?= htmlspecialchars($show['name']) ?>
-            <a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($showId) ?>/"
-               target="_blank" rel="noopener">IMDB</a></h1>
-        <p class="muted"><?= implode(' · ', array_filter([
-            $show['premiered'] ? substr($show['premiered'], 0, 4) : null,
-            status_label($show['status']) ?: null,
-        ])) ?></p>
-        <?php if ($show['overview']): ?>
-            <p class="show-summary"><?= htmlspecialchars($show['overview']) ?></p>
-        <?php endif; ?>
-        <?php if (is_logged_in()): ?>
-            <a class="button" href="/show.php?id=<?= htmlspecialchars($showId) ?>"><?= t('open_in_app') ?></a>
-        <?php else: ?>
-            <p class="muted"><?= t('series_cta') ?></p>
-            <p><a class="button" href="/register.php"><?= t('get_started') ?></a>
-               <a class="button button-secondary" href="/login.php"><?= t('login') ?></a></p>
-        <?php endif; ?>
+<?php if (is_logged_in()): ?>
+    <!-- Interactive app view — app.js fills this and removes #series-static
+         below. The static markup stays as a no-JS fallback. -->
+    <div id="show-detail" data-show-id="<?= htmlspecialchars($showId) ?>" data-tracked="<?= $isTracked ? '1' : '0' ?>">
+        <p class="loading"><?= t('loading_show') ?></p>
     </div>
-</article>
-
-<?php if ($episodes): ?>
-    <h2><?= t('episode_guide') ?></h2>
-    <?php $first = true; ?>
-    <?php foreach ($seasons as $season => $eps): ?>
-        <details class="season"<?= $first ? ' open' : '' ?>>
-            <summary><?= $season === 0 ? t('specials') : t('season_n', $season) ?> <?= count($eps) === 1 ? t('episodes_count_one') : t('episodes_count', count($eps)) ?></summary>
-            <ul class="episode-list episode-list-plain">
-                <?php foreach ($eps as $ep): ?>
-                    <li><span class="ep-title">
-                        <?= episode_code((int) $ep['season'], (int) $ep['number']) ?>
-                        <?= htmlspecialchars($ep['name'] ?? '') ?><?= $ep['airdate'] ? ' — ' . htmlspecialchars(format_date($ep['airdate'])) : '' ?>
-                        <?php if ($ep['imdb_id']): ?>
-                            <a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($ep['imdb_id']) ?>/"
-                               target="_blank" rel="noopener">IMDB</a>
-                        <?php endif; ?>
-                    </span></li>
-                <?php endforeach; ?>
-            </ul>
-        </details>
-        <?php $first = false; ?>
-    <?php endforeach; ?>
 <?php endif; ?>
+<div id="series-static">
+    <article class="show-header">
+        <?php if ($show['image_url']): ?>
+            <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="<?= htmlspecialchars($show['name']) ?>">
+        <?php else: ?>
+            <div class="no-poster"><?= t('no_image') ?></div>
+        <?php endif; ?>
+        <div class="show-info">
+            <h1><?= htmlspecialchars($show['name']) ?>
+                <a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($showId) ?>/"
+                   target="_blank" rel="noopener">IMDB</a></h1>
+            <p class="muted"><?= implode(' · ', array_filter([
+                $show['premiered'] ? substr($show['premiered'], 0, 4) : null,
+                status_label($show['status']) ?: null,
+            ])) ?></p>
+            <?php if ($show['overview']): ?>
+                <p class="show-summary"><?= htmlspecialchars($show['overview']) ?></p>
+            <?php endif; ?>
+            <?php if (!is_logged_in()): ?>
+                <p class="muted"><?= t('series_cta') ?></p>
+                <p><a class="button" href="/register.php"><?= t('get_started') ?></a>
+                   <a class="button button-secondary" href="/login.php"><?= t('login') ?></a></p>
+            <?php endif; ?>
+        </div>
+    </article>
+
+    <?php if ($episodes): ?>
+        <h2><?= t('episode_guide') ?></h2>
+        <?php $first = true; ?>
+        <?php foreach ($seasons as $season => $eps): ?>
+            <details class="season"<?= $first ? ' open' : '' ?>>
+                <summary><?= $season === 0 ? t('specials') : t('season_n', $season) ?> <?= count($eps) === 1 ? t('episodes_count_one') : t('episodes_count', count($eps)) ?></summary>
+                <ul class="episode-list episode-list-plain">
+                    <?php foreach ($eps as $ep): ?>
+                        <li><span class="ep-title">
+                            <?= episode_code((int) $ep['season'], (int) $ep['number']) ?>
+                            <?= htmlspecialchars($ep['name'] ?? '') ?><?= $ep['airdate'] ? ' — ' . htmlspecialchars(format_date($ep['airdate'])) : '' ?>
+                            <?php if ($ep['imdb_id']): ?>
+                                <a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($ep['imdb_id']) ?>/"
+                                   target="_blank" rel="noopener">IMDB</a>
+                            <?php endif; ?>
+                        </span></li>
+                    <?php endforeach; ?>
+                </ul>
+            </details>
+            <?php $first = false; ?>
+        <?php endforeach; ?>
+    <?php endif; ?>
+</div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

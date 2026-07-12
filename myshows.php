@@ -84,7 +84,7 @@ require __DIR__ . '/includes/header.php';
                 <?php foreach ($group['shows'] as $show): ?>
                     <?php $imdbId = htmlspecialchars($show['imdb_id']); ?>
                     <div class="show-card" data-show-id="<?= $imdbId ?>">
-                        <a href="show.php?id=<?= $imdbId ?>">
+                        <a href="<?= htmlspecialchars(series_url($show['imdb_id'])) ?>">
                             <?php if ($show['image_url']): ?>
                                 <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="">
                             <?php else: ?>

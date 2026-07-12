@@ -209,8 +209,8 @@ function renderSearchCard(item, trackedIds) {
   });
 
   return el('div', { class: 'show-card' }, [
-    el('a', { href: `show.php?id=${item.imdb_id}` }, [poster]),
-    el('h3', {}, [el('a', { href: `show.php?id=${item.imdb_id}`, text: item.name + year })]),
+    el('a', { href: `/series/${item.imdb_id}` }, [poster]),
+    el('h3', {}, [el('a', { href: `/series/${item.imdb_id}`, text: item.name + year })]),
     source,
     trackBtn,
   ]);
@@ -256,6 +256,8 @@ function initCalendar() {
 async function initShowDetail() {
   const root = document.getElementById('show-detail');
   if (!root) return;
+  // Drop the server-rendered read-only fallback now that we're taking over.
+  document.getElementById('series-static')?.remove();
   const showId = root.dataset.showId;
   let isTracked = root.dataset.tracked === '1';
   const status = el('p', { class: 'loading', text: t('loading_show') });

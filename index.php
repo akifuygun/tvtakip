@@ -110,7 +110,7 @@ require __DIR__ . '/includes/header.php';
         <div class="notice">
             <?= t('notice_no_data') ?>
             <?php foreach ($unsynced as $i => $s): ?>
-                <a href="show.php?id=<?= htmlspecialchars($s['imdb_id']) ?>"><?= htmlspecialchars($s['name']) ?></a><?= $i < count($unsynced) - 1 ? ', ' : '' ?>
+                <a href="<?= htmlspecialchars(series_url($s['imdb_id'])) ?>"><?= htmlspecialchars($s['name']) ?></a><?= $i < count($unsynced) - 1 ? ', ' : '' ?>
             <?php endforeach; ?>
             <?= count($unsynced) === 1 ? t('notice_open_one') : t('notice_open_many') ?>
         </div>
@@ -125,7 +125,7 @@ require __DIR__ . '/includes/header.php';
         <div id="calendar" class="cal-grid">
             <?php foreach ($items as $ep): ?>
                 <?php
-                $showUrl = '/show.php?id=' . htmlspecialchars($ep['show_imdb_id']);
+                $showUrl = htmlspecialchars(series_url($ep['show_imdb_id']));
                 $code = episode_code((int) $ep['season'], (int) $ep['number']);
                 ?>
                 <div class="show-card">
