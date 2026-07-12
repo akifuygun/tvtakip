@@ -3,9 +3,11 @@
 A web app to track TV series: search shows, follow them, and mark episodes as watched.
 (Hosted at tvtakip.akifuygun.com; the `tvtakip` name persists in the domain, repo, and DB.)
 
-- **Live:** https://tvtakip.akifuygun.com
+- **Live:** https://tvtakip.akifuygun.com (HTTPS enforced)
 - **Stack:** Plain PHP 8 + MySQL (chosen for InfinityFree hosting), vanilla JS/CSS
 - **Canonical ids:** IMDB ids for both shows and episodes — no third-party ids in the DB
+- **Installable PWA**, mobile-friendly (hamburger nav), and **bilingual** — English
+  (TVTrack) / Turkish (TVTakip), switchable via footer flags.
 
 ## How it works
 
@@ -24,6 +26,14 @@ A web app to track TV series: search shows, follow them, and mark episodes as wa
   (IMDB lists two-part episodes under one id).
 - **Rules:** unaired episodes can't be marked watched; untracking keeps watched
   history; show statuses are normalized to running/upcoming/ended/canceled.
+- **Accounts:** email login, display name shown in the header, self-service
+  change-password. 30-day sessions plus a 60-day "remember me" token so the free
+  host's short session GC doesn't force frequent logins.
+- **Admin** (emails listed in `ADMIN_EMAILS`): can set/remove a show's poster
+  (shared cache) — the "no image" placeholder is admin-only. Everyone else is
+  refused server-side.
+- **i18n:** all strings live in one dictionary (`includes/i18n.php`), also handed
+  to the frontend as `window.I18N`; language kept in a `lang` cookie.
 
 ## Project structure
 
@@ -32,17 +42,21 @@ index.php          Calendar — next unwatched aired episode of each tracked sho
 myshows.php        Tracked shows grouped by status (Running / Upcoming / Ended)
 search.php         Search both providers and track shows
 show.php           Show detail + per-season episode toggles
+change-password.php  Self-service password change
 login.php / register.php / logout.php   (email login, display name in header)
 api/search.php     GET merged TVmaze+TMDB search (server-side)
 api/track.php      POST: track/untrack by IMDB id (imports server-side if uncached)
 api/episodes.php   GET cached show+episodes+watched; POST imports/refreshes server-side
 api/watch.php      POST toggle episode watched; bulk (un)watch per show or season
-includes/          db.php, auth.php, http.php, importer.php, header.php, footer.php
-assets/            css/style.css, js/app.js
+api/image.php      POST set/remove a show poster (admin only)
+includes/          db.php, auth.php, i18n.php, http.php, importer.php, header.php, footer.php
+assets/            css/style.css, js/app.js, icons/ (PWA + logo)
+manifest.webmanifest, sw.js   PWA manifest + service worker (static-asset cache)
 scripts/           CLI utilities: import_watchlist.php (wipe + Trakt JSON import),
                    backfill_images.php
-schema.sql         MySQL schema
-config.sample.php  Copy to config.php and fill in DB credentials + TMDB key
+schema.sql         MySQL schema (users, shows, episodes, user_shows,
+                   watched_episodes, remember_tokens)
+config.sample.php  Copy to config.php: DB credentials, TMDB_API_KEY, ADMIN_EMAILS
 ```
 
 ## Local development
@@ -52,8 +66,9 @@ Requires XAMPP (installed at `C:\xampp`, PHP 8.2 + MariaDB). One-time setup:
 1. Create the database and import the schema:
    `C:\xampp\mysql\bin\mysql.exe -u root -e "CREATE DATABASE tvtakip CHARACTER SET utf8mb4"` then
    `C:\xampp\mysql\bin\mysql.exe -u root tvtakip < schema.sql`
-2. `copy config.sample.php config.php` (defaults already match XAMPP: root, no password)
-   and set `TMDB_API_KEY` (free key from https://www.themoviedb.org/settings/api).
+2. `copy config.sample.php config.php` (defaults already match XAMPP: root, no password),
+   set `TMDB_API_KEY` (free key from https://www.themoviedb.org/settings/api), and add
+   your email to `ADMIN_EMAILS` if you want admin controls.
 
 Then run `start-dev.bat` — it starts MySQL if needed and serves the site at
 http://localhost:8000.
