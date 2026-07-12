@@ -264,7 +264,7 @@ async function initShowDetail() {
   const watched = new Set(data.watched || []);
   // Server clock, not browser clock — keeps aired-ness in sync with the API.
   const today = data.today ?? new Date().toISOString().slice(0, 10);
-  document.title = `${show.name} — ${I18N.app}`;
+  document.title = `${I18N.app} — ${show.name}`;
   root.replaceChildren();
 
   const trackBtn = el('button', {
