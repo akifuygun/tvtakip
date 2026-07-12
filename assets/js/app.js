@@ -146,6 +146,11 @@ function initSearch() {
   const results = document.getElementById('search-results');
   const trackedIds = new Set(window.TRACKED_IDS || []);
 
+  // Arriving from the header search box (?q=...): run the search right away.
+  if (input.value.trim()) {
+    setTimeout(() => form.requestSubmit(), 0);
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const q = input.value.trim();

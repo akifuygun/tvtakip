@@ -52,6 +52,20 @@ a:hover { color: var(--accent-hover); }
 .nav-user { color: var(--muted); }
 .nav-user a { color: var(--text); }
 .nav-user a:hover { color: var(--accent); }
+/* Desktop nav: inline search box; the plain link shows only in the mobile menu. */
+.nav-search { display: inline-flex; margin: 0; }
+.nav-search input {
+  width: 150px;
+  padding: 0.3rem 0.65rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9rem;
+  transition: width 0.15s ease, border-color 0.15s ease;
+}
+.nav-search input:focus { outline: none; border-color: var(--accent); width: 210px; }
+.nav-search-link { display: none; }
 .nav-sep { color: var(--border); }
 .logout-form { display: inline-flex; margin: 0; }
 .logout-link {
@@ -394,6 +408,8 @@ a:hover { color: var(--accent-hover); }
     border-top: 1px solid var(--border);
   }
   .nav-sep { display: none; }
+  .nav-search { display: none; }
+  .nav-search-link { display: block; }
   .logout-label { display: inline; }
   .logout-form .logout-link { width: 100%; justify-content: flex-start; }
 

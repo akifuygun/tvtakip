@@ -104,7 +104,11 @@ $seoJsonLd = $jsonLd ?? json_encode([
             <span class="nav-user"><?= t('welcome') ?> <a href="/change-password.php" title="<?= t('change_password') ?>"><?= htmlspecialchars(current_display_name()) ?></a></span>
             <a href="/">📅 <?= t('nav_calendar') ?></a>
             <a href="/myshows.php">🎬 <?= t('nav_myshows') ?></a>
-            <a href="/search.php">🔍 <?= t('nav_search') ?></a>
+            <form class="nav-search" action="/search.php" method="get" role="search">
+                <input type="search" name="q" placeholder="🔍 <?= t('nav_search') ?>"
+                       aria-label="<?= t('nav_search') ?>">
+            </form>
+            <a class="nav-search-link" href="/search.php">🔍 <?= t('nav_search') ?></a>
             <span class="nav-sep">|</span>
             <form method="post" action="/logout.php" class="logout-form">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">

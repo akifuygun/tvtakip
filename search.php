@@ -13,7 +13,8 @@ require __DIR__ . '/includes/header.php';
 ?>
 <h1><?= t('search_title') ?></h1>
 <form id="search-form" class="search-form" autocomplete="off">
-    <input type="search" id="search-input" placeholder="<?= t('search_placeholder') ?>" required>
+    <input type="search" id="search-input" placeholder="<?= t('search_placeholder') ?>" required
+           value="<?= htmlspecialchars(is_string($_GET['q'] ?? null) ? $_GET['q'] : '') ?>">
     <button type="submit" class="button"><?= t('search_button') ?></button>
 </form>
 <div id="search-results" class="show-grid"></div>
