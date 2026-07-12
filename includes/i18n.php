@@ -10,6 +10,16 @@ function current_lang(): string
 
 // Handle a language switch before any output, then redirect to the same page
 // without the ?lang param (so it doesn't stick in the URL).
+/** Query params minus values the URL rewrite injected (they live in the path). */
+function lang_switch_params(): array
+{
+    $q = $_GET;
+    if (preg_match('#^/series/#', strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?'))) {
+        unset($q['id']); // injected by the /series/ttNNN rewrite
+    }
+    return $q;
+}
+
 if (isset($_GET['lang'])) {
     $to = in_array($_GET['lang'], ['en', 'tr'], true) ? $_GET['lang'] : 'en';
     setcookie('lang', $to, [
@@ -17,7 +27,7 @@ if (isset($_GET['lang'])) {
         'path' => '/',
         'samesite' => 'Lax',
     ]);
-    $q = $_GET;
+    $q = lang_switch_params();
     unset($q['lang']);
     $path = strtok($_SERVER['REQUEST_URI'], '?');
     header('Location: ' . $path . ($q ? '?' . http_build_query($q) : ''));
@@ -27,9 +37,19 @@ if (isset($_GET['lang'])) {
 /** URL to switch to a language, preserving the current page's other params. */
 function lang_url(string $lang): string
 {
-    $q = $_GET;
+    $q = lang_switch_params();
     $q['lang'] = $lang;
     return strtok($_SERVER['REQUEST_URI'], '?') . '?' . http_build_query($q);
+}
+
+/** Locale-formatted date for public pages (TR: 15.07.2026, EN: Jul 15, 2026). */
+function format_date(?string $ymd): string
+{
+    if (!$ymd) {
+        return '';
+    }
+    $ts = strtotime($ymd);
+    return current_lang() === 'tr' ? date('d.m.Y', $ts) : date('M j, Y', $ts);
 }
 
 const APP_NAMES = ['en' => 'TVTrack', 'tr' => 'TVTakip'];
@@ -48,6 +68,35 @@ $GLOBALS['I18N'] = [
         'lang_tr' => 'Türkçe', 'lang_en' => 'English',
         'meta_description' => "Track your favorite TV series, follow upcoming episodes, and mark what you've watched — a free, no-clutter personal TV episode tracker.",
         'tagline' => 'Track your TV series and never miss an episode.',
+        // public pages & landing
+        'nav_browse' => 'Browse', 'nav_upcoming' => 'Upcoming',
+        'features_title' => 'Everything you need to follow your shows',
+        'feat_calendar_t' => 'Episode calendar',
+        'feat_calendar_d' => "See each show's next unwatched episode the moment you log in.",
+        'feat_track_t' => 'Progress tracking',
+        'feat_track_d' => 'Mark episodes, seasons or whole shows watched — your history is kept even if you untrack.',
+        'feat_search_t' => 'Two-provider search',
+        'feat_search_d' => 'TVmaze and TMDB merged by IMDB id, so hard-to-find shows still show up.',
+        'feat_imdb_t' => 'IMDB-based',
+        'feat_imdb_d' => 'Shows and episodes are keyed by IMDB ids, with direct IMDB links everywhere.',
+        'feat_lang_t' => 'English & Turkish',
+        'feat_lang_d' => 'A fully bilingual interface — switch languages any time from the footer.',
+        'feat_pwa_t' => 'Installable app',
+        'feat_pwa_d' => "Add it to your phone's home screen and use it like a native app.",
+        'popular_title' => 'Popular shows',
+        'browse_all_shows' => 'Browse all shows',
+        'see_upcoming' => 'See upcoming episodes',
+        'pub_browse_title' => 'Browse TV Shows',
+        'pub_browse_sub' => 'Episode guides and air dates for %d TV series.',
+        'pub_upcoming_title' => 'Upcoming Episodes',
+        'pub_upcoming_sub' => 'Episodes airing in the next %d days.',
+        'pub_no_upcoming' => 'No episodes scheduled in the next %d days.',
+        'today_label' => 'Today', 'tomorrow_label' => 'Tomorrow',
+        'episode_guide' => 'Episode Guide',
+        'open_in_app' => 'Open in the app',
+        'series_cta' => 'Sign up free to track this show and never miss an episode.',
+        'series_not_found' => 'Show not found.',
+        'series_meta_suffix' => 'episode guide, seasons and air dates',
         // calendar
         'calendar_title' => 'Calendar',
         'calendar_sub' => "The next unwatched episode of each show you track.",
@@ -83,7 +132,8 @@ $GLOBALS['I18N'] = [
         'mark_season_watched' => 'Mark Season Watched', 'mark_season_unwatched' => 'Mark Season Unwatched',
         'mark_ep_watched' => '✅ Mark %s Watched', 'mark_ep_unwatched' => '❌ Mark %s Not Watched',
         'airs_on' => '📅 Airs %s', 'not_aired' => '📅 Not aired yet',
-        'specials' => 'Specials', 'season_n' => 'Season %d', 'episodes_count' => '(%d episodes)',
+        'specials' => 'Specials', 'season_n' => 'Season %d',
+        'episodes_count' => '(%d episodes)', 'episodes_count_one' => '(1 episode)',
         'click_to_add' => 'Click to add',
         'add_image_title' => 'Click to add an image',
         'add_image_prompt' => 'Paste an image URL for this show:',
@@ -115,6 +165,34 @@ $GLOBALS['I18N'] = [
         'lang_tr' => 'Türkçe', 'lang_en' => 'English',
         'meta_description' => 'Favori dizilerini takip et, yeni bölümleri kaçırma ve izlediklerini işaretle — ücretsiz, sade bir kişisel dizi takip uygulaması.',
         'tagline' => 'Dizilerini takip et, hiçbir bölümü kaçırma.',
+        'nav_browse' => 'Diziler', 'nav_upcoming' => 'Yaklaşanlar',
+        'features_title' => 'Dizilerini takip etmek için gereken her şey',
+        'feat_calendar_t' => 'Bölüm takvimi',
+        'feat_calendar_d' => 'Giriş yaptığın anda her dizinin izlemediğin ilk bölümünü gör.',
+        'feat_track_t' => 'İlerleme takibi',
+        'feat_track_d' => 'Bölümleri, sezonları veya tüm diziyi izlendi işaretle — takibi bıraksan bile geçmişin korunur.',
+        'feat_search_t' => 'Çift kaynaklı arama',
+        'feat_search_d' => 'TVmaze ve TMDB, IMDB kimliğiyle birleştirilir; zor bulunan diziler bile karşına çıkar.',
+        'feat_imdb_t' => 'IMDB tabanlı',
+        'feat_imdb_d' => 'Diziler ve bölümler IMDB kimlikleriyle tutulur; her yerde doğrudan IMDB bağlantıları vardır.',
+        'feat_lang_t' => 'Türkçe & İngilizce',
+        'feat_lang_d' => 'Tamamen iki dilli arayüz — alt bilgiden istediğin an dil değiştir.',
+        'feat_pwa_t' => 'Kurulabilir uygulama',
+        'feat_pwa_d' => 'Telefonunun ana ekranına ekle, yerel uygulama gibi kullan.',
+        'popular_title' => 'Popüler diziler',
+        'browse_all_shows' => 'Tüm dizilere göz at',
+        'see_upcoming' => 'Yaklaşan bölümleri gör',
+        'pub_browse_title' => 'Dizilere Göz At',
+        'pub_browse_sub' => '%d dizi için bölüm rehberleri ve yayın tarihleri.',
+        'pub_upcoming_title' => 'Yaklaşan Bölümler',
+        'pub_upcoming_sub' => 'Önümüzdeki %d gün içinde yayınlanacak bölümler.',
+        'pub_no_upcoming' => 'Önümüzdeki %d gün içinde planlanmış bölüm yok.',
+        'today_label' => 'Bugün', 'tomorrow_label' => 'Yarın',
+        'episode_guide' => 'Bölüm Rehberi',
+        'open_in_app' => 'Uygulamada aç',
+        'series_cta' => 'Bu diziyi takip etmek ve hiçbir bölümü kaçırmamak için ücretsiz kayıt ol.',
+        'series_not_found' => 'Dizi bulunamadı.',
+        'series_meta_suffix' => 'bölüm rehberi, sezonlar ve yayın tarihleri',
         'calendar_title' => 'Takvim',
         'calendar_sub' => 'Takip ettiğin her dizinin izlemediğin ilk bölümü.',
         'all_caught_up' => '🎉 Her şeyi izledin!',
@@ -146,7 +224,8 @@ $GLOBALS['I18N'] = [
         'mark_season_watched' => 'Sezonu İzlendi İşaretle', 'mark_season_unwatched' => 'Sezonu İzlenmedi İşaretle',
         'mark_ep_watched' => '✅ %s İzlendi İşaretle', 'mark_ep_unwatched' => '❌ %s İzlenmedi İşaretle',
         'airs_on' => '📅 Yayın: %s', 'not_aired' => '📅 Henüz yayınlanmadı',
-        'specials' => 'Özel Bölümler', 'season_n' => '%d. Sezon', 'episodes_count' => '(%d bölüm)',
+        'specials' => 'Özel Bölümler', 'season_n' => '%d. Sezon',
+        'episodes_count' => '(%d bölüm)', 'episodes_count_one' => '(1 bölüm)',
         'click_to_add' => 'Eklemek için tıkla',
         'add_image_title' => 'Görsel eklemek için tıkla',
         'add_image_prompt' => "Bu dizi için bir görsel URL'si yapıştır:",

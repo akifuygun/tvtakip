@@ -386,7 +386,7 @@ async function initShowDetail() {
     };
     updateSeasonBtn();
     epContainer.append(el('details', { class: 'season', ...(season === newestSeason ? { open: '' } : {}) }, [
-      el('summary', {}, [`${title} ${t('episodes_count', eps.length)}`, seasonBtn]),
+      el('summary', {}, [`${title} ${eps.length === 1 ? t('episodes_count_one') : t('episodes_count', eps.length)}`, seasonBtn]),
       list,
     ]));
   }

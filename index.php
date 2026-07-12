@@ -3,6 +3,18 @@ require_once __DIR__ . '/includes/auth.php';
 
 $items = [];
 $unsynced = [];
+$popular = [];
+if (!is_logged_in()) {
+    // Landing page: most-tracked shows with posters, linking to public pages.
+    $popular = db()->query(
+        "SELECT s.imdb_id, s.name, s.image_url, s.status, COUNT(us.user_id) AS trackers
+         FROM shows s LEFT JOIN user_shows us ON us.show_imdb_id = s.imdb_id
+         WHERE s.image_url IS NOT NULL AND s.image_url <> ''
+         GROUP BY s.imdb_id, s.name, s.image_url, s.status
+         ORDER BY trackers DESC, s.name
+         LIMIT 12"
+    )->fetchAll();
+}
 if (is_logged_in()) {
     // For each tracked show: its earliest aired episode that isn't watched yet.
     $stmt = db()->prepare(
@@ -48,9 +60,45 @@ require __DIR__ . '/includes/header.php';
         <h1><?= t('welcome_h1') ?></h1>
         <p><?= t('welcome_p') ?></p>
         <p>
-            <a class="button" href="register.php"><?= t('get_started') ?></a>
-            <a class="button button-secondary" href="login.php"><?= t('login') ?></a>
+            <a class="button" href="/register.php"><?= t('get_started') ?></a>
+            <a class="button button-secondary" href="/login.php"><?= t('login') ?></a>
         </p>
+    </div>
+
+    <section class="landing-section">
+        <h2><?= t('features_title') ?></h2>
+        <div class="features">
+            <?php foreach ([
+                ['📅', 'feat_calendar_t', 'feat_calendar_d'],
+                ['✅', 'feat_track_t', 'feat_track_d'],
+                ['🔍', 'feat_search_t', 'feat_search_d'],
+                ['🎬', 'feat_imdb_t', 'feat_imdb_d'],
+                ['🌍', 'feat_lang_t', 'feat_lang_d'],
+                ['📱', 'feat_pwa_t', 'feat_pwa_d'],
+            ] as [$icon, $tKey, $dKey]): ?>
+                <div class="feature-card">
+                    <span class="feat-icon"><?= $icon ?></span>
+                    <h3><?= t($tKey) ?></h3>
+                    <p><?= t($dKey) ?></p>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+    <?php if ($popular): ?>
+        <section class="landing-section">
+            <h2><?= t('popular_title') ?></h2>
+            <div class="show-grid">
+                <?php foreach ($popular as $show): ?>
+                    <?= show_card_html($show, series_url($show['imdb_id'])) ?>
+                <?php endforeach; ?>
+            </div>
+        </section>
+    <?php endif; ?>
+
+    <div class="cta-row">
+        <a class="button button-secondary" href="/browse"><?= t('browse_all_shows') ?></a>
+        <a class="button button-secondary" href="/upcoming"><?= t('see_upcoming') ?></a>
     </div>
 <?php else: ?>
     <h1><?= t('calendar_title') ?></h1>
@@ -75,9 +123,8 @@ require __DIR__ . '/includes/header.php';
         <div id="calendar" class="cal-grid">
             <?php foreach ($items as $ep): ?>
                 <?php
-                $showUrl = 'show.php?id=' . htmlspecialchars($ep['show_imdb_id']);
-                $code = 'S' . str_pad((string) $ep['season'], 2, '0', STR_PAD_LEFT)
-                      . 'E' . str_pad((string) $ep['number'], 2, '0', STR_PAD_LEFT);
+                $showUrl = '/show.php?id=' . htmlspecialchars($ep['show_imdb_id']);
+                $code = episode_code((int) $ep['season'], (int) $ep['number']);
                 ?>
                 <div class="show-card">
                     <a href="<?= $showUrl ?>">

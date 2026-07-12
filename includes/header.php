@@ -5,10 +5,27 @@ $fullTitle = app_name() . ' — ' . $pageTitle;
 $metaDescription = $metaDescription ?? t('meta_description');
 $noindex = $noindex ?? false;
 
-$seoBase = (request_is_https() ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'tvtakip.akifuygun.com');
-$seoCanonical = $seoBase . strtok($_SERVER['REQUEST_URI'], '?');
-$seoImage = $seoBase . '/assets/icons/og.png';
+$seoBase = seo_base();
+// Pages may override: $canonicalUrl (full URL), $ogImage (absolute image URL),
+// $twitterCard, $jsonLd (pre-encoded JSON replacing the WebApplication blob).
+$seoPath = strtok($_SERVER['REQUEST_URI'], '?');
+if ($seoPath === '/index.php') {
+    $seoPath = '/'; // one canonical for the landing page
+}
+$seoCanonical = $canonicalUrl ?? $seoBase . $seoPath;
+$seoImage = $ogImage ?? $seoBase . '/assets/icons/og.png';
+$seoTwitterCard = $twitterCard ?? 'summary_large_image';
 $seoLocale = current_lang() === 'tr' ? 'tr_TR' : 'en_US';
+$seoJsonLd = $jsonLd ?? json_encode([
+    '@context' => 'https://schema.org',
+    '@type' => 'WebApplication',
+    'name' => app_name(),
+    'url' => $seoBase . '/',
+    'applicationCategory' => 'EntertainmentApplication',
+    'operatingSystem' => 'Web',
+    'description' => $metaDescription,
+    'offers' => ['@type' => 'Offer', 'price' => '0', 'priceCurrency' => 'USD'],
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
 ?>
 <!DOCTYPE html>
 <html lang="<?= current_lang() ?>">
@@ -29,12 +46,12 @@ $seoLocale = current_lang() === 'tr' ? 'tr_TR' : 'en_US';
     <meta property="og:url" content="<?= htmlspecialchars($seoCanonical) ?>">
     <meta property="og:image" content="<?= htmlspecialchars($seoImage) ?>">
     <meta property="og:locale" content="<?= $seoLocale ?>">
-    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:card" content="<?= htmlspecialchars($seoTwitterCard) ?>">
     <meta name="twitter:title" content="<?= htmlspecialchars($fullTitle) ?>">
     <meta name="twitter:description" content="<?= htmlspecialchars($metaDescription) ?>">
     <meta name="twitter:image" content="<?= htmlspecialchars($seoImage) ?>">
 
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg">
     <link rel="manifest" href="/manifest.webmanifest">
@@ -43,14 +60,12 @@ $seoLocale = current_lang() === 'tr' ? 'tr_TR' : 'en_US';
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="<?= app_name() ?>">
-    <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"WebApplication","name":"<?= app_name() ?>","url":"<?= $seoBase ?>/","applicationCategory":"EntertainmentApplication","operatingSystem":"Web","description":"<?= htmlspecialchars($metaDescription, ENT_QUOTES) ?>","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
-    </script>
+    <script type="application/ld+json"><?= $seoJsonLd ?></script>
     <script>window.I18N = <?= i18n_js() ?>;</script>
 </head>
 <body>
 <header class="site-header">
-    <a class="brand" href="index.php" title="<?= app_name() ?>" aria-label="<?= app_name() ?> home">
+    <a class="brand" href="/" title="<?= app_name() ?>" aria-label="<?= app_name() ?> home">
         <svg class="brand-logo" viewBox="0 0 108 48" role="img" aria-label="<?= app_name() ?>">
             <defs>
                 <linearGradient id="tvt-check" x1="0" y1="0" x2="1" y2="1">
@@ -77,12 +92,12 @@ $seoLocale = current_lang() === 'tr' ? 'tr_TR' : 'en_US';
     </button>
     <nav id="site-nav">
         <?php if (is_logged_in()): ?>
-            <span class="nav-user"><?= t('welcome') ?> <a href="change-password.php" title="<?= t('change_password') ?>"><?= htmlspecialchars(current_display_name()) ?></a></span>
-            <a href="index.php">📅 <?= t('nav_calendar') ?></a>
-            <a href="myshows.php">🎬 <?= t('nav_myshows') ?></a>
-            <a href="search.php">🔍 <?= t('nav_search') ?></a>
+            <span class="nav-user"><?= t('welcome') ?> <a href="/change-password.php" title="<?= t('change_password') ?>"><?= htmlspecialchars(current_display_name()) ?></a></span>
+            <a href="/">📅 <?= t('nav_calendar') ?></a>
+            <a href="/myshows.php">🎬 <?= t('nav_myshows') ?></a>
+            <a href="/search.php">🔍 <?= t('nav_search') ?></a>
             <span class="nav-sep">|</span>
-            <form method="post" action="logout.php" class="logout-form">
+            <form method="post" action="/logout.php" class="logout-form">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
                 <button type="submit" title="<?= t('logout') ?>" class="logout-link">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -95,8 +110,11 @@ $seoLocale = current_lang() === 'tr' ? 'tr_TR' : 'en_US';
                 </button>
             </form>
         <?php else: ?>
-            <a href="login.php"><?= t('login') ?></a>
-            <a href="register.php"><?= t('register') ?></a>
+            <a href="/browse">🎬 <?= t('nav_browse') ?></a>
+            <a href="/upcoming">📅 <?= t('nav_upcoming') ?></a>
+            <span class="nav-sep">|</span>
+            <a href="/login.php"><?= t('login') ?></a>
+            <a href="/register.php"><?= t('register') ?></a>
         <?php endif; ?>
     </nav>
 </header>

@@ -295,6 +295,42 @@ a:hover { color: var(--accent-hover); }
 
 .source-tag { font-size: 0.72rem; }
 
+/* Landing page (guests) */
+.landing-section h2 { margin: 2.2rem 0 1rem; }
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+.feature-card .feat-icon { font-size: 1.6rem; }
+.feature-card h3 { margin: 0.4rem 0 0.3rem; font-size: 1rem; }
+.feature-card p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.cta-row {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 2rem 0 1rem;
+}
+@media (max-width: 700px) { .features { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .features { grid-template-columns: 1fr; } }
+
+/* Public pages (series / upcoming) */
+.date-head {
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin: 1.4rem 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.episode-list-plain li { background: transparent; }
+
 .next-ep { font-size: 0.78rem; color: #e0b352; }
 
 /* My Shows groups — the bordered box contains both the header and its cards */

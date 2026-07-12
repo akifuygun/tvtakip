@@ -4,8 +4,9 @@ require_once __DIR__ . '/i18n.php';
 
 // One clock for the whole app. Every "has this episode aired" comparison —
 // SQL, PHP, and the value handed to the browser — uses this date, so the
-// UI, the API, and bulk SQL can never disagree around midnight.
-date_default_timezone_set('UTC');
+// UI, the API, and bulk SQL can never disagree around midnight. Istanbul
+// because the audience is Turkish: "today" matches the visitor's calendar.
+date_default_timezone_set('Europe/Istanbul');
 
 function today(): string
 {
@@ -220,6 +221,59 @@ function json_response(array $data, int $status = 200): never
 function valid_imdb_id(?string $id): bool
 {
     return is_string($id) && preg_match('/^tt\d{6,10}$/', $id) === 1;
+}
+
+/** Public (SEO) URL of a show's series page. */
+function series_url(string $imdbId): string
+{
+    return '/series/' . $imdbId;
+}
+
+/**
+ * Scheme+host for absolute SEO URLs (canonical, og:url, sitemap). The Host
+ * header is attacker-controlled, so only whitelisted hosts are echoed back;
+ * anything else falls back to the production domain.
+ */
+function seo_base(): string
+{
+    $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+    if ($host !== 'tvtakip.akifuygun.com'
+        && !preg_match('/^(localhost|127\.0\.0\.1)(:\d+)?$/', $host)) {
+        $host = 'tvtakip.akifuygun.com';
+    }
+    return (request_is_https() ? 'https' : 'http') . '://' . $host;
+}
+
+/** SxxEyy code for an episode. */
+function episode_code(int $season, int $number): string
+{
+    return sprintf('S%02dE%02d', $season, $number);
+}
+
+/** Shared public show-card markup (browse page, landing page). */
+function show_card_html(array $show, string $href): string
+{
+    $name = htmlspecialchars($show['name']);
+    $img = $show['image_url']
+        ? '<img src="' . htmlspecialchars($show['image_url']) . '" alt="' . $name . '" loading="lazy">'
+        : '<div class="no-poster">' . t('no_image') . '</div>';
+    $label = status_label($show['status'] ?? null);
+    $badge = $label
+        ? '<span class="status status-' . htmlspecialchars($show['status']) . '">' . $label . '</span>'
+        : '';
+    return '<div class="show-card"><a href="' . htmlspecialchars($href) . '">'
+        . $img . '<h3>' . $name . '</h3></a>' . $badge . '</div>';
+}
+
+/** Single-line plain-text excerpt for meta descriptions, cut at a word. */
+function text_excerpt(?string $text, int $max = 155): string
+{
+    $text = trim(preg_replace('/\s+/u', ' ', (string) $text));
+    if ($text === '' || mb_strlen($text) <= $max) {
+        return $text;
+    }
+    $cut = mb_substr($text, 0, $max);
+    return preg_replace('/\s+\S*$/u', '', $cut) . '…';
 }
 
 /**

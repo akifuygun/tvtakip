@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     -- unique key would make upserts ambiguous (corrupting the wrong row).
     UNIQUE KEY uq_show_episode (show_imdb_id, season, number),
     KEY idx_show_airdate (show_imdb_id, airdate),
+    KEY idx_airdate (airdate),  -- public /upcoming page filters by airdate alone
     FOREIGN KEY (show_imdb_id) REFERENCES shows(imdb_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
