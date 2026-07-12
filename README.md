@@ -1,10 +1,9 @@
 # TVTrack
 
 A web app to track TV series: search shows, follow them, and mark episodes as watched.
-(Hosted at tvtakip.akifuygun.com; the `tvtakip` name persists in the domain, repo, and DB.)
+(English name TVTrack, Turkish name TVTakip; the `tvtakip` name persists in the domain, repo, and DB.)
 
-- **Live:** https://tvtakip.akifuygun.com (HTTPS enforced)
-- **Stack:** Plain PHP 8 + MySQL (chosen for InfinityFree hosting), vanilla JS/CSS
+- **Stack:** Plain PHP 8 + MySQL, vanilla JS/CSS
 - **Canonical ids:** IMDB ids for both shows and episodes — no third-party ids in the DB
 - **Installable PWA**, mobile-friendly (hamburger nav), and **bilingual** — English
   (TVTrack) / Turkish (TVTakip), switchable via footer flags.
@@ -72,15 +71,3 @@ Requires XAMPP (installed at `C:\xampp`, PHP 8.2 + MariaDB). One-time setup:
 
 Then run `start-dev.bat` — it starts MySQL if needed and serves the site at
 http://localhost:8000.
-
-## Deploying to InfinityFree
-
-1. In the InfinityFree control panel, create a **MySQL database**. Note the host
-   (`sqlXXX.infinityfree.com`), database name (`epiz_XXXX_tvtakip`), username and password.
-2. Open **phpMyAdmin** from the control panel and import `schema.sql` into that database.
-3. Create `config.php` (copy of `config.sample.php`) with those credentials.
-   **Never commit `config.php`** — it is gitignored.
-4. Upload everything in this repo (including `config.php`, excluding `.git`) into `htdocs/`
-   using the online file manager or FTP (FileZilla; credentials in the control panel).
-5. Point the subdomain `tvtakip.akifuygun.com` at the account (Subdomains / CNAME per
-   InfinityFree docs) and enable free SSL in the control panel.
