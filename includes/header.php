@@ -21,7 +21,7 @@ $pageTitle = $pageTitle ?? app_name();
 </head>
 <body>
 <header class="site-header">
-    <a class="brand" href="index.php" aria-label="<?= app_name() ?> home">
+    <a class="brand" href="index.php" title="<?= app_name() ?>" aria-label="<?= app_name() ?> home">
         <svg class="brand-logo" viewBox="0 0 108 48" role="img" aria-label="<?= app_name() ?>">
             <defs>
                 <linearGradient id="tvt-check" x1="0" y1="0" x2="1" y2="1">

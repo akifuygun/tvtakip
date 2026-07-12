@@ -1,6 +1,6 @@
 </main>
 <footer class="site-footer">
-    <span class="footer-copy">© <?= date('Y') ?> Akif</span>
+    <span class="footer-copy">❤️ by Akif 07-26</span>
     <span class="footer-flags">
         <a href="<?= htmlspecialchars(lang_url('tr')) ?>" title="<?= t('lang_tr') ?>"
            class="flag<?= current_lang() === 'tr' ? ' flag-active' : '' ?>" aria-label="Türkçe">
