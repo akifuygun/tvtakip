@@ -694,31 +694,42 @@ function initTick() {
   else setTimeout(ping, 1500);
 }
 
-// Browse page: multi-select network logo chips filter the card grid entirely
-// client-side (all cards are already on the page). No selection = show all.
+// Browse page: multi-select brand chips filter the card grid client-side (all
+// cards are already on the page). Each chip carries its member channel names
+// (data-networks); a card matches if its network is in any selected chip's set.
+// No selection = show all.
 function initBrowseFilter() {
   const bar = document.getElementById('network-filter');
   const grid = document.querySelector('.show-grid');
   if (!bar || !grid) return;
   const cards = [...grid.querySelectorAll('.show-card')];
   const allChip = bar.querySelector('.net-all');
-  const chips = [...bar.querySelectorAll('.net-chip[data-network]')];
+  const chips = [...bar.querySelectorAll('.net-chip[data-networks]')];
+  const members = new Map();
+  chips.forEach((chip) => {
+    try { members.set(chip, new Set(JSON.parse(chip.dataset.networks))); }
+    catch { members.set(chip, new Set()); }
+  });
   const selected = new Set();
 
   const apply = () => {
     const active = selected.size > 0;
+    let union = null;
+    if (active) {
+      union = new Set();
+      selected.forEach((chip) => members.get(chip).forEach((m) => union.add(m)));
+    }
     for (const card of cards) {
       const net = card.getAttribute('data-network') || '';
       // Inline style overrides the .show-card { display: flex } rule.
-      card.style.display = active && !selected.has(net) ? 'none' : '';
+      card.style.display = active && !union.has(net) ? 'none' : '';
     }
     if (allChip) allChip.classList.toggle('selected', !active);
   };
 
   chips.forEach((chip) => chip.addEventListener('click', () => {
-    const net = chip.dataset.network;
-    selected.has(net) ? selected.delete(net) : selected.add(net);
-    chip.classList.toggle('selected', selected.has(net));
+    selected.has(chip) ? selected.delete(chip) : selected.add(chip);
+    chip.classList.toggle('selected', selected.has(chip));
     apply();
   }));
   if (allChip) {

@@ -15,23 +15,42 @@ $shows = db()->query(
          ELSE 4 END, name"
 )->fetchAll();
 
-// Filter bar: a MANUALLY CURATED list of major networks, in display order.
-// Edit this list to control which chips appear (exact TMDB name strings).
-// Only networks that actually have shows are shown; logos come from the static
-// map (includes/network_logos.php).
-$TOP_NETWORKS = [
-    'Netflix', 'Disney+', 'Prime Video', 'Apple TV', 'HBO', 'HBO Max', 'Hulu',
-    'Paramount+', 'Peacock', 'AMC', 'FX', 'Showtime', 'STARZ',
-    'ABC', 'NBC', 'CBS', 'FOX', 'The CW', 'BBC One',
+// Filter bar: MANUALLY CURATED brand groups, in display order. A chip targets a
+// network/producer and matches all of its channels — [display label, [member
+// channel names (exact TMDB strings)]]. The first member supplies the logo
+// (includes/network_logos.php). Edit here; only groups with shows render.
+$NETWORK_GROUPS = [
+    ['Netflix', ['Netflix']],
+    ['Disney', ['Disney+', 'Disney Channel', 'Disney XD']],
+    ['Prime Video', ['Prime Video']],
+    ['Apple TV', ['Apple TV']],
+    ['HBO', ['HBO', 'HBO Max']],
+    ['Hulu', ['Hulu']],
+    ['Paramount', ['Paramount+', 'Paramount Network', 'Paramount+ with Showtime']],
+    ['Peacock', ['Peacock']],
+    ['AMC', ['AMC']],
+    ['FX', ['FX', 'FXX']],
+    ['Showtime', ['Showtime']],
+    ['STARZ', ['STARZ']],
+    ['ABC', ['ABC', 'ABC Family', 'ABC Kids', 'ABC.com']],
+    ['NBC', ['NBC']],
+    ['CBS', ['CBS', 'CBS All Access']],
+    ['FOX', ['FOX']],
+    ['The CW', ['The CW']],
+    ['BBC', ['BBC One', 'BBC Two', 'BBC Three', 'BBC America']],
 ];
 $counts = db()->query(
     "SELECT network, COUNT(*) AS n FROM shows
      WHERE network IS NOT NULL AND network <> '' GROUP BY network"
 )->fetchAll(PDO::FETCH_KEY_PAIR);
 $networks = [];
-foreach ($TOP_NETWORKS as $name) {
-    if (!empty($counts[$name])) {
-        $networks[] = ['network' => $name, 'n' => (int) $counts[$name]];
+foreach ($NETWORK_GROUPS as [$label, $members]) {
+    $total = 0;
+    foreach ($members as $m) {
+        $total += (int) ($counts[$m] ?? 0);
+    }
+    if ($total > 0) {
+        $networks[] = ['label' => $label, 'logo' => network_logo($members[0]), 'members' => $members, 'n' => $total];
     }
 }
 
@@ -48,13 +67,14 @@ require __DIR__ . '/includes/header.php';
     <div id="network-filter" class="net-filter" aria-label="<?= t('filter_by_network') ?>">
         <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
         <?php foreach ($networks as $net): ?>
-            <?php $logo = network_logo($net['network']); ?>
-            <button type="button" class="net-chip" data-network="<?= htmlspecialchars($net['network']) ?>"
-                    title="<?= htmlspecialchars($net['network']) ?> (<?= (int) $net['n'] ?>)">
-                <?php if ($logo): ?>
-                    <img src="<?= htmlspecialchars($logo) ?>" alt="<?= htmlspecialchars($net['network']) ?>" loading="lazy">
+            <button type="button" class="net-chip"
+                    data-networks="<?= htmlspecialchars(json_encode($net['members'])) ?>"
+                    title="<?= htmlspecialchars($net['label']) ?> (<?= (int) $net['n'] ?>)"
+                    aria-label="<?= htmlspecialchars($net['label']) ?>">
+                <?php if ($net['logo']): ?>
+                    <img src="<?= htmlspecialchars($net['logo']) ?>" alt="<?= htmlspecialchars($net['label']) ?>" loading="lazy">
                 <?php else: ?>
-                    <span><?= htmlspecialchars($net['network']) ?></span>
+                    <span><?= htmlspecialchars($net['label']) ?></span>
                 <?php endif; ?>
             </button>
         <?php endforeach; ?>
