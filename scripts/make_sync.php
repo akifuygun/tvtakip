@@ -20,24 +20,32 @@ fwrite($out, "SET NAMES utf8mb4;\n");
 
 // Shows
 $rows = $pdo->query(
-    'SELECT imdb_id, name, image_url, status, overview, premiered, synced_at FROM shows ORDER BY imdb_id'
+    'SELECT imdb_id, name, image_url, backdrop_url, status, overview, premiered,
+            genres, network, rating, runtime, synced_at
+     FROM shows ORDER BY imdb_id'
 )->fetchAll();
 foreach (array_chunk($rows, 100) as $chunk) {
     $values = [];
     foreach ($chunk as $r) {
         $values[] = '(' . implode(',', [
-            $q($r['imdb_id']), $q($r['name']), $q($r['image_url']), $q($r['status']),
-            $q($r['overview']), $q($r['premiered']), $q($r['synced_at']),
+            $q($r['imdb_id']), $q($r['name']), $q($r['image_url']), $q($r['backdrop_url']),
+            $q($r['status']), $q($r['overview']), $q($r['premiered']), $q($r['genres']),
+            $q($r['network']), $q($r['rating']), $q($r['runtime']), $q($r['synced_at']),
         ]) . ')';
     }
     fwrite($out,
-        'INSERT INTO shows (imdb_id,name,image_url,status,overview,premiered,synced_at) VALUES '
+        'INSERT INTO shows (imdb_id,name,image_url,backdrop_url,status,overview,premiered,genres,network,rating,runtime,synced_at) VALUES '
         . implode(',', $values)
         . ' ON DUPLICATE KEY UPDATE name=VALUES(name),'
         . ' image_url=COALESCE(VALUES(image_url),image_url),'
+        . ' backdrop_url=COALESCE(VALUES(backdrop_url),backdrop_url),'
         . ' status=COALESCE(VALUES(status),status),'
         . ' overview=COALESCE(VALUES(overview),overview),'
         . ' premiered=COALESCE(VALUES(premiered),premiered),'
+        . ' genres=COALESCE(VALUES(genres),genres),'
+        . ' network=COALESCE(VALUES(network),network),'
+        . ' rating=COALESCE(VALUES(rating),rating),'
+        . ' runtime=COALESCE(VALUES(runtime),runtime),'
         . ' synced_at=COALESCE(VALUES(synced_at),synced_at);' . "\n");
 }
 echo count($rows) . " shows\n";

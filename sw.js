@@ -1,7 +1,7 @@
 // Service worker: stale-while-revalidate for same-origin STATIC assets only.
 // HTML pages and /api/* pass straight through to the network so authenticated,
 // per-user content is never served stale or to the wrong session.
-const CACHE = 'tvtrack-v33';
+const CACHE = 'tvtrack-v34';
 const STATIC = /\.(css|js|png|svg|webmanifest|woff2?|ico)$/;
 
 self.addEventListener('install', () => self.skipWaiting());

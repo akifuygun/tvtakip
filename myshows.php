@@ -113,7 +113,7 @@ require __DIR__ . '/includes/header.php';
 <?php if (!$shows): ?>
     <div class="hero">
         <h1><?= t('no_shows_yet') ?></h1>
-        <p><a class="button" href="search.php"><?= t('search_for_show') ?></a></p>
+        <p><a class="button" href="/search.php"><?= t('search_for_show') ?></a></p>
     </div>
 <?php else: ?>
     <h1><?= t('myshows_title') ?></h1>

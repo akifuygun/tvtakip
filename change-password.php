@@ -27,6 +27,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
             $stmt->execute([password_hash($new, PASSWORD_DEFAULT), current_user_id()]);
             session_regenerate_id(true);
+            // Revoke every remember-me token so old or stolen cookies die on a
+            // password change (the canonical compromise response). Best-effort.
+            try {
+                db()->prepare('DELETE FROM remember_tokens WHERE user_id = ?')->execute([current_user_id()]);
+            } catch (Throwable $e) {
+                // remember_tokens may be absent on older installs — ignore
+            }
             $success = true;
         }
     }

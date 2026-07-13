@@ -56,7 +56,8 @@ foreach ($NETWORK_GROUPS as [$label, $members]) {
     }
 }
 // "Others" = everything not in a curated group (incl. shows with no network).
-$othersCount = max(0, (int) db()->query('SELECT COUNT(*) FROM shows')->fetchColumn() - $groupedTotal);
+// $shows is the full unfiltered table, so count($shows) is the total.
+$othersCount = max(0, count($shows) - $groupedTotal);
 
 // Genre + status facets, derived from the already-loaded $shows (no extra query).
 $genreCounts = [];

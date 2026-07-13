@@ -119,7 +119,7 @@ require __DIR__ . '/includes/header.php';
     <?php if (!$items): ?>
         <div class="hero">
             <h2><?= t('all_caught_up') ?></h2>
-            <p><?= t('no_unwatched') ?> <a href="search.php"><?= t('find_more') ?></a>.</p>
+            <p><?= t('no_unwatched') ?> <a href="/search.php"><?= t('find_more') ?></a>.</p>
         </div>
     <?php else: ?>
         <div id="calendar" class="cal-grid">

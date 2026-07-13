@@ -12,10 +12,9 @@
 declare(strict_types=1);
 
 // Local dev sees full errors; production logs them and shows a generic message.
-$host = $_SERVER['HTTP_HOST'] ?? '';
-define('APP_IS_LOCAL', PHP_SAPI === 'cli'
-    || str_starts_with($host, 'localhost')
-    || str_starts_with($host, '127.0.0.1'));
+// Keyed off the SAPI (CLI or the built-in `php -S` dev server), never the
+// client-controlled Host header — which drives display_errors.
+define('APP_IS_LOCAL', PHP_SAPI === 'cli' || PHP_SAPI === 'cli-server');
 
 ini_set('display_errors', APP_IS_LOCAL ? '1' : '0');
 ini_set('log_errors', '1');

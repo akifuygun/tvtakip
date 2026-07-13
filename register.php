@@ -67,6 +67,6 @@ require __DIR__ . '/includes/header.php';
         </label>
         <button type="submit" class="button"><?= t('register') ?></button>
     </form>
-    <p><?= t('have_account') ?> <a href="login.php"><?= t('login') ?></a></p>
+    <p><?= t('have_account') ?> <a href="/login.php"><?= t('login') ?></a></p>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

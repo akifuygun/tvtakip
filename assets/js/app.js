@@ -88,7 +88,7 @@ function loadImage(url, timeout = 10000) {
 }
 
 // Prompt for an image URL, verify it loads, then set it on the show, replacing
-// `node` with the new poster <img>. Used by the show page and My Shows cards.
+// `node` with the new poster <img>. Used by the show-detail header (admins).
 async function promptSetImage(showId, node) {
   const url = prompt(t('add_image_prompt'));
   if (!url || !url.trim()) return;
@@ -125,8 +125,8 @@ function makeRemoveButton(showId, onRemoved) {
 }
 
 // A clickable "No image / Click to add" placeholder box.
-function addImagePlaceholder(showId, extraClass = '') {
-  const ph = el('button', { type: 'button', class: `no-poster no-poster-edit ${extraClass}`.trim(), title: t('add_image_title') }, [
+function addImagePlaceholder(showId) {
+  const ph = el('button', { type: 'button', class: 'no-poster no-poster-edit', title: t('add_image_title') }, [
     el('span', { text: t('no_image') }),
     el('span', { class: 'muted', text: t('click_to_add') }),
   ]);
@@ -150,12 +150,12 @@ function posterEl(showId, imageUrl, backdropUrl = null) {
   return wrap;
 }
 
-function imdbLink(imdbId, cls = 'imdb-link') {
+function imdbLink(imdbId) {
   return el('a', {
     href: `https://www.imdb.com/title/${imdbId}/`,
     target: '_blank',
     rel: 'noopener',
-    class: cls,
+    class: 'imdb-link',
     text: 'IMDB',
   });
 }
@@ -694,10 +694,6 @@ function initTick() {
   else setTimeout(ping, 1500);
 }
 
-// Browse page: multi-select brand chips filter the card grid client-side (all
-// cards are already on the page). Each chip carries its member channel names
-// (data-networks); a card matches if its network is in any selected chip's set.
-// No selection = show all.
 // Browse faceted filter: Network (brand groups + Others), Genre and Status.
 // Within a facet chips are OR'd; across facets they're AND'd. All client-side.
 function initBrowseFilter() {
