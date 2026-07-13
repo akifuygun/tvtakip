@@ -84,9 +84,7 @@ require __DIR__ . '/includes/header.php';
         <?php endforeach; ?>
         <?php if ($othersCount > 0): ?>
             <button type="button" class="net-chip net-others" data-others="1"
-                    title="<?= t('network_others') ?> (<?= $othersCount ?>)" aria-label="<?= t('network_others') ?>">
-                <span><?= t('network_others') ?></span>
-            </button>
+                    title="<?= t('network_others') ?> (<?= $othersCount ?>)" aria-label="<?= t('network_others') ?>"><?= t('network_others') ?></button>
         <?php endif; ?>
     </div>
 <?php endif; ?>

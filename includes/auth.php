@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '30';
+const ASSET_VERSION = '31';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */

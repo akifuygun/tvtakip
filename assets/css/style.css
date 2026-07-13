@@ -549,8 +549,8 @@ a:hover { color: var(--accent-hover); }
 .net-chip > span { color: #1b2430; font-size: 0.8rem; font-weight: 600; }
 .net-chip:hover { border-color: var(--accent-hover); }
 .net-chip.selected { border-color: var(--accent); }
-/* The "All" reset chip uses the theme surface, not a white logo chip. */
-.net-all {
+/* The "All" reset and "Others" catch-all use the theme surface, not white logo chips. */
+.net-all, .net-others {
   min-height: 40px;
   background: var(--surface);
   border: 2px solid var(--border);
@@ -558,7 +558,7 @@ a:hover { color: var(--accent-hover); }
   font-size: 0.8rem;
   font-weight: 600;
 }
-.net-all.selected { border-color: var(--accent); color: var(--accent); }
+.net-all.selected, .net-others.selected { border-color: var(--accent); color: var(--accent); }
 
 /* ---------- Poster lightbox ---------- */
 .poster-zoom { cursor: zoom-in; }
