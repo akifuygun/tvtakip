@@ -5,6 +5,8 @@
 function network_logo(string $name): ?string
 {
     static $map = [
+        // Manually added (not present in the local catalog at generation time):
+        'tabii' => 'https://image.tmdb.org/t/p/w154/98Dig2Zrh0eRbpmTV8rLyVIY5Gi.png',
         'A&E' => 'https://image.tmdb.org/t/p/w154/ptSTdU4GPNJ1M8UVEOtA0KgtuNk.png',
         'ABC' => 'https://image.tmdb.org/t/p/w154/2uy2ZWcplrSObIyt4x0Y9rkG6qO.png',
         'ABC Family' => 'https://image.tmdb.org/t/p/w154/p57JGkSUBdXbOtqkEKeTnfHn7kd.png',

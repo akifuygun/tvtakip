@@ -25,12 +25,8 @@ $NETWORK_GROUPS = [
     ['Prime Video', ['Prime Video']],
     ['Apple TV', ['Apple TV']],
     ['HBO', ['HBO', 'HBO Max', 'HBO Latin America', 'BluTV', 'DC Universe']],
-    ['Hulu', ['Hulu']],
     ['Paramount', ['Paramount+', 'Paramount Network', 'Paramount+ with Showtime']],
-    ['Peacock', ['Peacock']],
-    ['AMC', ['AMC']],
     ['FX', ['FX', 'FXX']],
-    ['Showtime', ['Showtime']],
     ['STARZ', ['STARZ']],
     ['ABC', ['ABC', 'ABC Family', 'ABC Kids', 'ABC.com']],
     ['NBC', ['NBC']],
@@ -38,6 +34,10 @@ $NETWORK_GROUPS = [
     ['FOX', ['FOX']],
     ['The CW', ['The CW']],
     ['BBC', ['BBC One', 'BBC Two', 'BBC Three', 'BBC America']],
+    ['tabii', ['tabii']],
+    ['GAİN', ['GAİN']],
+    ['Exxen', ['Exxen']],
+    ['YouTube', ['YouTube', 'YouTube Premium']],
 ];
 $counts = db()->query(
     "SELECT network, COUNT(*) AS n FROM shows
