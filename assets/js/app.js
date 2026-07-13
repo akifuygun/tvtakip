@@ -740,6 +740,12 @@ function initBrowseFilter() {
   const selGenre = new Set();
   const selStatus = new Set();
 
+  // Tabs: one facet panel visible at a time. A tab shows a dot when its facet
+  // has an active selection, so filters on hidden tabs aren't invisible.
+  const tabs = [...document.querySelectorAll('.filter-tab')];
+  const panels = [...document.querySelectorAll('.filter-panel')];
+  const selByFacet = { network: selNet, genre: selGenre, status: selStatus };
+
   const apply = () => {
     for (const c of cards) {
       const show = matchesNet(c)
@@ -751,6 +757,11 @@ function initBrowseFilter() {
     [[genreBar, selGenre], [statusBar, selStatus]].forEach(([bar, sel]) => {
       const all = bar && bar.querySelector('.net-all');
       if (all) all.classList.toggle('selected', !sel.size);
+    });
+    // Mark tabs whose (possibly hidden) facet is actively filtering.
+    tabs.forEach((tab) => {
+      const sel = selByFacet[tab.dataset.tab];
+      tab.classList.toggle('has-active', !!sel && sel.size > 0);
     });
   };
 
@@ -784,6 +795,11 @@ function initBrowseFilter() {
   };
   wireValueFacet(genreBar, 'genre', selGenre);
   wireValueFacet(statusBar, 'status', selStatus);
+
+  tabs.forEach((tab) => tab.addEventListener('click', () => {
+    tabs.forEach((t) => t.classList.toggle('active', t === tab));
+    panels.forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== tab.dataset.tab));
+  }));
 }
 
 // Footer sun/moon toggle. The theme is applied server-side on <html data-theme>

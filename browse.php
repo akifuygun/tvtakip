@@ -76,6 +76,19 @@ $statuses = array_values(array_filter(
     fn($st) => !empty($statusCounts[$st])
 ));
 
+// Filter facets present, in tab order; the first is the default-open tab.
+$facets = [];
+if ($networks) {
+    $facets[] = 'network';
+}
+if ($genreCounts) {
+    $facets[] = 'genre';
+}
+if ($statuses) {
+    $facets[] = 'status';
+}
+$activeFacet = $facets[0] ?? '';
+
 $pageTitle = t('pub_browse_title');
 $canonicalUrl = seo_base() . lang_path('/browse');
 $metaDescription = t('pub_browse_sub', count($shows));
@@ -86,9 +99,14 @@ require __DIR__ . '/includes/header.php';
 <p class="muted"><?= t('pub_browse_sub', count($shows)) ?></p>
 
 <div class="filters">
+    <div class="filter-tabs" role="tablist">
+        <?php foreach ($facets as $f): ?>
+            <button type="button" class="filter-tab<?= $f === $activeFacet ? ' active' : '' ?>" data-tab="<?= $f ?>"><?= t('flt_' . $f) ?></button>
+        <?php endforeach; ?>
+    </div>
+
     <?php if ($networks): ?>
-        <div class="filter-group">
-            <span class="filter-label"><?= t('flt_network') ?></span>
+        <div class="filter-panel<?= $activeFacet === 'network' ? '' : ' hidden' ?>" data-panel="network">
             <div id="network-filter" class="net-filter" aria-label="<?= t('filter_by_network') ?>">
                 <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
                 <?php foreach ($networks as $net): ?>
@@ -112,8 +130,7 @@ require __DIR__ . '/includes/header.php';
     <?php endif; ?>
 
     <?php if ($genreCounts): ?>
-        <div class="filter-group">
-            <span class="filter-label"><?= t('flt_genre') ?></span>
+        <div class="filter-panel<?= $activeFacet === 'genre' ? '' : ' hidden' ?>" data-panel="genre">
             <div id="genre-filter" class="net-filter" aria-label="<?= t('flt_genre') ?>">
                 <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
                 <?php foreach ($genreCounts as $g => $gn): ?>
@@ -125,8 +142,7 @@ require __DIR__ . '/includes/header.php';
     <?php endif; ?>
 
     <?php if ($statuses): ?>
-        <div class="filter-group">
-            <span class="filter-label"><?= t('flt_status') ?></span>
+        <div class="filter-panel<?= $activeFacet === 'status' ? '' : ' hidden' ?>" data-panel="status">
             <div id="status-filter" class="net-filter" aria-label="<?= t('flt_status') ?>">
                 <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
                 <?php foreach ($statuses as $st): ?>

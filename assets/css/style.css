@@ -523,18 +523,39 @@ a:hover { color: var(--accent-hover); }
   .show-header img { max-width: 140px; }
 }
 
-/* ---------- Browse faceted filter (network / genre / status) ---------- */
+/* ---------- Browse faceted filter (network / genre / status tabs) ---------- */
 .filters { margin: 0 0 1.5rem; }
-.filter-group { margin-bottom: 0.85rem; }
-.filter-label {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin: 0 0 0.35rem;
+.filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
 }
+.filter-tab {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.filter-tab:hover { color: var(--text); }
+.filter-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.filter-tab.has-active::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 0.4rem;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
+}
+.filter-panel.hidden { display: none; }
 .net-filter {
   display: flex;
   flex-wrap: wrap;
