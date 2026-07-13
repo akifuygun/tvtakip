@@ -24,7 +24,7 @@ $NETWORK_GROUPS = [
     ['Disney', ['Disney+', 'Disney Channel', 'Disney XD']],
     ['Prime Video', ['Prime Video']],
     ['Apple TV', ['Apple TV']],
-    ['HBO', ['HBO', 'HBO Max']],
+    ['HBO', ['HBO', 'HBO Max', 'HBO Latin America', 'BluTV', 'DC Universe']],
     ['Hulu', ['Hulu']],
     ['Paramount', ['Paramount+', 'Paramount Network', 'Paramount+ with Showtime']],
     ['Peacock', ['Peacock']],
@@ -44,15 +44,19 @@ $counts = db()->query(
      WHERE network IS NOT NULL AND network <> '' GROUP BY network"
 )->fetchAll(PDO::FETCH_KEY_PAIR);
 $networks = [];
+$groupedTotal = 0;
 foreach ($NETWORK_GROUPS as [$label, $members]) {
     $total = 0;
     foreach ($members as $m) {
         $total += (int) ($counts[$m] ?? 0);
     }
+    $groupedTotal += $total;
     if ($total > 0) {
         $networks[] = ['label' => $label, 'logo' => network_logo($members[0]), 'members' => $members, 'n' => $total];
     }
 }
+// "Others" = everything not in a curated group (incl. shows with no network).
+$othersCount = max(0, (int) db()->query('SELECT COUNT(*) FROM shows')->fetchColumn() - $groupedTotal);
 
 $pageTitle = t('pub_browse_title');
 $canonicalUrl = seo_base() . lang_path('/browse');
@@ -78,6 +82,12 @@ require __DIR__ . '/includes/header.php';
                 <?php endif; ?>
             </button>
         <?php endforeach; ?>
+        <?php if ($othersCount > 0): ?>
+            <button type="button" class="net-chip net-others" data-others="1"
+                    title="<?= t('network_others') ?> (<?= $othersCount ?>)" aria-label="<?= t('network_others') ?>">
+                <span><?= t('network_others') ?></span>
+            </button>
+        <?php endif; ?>
     </div>
 <?php endif; ?>
 

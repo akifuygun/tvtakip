@@ -704,25 +704,35 @@ function initBrowseFilter() {
   if (!bar || !grid) return;
   const cards = [...grid.querySelectorAll('.show-card')];
   const allChip = bar.querySelector('.net-all');
-  const chips = [...bar.querySelectorAll('.net-chip[data-networks]')];
-  const members = new Map();
+  const chips = [...bar.querySelectorAll('.net-chip:not(.net-all)')];
+  const memberOf = new Map();      // regular chip -> Set(member networks)
+  const groupedUnion = new Set();  // every grouped network (for the "Others" complement)
   chips.forEach((chip) => {
-    try { members.set(chip, new Set(JSON.parse(chip.dataset.networks))); }
-    catch { members.set(chip, new Set()); }
+    if (!chip.dataset.networks) return; // the Others chip has no member list
+    let set;
+    try { set = new Set(JSON.parse(chip.dataset.networks)); } catch { set = new Set(); }
+    memberOf.set(chip, set);
+    set.forEach((m) => groupedUnion.add(m));
   });
   const selected = new Set();
 
   const apply = () => {
     const active = selected.size > 0;
-    let union = null;
+    let selNetworks = null;
+    let selOthers = false;
     if (active) {
-      union = new Set();
-      selected.forEach((chip) => members.get(chip).forEach((m) => union.add(m)));
+      selNetworks = new Set();
+      selected.forEach((chip) => {
+        if (chip.dataset.others) selOthers = true;
+        else (memberOf.get(chip) || []).forEach((m) => selNetworks.add(m));
+      });
     }
     for (const card of cards) {
       const net = card.getAttribute('data-network') || '';
-      // Inline style overrides the .show-card { display: flex } rule.
-      card.style.display = active && !union.has(net) ? 'none' : '';
+      // Others = any network not in a curated group. Inline style overrides
+      // the .show-card { display: flex } rule.
+      const show = !active || selNetworks.has(net) || (selOthers && !groupedUnion.has(net));
+      card.style.display = show ? '' : 'none';
     }
     if (allChip) allChip.classList.toggle('selected', !active);
   };
