@@ -15,12 +15,15 @@ $shows = db()->query(
          ELSE 4 END, name"
 )->fetchAll();
 
-// Networks present in the catalog, most-content first, for the filter bar.
-// Logos come from a static committed map (includes/network_logos.php).
+// Filter bar: the 20 networks with the most RUNNING shows (keeps the bar tidy
+// as the catalog grows). Logos come from a static committed map
+// (includes/network_logos.php); the count shown is total shows on that network.
 $networks = db()->query(
-    "SELECT network, COUNT(*) AS n FROM shows
+    "SELECT network, SUM(status = 'running') AS running_n, COUNT(*) AS n FROM shows
      WHERE network IS NOT NULL AND network <> ''
-     GROUP BY network ORDER BY n DESC, network"
+     GROUP BY network
+     ORDER BY running_n DESC, n DESC, network
+     LIMIT 20"
 )->fetchAll();
 
 $pageTitle = t('pub_browse_title');
