@@ -160,4 +160,7 @@ require __DIR__ . '/includes/header.php';
         <?= show_card_html($show, series_url($show['imdb_id'])) ?>
     <?php endforeach; ?>
 </div>
+<div class="show-more-wrap">
+    <button type="button" id="show-more" class="button button-secondary" style="display:none"><?= t('show_more') ?></button>
+</div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

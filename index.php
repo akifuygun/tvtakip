@@ -18,26 +18,27 @@ if (!is_logged_in()) {
     )->fetchAll();
 }
 if (is_logged_in()) {
-    // For each tracked show: its earliest aired episode that isn't watched yet.
+    // For each tracked show, its earliest aired-but-unwatched episode — resolved
+    // in SQL (one row per show) instead of fetching the whole aired backlog and
+    // de-duping in PHP. Oldest pending episode first.
     $stmt = db()->prepare(
         'SELECT e.id, e.imdb_id, e.season, e.number, e.name AS ep_name, e.airdate,
                 s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url
          FROM user_shows us
          JOIN shows s ON s.imdb_id = us.show_imdb_id
-         JOIN episodes e ON e.show_imdb_id = us.show_imdb_id
-         LEFT JOIN watched_episodes we ON we.episode_id = e.id AND we.user_id = us.user_id
-         WHERE us.user_id = ? AND we.episode_id IS NULL
-           AND e.airdate IS NOT NULL AND ' . aired_sql('e') . '
+         JOIN episodes e ON e.id = (
+             SELECT e2.id FROM episodes e2
+             LEFT JOIN watched_episodes we2 ON we2.episode_id = e2.id AND we2.user_id = us.user_id
+             WHERE e2.show_imdb_id = us.show_imdb_id
+               AND we2.episode_id IS NULL
+               AND e2.airdate IS NOT NULL AND ' . aired_sql('e2') . '
+             ORDER BY e2.airdate, e2.season, e2.number LIMIT 1
+         )
+         WHERE us.user_id = ?
          ORDER BY e.airdate, e.season, e.number'
     );
-    $stmt->execute([current_user_id(), today()]);
-    foreach ($stmt->fetchAll() as $row) {
-        if (!isset($items[$row['show_imdb_id']])) {
-            $items[$row['show_imdb_id']] = $row;
-        }
-    }
-    // Oldest pending episode first.
-    usort($items, static fn($a, $b) => strcmp($a['airdate'], $b['airdate']));
+    $stmt->execute([today(), current_user_id()]);
+    $items = $stmt->fetchAll();
 
     // Tracked shows whose episodes were never imported (show page never opened).
     $stmt = db()->prepare(

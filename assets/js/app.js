@@ -742,13 +742,24 @@ function initBrowseFilter() {
   const panels = [...document.querySelectorAll('.filter-panel')];
   const selByFacet = { network: selNet, genre: selGenre, status: selStatus };
 
+  // Cap how many matching cards render at once (keeps the ~1,100-card page
+  // light); "Show more" reveals the next batch. Filtering still runs over ALL
+  // cards, so results stay correct — only the rendered count is capped.
+  const moreBtn = document.getElementById('show-more');
+  const BATCH = 100;
+  let limit = BATCH;
+
   const apply = () => {
+    let matched = 0;
     for (const c of cards) {
-      const show = matchesNet(c)
+      const ok = matchesNet(c)
         && (!selGenre.size || c.genres.some((g) => selGenre.has(g)))
         && (!selStatus.size || selStatus.has(c.status));
-      c.el.style.display = show ? '' : 'none'; // overrides .show-card { display: flex }
+      // Show a card only if it matches AND is within the current cap.
+      c.el.style.display = (ok && matched < limit) ? '' : 'none'; // overrides display:flex
+      if (ok) matched++;
     }
+    if (moreBtn) moreBtn.style.display = matched > limit ? '' : 'none';
     if (netAll) netAll.classList.toggle('selected', !selNet.size);
     [[genreBar, selGenre], [statusBar, selStatus]].forEach(([bar, sel]) => {
       const all = bar && bar.querySelector('.net-all');
@@ -761,15 +772,18 @@ function initBrowseFilter() {
     });
   };
 
+  // A facet change resets the cap to the first batch of the new result set.
+  const refilter = () => { limit = BATCH; apply(); };
+
   netChips.forEach((chip) => chip.addEventListener('click', () => {
     selNet.has(chip) ? selNet.delete(chip) : selNet.add(chip);
     chip.classList.toggle('selected', selNet.has(chip));
-    apply();
+    refilter();
   }));
   if (netAll) netAll.addEventListener('click', () => {
     selNet.clear();
     netChips.forEach((c) => c.classList.remove('selected'));
-    apply();
+    refilter();
   });
 
   // Wire a value facet (genre/status): data-<attr> chips OR'd, All resets.
@@ -780,13 +794,13 @@ function initBrowseFilter() {
       const v = chip.getAttribute(`data-${attr}`);
       sel.has(v) ? sel.delete(v) : sel.add(v);
       chip.classList.toggle('selected', sel.has(v));
-      apply();
+      refilter();
     }));
     const all = bar.querySelector('.net-all');
     if (all) all.addEventListener('click', () => {
       sel.clear();
       chips.forEach((c) => c.classList.remove('selected'));
-      apply();
+      refilter();
     });
   };
   wireValueFacet(genreBar, 'genre', selGenre);
@@ -796,6 +810,9 @@ function initBrowseFilter() {
     tabs.forEach((t) => t.classList.toggle('active', t === tab));
     panels.forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== tab.dataset.tab));
   }));
+
+  if (moreBtn) moreBtn.addEventListener('click', () => { limit += BATCH; apply(); });
+  apply(); // apply the initial display cap
 }
 
 // Footer sun/moon toggle. The theme is applied server-side on <html data-theme>

@@ -556,6 +556,7 @@ a:hover { color: var(--accent-hover); }
   vertical-align: middle;
 }
 .filter-panel.hidden { display: none; }
+.show-more-wrap { text-align: center; margin: 1.5rem 0 0.5rem; }
 .net-filter {
   display: flex;
   flex-wrap: wrap;

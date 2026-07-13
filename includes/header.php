@@ -63,7 +63,7 @@ $seoJsonLd = $jsonLd ?? json_encode([
     <link rel="stylesheet" href="/assets/css/style.css?v=<?= ASSET_VERSION ?>">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg">
-    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="manifest" href="/manifest.php">
     <meta name="theme-color" content="<?= app_theme() === 'light' ? '#ffffff' : '#1a1f2a' ?>">
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">

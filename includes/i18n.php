@@ -142,6 +142,7 @@ $GLOBALS['I18N'] = [
         'filter_by_network' => 'Filter by network',
         'all_networks' => 'All', 'network_others' => 'Others',
         'flt_network' => 'Network', 'flt_genre' => 'Genre', 'flt_status' => 'Status',
+        'show_more' => 'Show more',
         // calendar
         'calendar_title' => 'Calendar',
         'calendar_sub' => "The next unwatched episode of each show you track.",
@@ -254,6 +255,7 @@ $GLOBALS['I18N'] = [
         'filter_by_network' => 'Kanala göre filtrele',
         'all_networks' => 'Tümü', 'network_others' => 'Diğer',
         'flt_network' => 'Kanal', 'flt_genre' => 'Tür', 'flt_status' => 'Durum',
+        'show_more' => 'Daha fazla göster',
         'calendar_title' => 'Takvim',
         'calendar_sub' => 'Takip ettiğin her dizinin izlemediğin ilk bölümü.',
         'all_caught_up' => '🎉 Her şeyi izledin!',
