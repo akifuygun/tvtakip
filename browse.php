@@ -5,7 +5,7 @@ require_once __DIR__ . '/includes/auth.php';
 
 // Upcoming first, then running, then finished shows; alphabetical within.
 $shows = db()->query(
-    "SELECT imdb_id, name, image_url, status FROM shows
+    "SELECT imdb_id, name, image_url, status, rating FROM shows
      ORDER BY CASE status
          WHEN 'upcoming' THEN 1
          WHEN 'running' THEN 2

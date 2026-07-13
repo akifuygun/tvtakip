@@ -281,6 +281,38 @@ a:hover { color: var(--accent-hover); }
 .status-canceled { color: var(--danger); }
 .status-upcoming { color: var(--warning); }
 
+/* Bottom meta row for public cards (rating + status), kept aligned across cards */
+.show-card > .card-meta {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.card-rating { font-size: 0.78rem; font-weight: 600; color: var(--warning); }
+
+/* Genre chips (series page) */
+.genres { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.25rem 0 0.6rem; }
+.genre-chip {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+/* Watched-progress bar (My Shows cards + series header) */
+.progress { margin-top: 0.45rem; }
+.progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-fill { height: 100%; background: var(--success); border-radius: 999px; }
+.progress-label { font-size: 0.72rem; margin-top: 0.2rem; }
+
 /* Show detail */
 .show-header { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
 .show-header img { border-radius: var(--radius); max-width: 210px; align-self: flex-start; }

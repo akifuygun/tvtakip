@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/errors.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/i18n.php';
 
@@ -30,6 +31,10 @@ function today(): string
 const SESSION_LIFETIME = 60 * 60 * 24 * 30;   // 30 days
 const REMEMBER_COOKIE = 'tvtrack_remember';
 const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
+
+// Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
+// safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
+const ASSET_VERSION = '26';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -295,8 +300,12 @@ function show_card_html(array $show, string $href): string
     $badge = $label
         ? '<span class="status status-' . htmlspecialchars($show['status']) . '">' . $label . '</span>'
         : '';
+    $rating = !empty($show['rating'])
+        ? '<span class="card-rating">⭐ ' . number_format((float) $show['rating'], 1) . '</span>'
+        : '';
+    $meta = ($badge || $rating) ? '<div class="card-meta">' . $rating . $badge . '</div>' : '';
     return '<div class="show-card"><a href="' . htmlspecialchars($href) . '">'
-        . $img . '<h3>' . $name . '</h3></a>' . $badge . '</div>';
+        . $img . '<h3>' . $name . '</h3></a>' . $meta . '</div>';
 }
 
 /** Single-line plain-text excerpt for meta descriptions, cut at a word. */

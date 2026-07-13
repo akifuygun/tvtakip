@@ -2,23 +2,64 @@
 require_once __DIR__ . '/includes/auth.php';
 require_login();
 
+// The next unaired episode's exact airstamp (and airdate) — same not-yet-aired
+// test the show-page countdown uses, so the "days remaining" label agrees with
+// it. Both subqueries select from the same row (identical WHERE + ORDER).
+$nextEpisodeWhere =
+    '((e.airstamp IS NOT NULL AND e.airstamp > UTC_TIMESTAMP())
+      OR (e.airstamp IS NULL AND e.airdate IS NOT NULL AND e.airdate >= ?))';
+$nextEpisodeOrder = "ORDER BY COALESCE(e.airstamp, CONCAT(e.airdate, ' 00:00:00')) ASC LIMIT 1";
 $stmt = db()->prepare(
-    'SELECT s.imdb_id, s.name, s.image_url, s.status,
-            (SELECT MIN(e.airdate) FROM episodes e
-             WHERE e.show_imdb_id = s.imdb_id AND e.airdate >= ?) AS next_airdate
+    "SELECT s.imdb_id, s.name, s.image_url, s.status,
+            (SELECT e.airstamp FROM episodes e
+             WHERE e.show_imdb_id = s.imdb_id AND $nextEpisodeWhere $nextEpisodeOrder) AS next_airstamp,
+            (SELECT e.airdate FROM episodes e
+             WHERE e.show_imdb_id = s.imdb_id AND $nextEpisodeWhere $nextEpisodeOrder) AS next_airdate,
+            (SELECT COUNT(*) FROM episodes e
+             WHERE e.show_imdb_id = s.imdb_id AND " . aired_sql('e') . ") AS aired_count,
+            (SELECT COUNT(*) FROM watched_episodes we
+             JOIN episodes e2 ON e2.id = we.episode_id
+             WHERE e2.show_imdb_id = s.imdb_id AND we.user_id = ? AND " . aired_sql('e2') . ") AS watched_count
      FROM user_shows us JOIN shows s ON s.imdb_id = us.show_imdb_id
-     WHERE us.user_id = ? ORDER BY s.name'
+     WHERE us.user_id = ? ORDER BY s.name"
 );
-$stmt->execute([today(), current_user_id()]);
+$stmt->execute([today(), today(), today(), current_user_id(), today(), current_user_id()]);
 $shows = $stmt->fetchAll();
 
-/** "Airs today" / "N days remaining" label for a coming airdate. */
-function next_episode_label(?string $airdate): string
+/** Progress bar markup for a show: watched/aired aired episodes + "N behind". */
+function progress_html(int $watched, int $aired): string
 {
-    if (!$airdate) {
+    if ($aired < 1) {
         return '';
     }
-    $days = (int) (new DateTimeImmutable('today'))->diff(new DateTimeImmutable($airdate))->format('%r%a');
+    $watched = min($watched, $aired);
+    $pct = (int) round($watched / $aired * 100);
+    $behind = $aired - $watched;
+    $note = $behind === 0
+        ? t('caught_up_show')
+        : ($behind === 1 ? t('one_behind') : t('n_behind', $behind));
+    return '<div class="progress"><div class="progress-bar">'
+        . '<div class="progress-fill" style="width:' . $pct . '%"></div></div>'
+        . '<div class="progress-label muted">' . $watched . '/' . $aired . ' · ' . htmlspecialchars($note) . '</div></div>';
+}
+
+/**
+ * "Airs today" / "N days remaining" for the next episode. Uses the exact UTC
+ * airstamp converted to the user's timezone (so the day count matches the
+ * show-page countdown), falling back to the date-only airdate when unknown.
+ */
+function next_episode_label(?string $airstamp, ?string $airdate): string
+{
+    if ($airstamp) {
+        $target = (new DateTimeImmutable($airstamp, new DateTimeZone('UTC')))
+            ->setTimezone(new DateTimeZone(date_default_timezone_get()));
+    } elseif ($airdate) {
+        $target = new DateTimeImmutable($airdate); // default tz = app_timezone()
+    } else {
+        return '';
+    }
+    // Whole calendar days between today and the episode's local air day.
+    $days = (int) (new DateTimeImmutable('today'))->diff($target->setTime(0, 0))->format('%r%a');
     if ($days < 0) {
         return '';
     }
@@ -95,9 +136,10 @@ require __DIR__ . '/includes/header.php';
                         <?php if (status_label($show['status'])): ?>
                             <span class="status status-<?= htmlspecialchars($show['status']) ?>"><?= status_label($show['status']) ?></span>
                         <?php endif; ?>
-                        <?php if ($label = next_episode_label($show['next_airdate'])): ?>
+                        <?php if ($label = next_episode_label($show['next_airstamp'], $show['next_airdate'])): ?>
                             <span class="next-ep">📅 <?= $label ?></span>
                         <?php endif; ?>
+                        <?= progress_html((int) $show['watched_count'], (int) $show['aired_count']) ?>
                         <button class="button button-small button-danger untrack-btn"
                                 data-show-id="<?= $imdbId ?>"><?= t('untrack') ?></button>
                     </div>

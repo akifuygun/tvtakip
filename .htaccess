@@ -11,3 +11,25 @@ RewriteRule ^(?:tr/)?browse/?$ browse.php [L,QSA]
 RewriteRule ^(?:tr/)?upcoming/?$ upcoming.php [L,QSA]
 RewriteRule ^tr/?$ index.php [L,QSA]
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
+# Compress text responses. <IfModule> so it harmlessly no-ops if mod_deflate
+# is unavailable. (The host may already gzip HTML at its proxy — verify in a
+# browser's devtools since the anti-bot challenge blocks curl checks.)
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml \
+        application/javascript application/json image/svg+xml application/manifest+json
+</IfModule>
+
+# Cache static assets. CSS/JS carry a ?v= build tag (ASSET_VERSION), so a
+# 1-year lifetime is safe — a change bumps the URL. Images/icons rotate rarely
+# (30 days); the PWA manifest is short (1 day) so updates propagate quickly.
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType image/png "access plus 30 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType image/x-icon "access plus 30 days"
+    ExpiresByType image/vnd.microsoft.icon "access plus 30 days"
+    ExpiresByType application/manifest+json "access plus 1 day"
+</IfModule>

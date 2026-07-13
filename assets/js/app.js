@@ -346,6 +346,30 @@ async function initShowDetail() {
     render();
     return box;
   }
+
+  // Progress across AIRED episodes for this viewer (watched / aired + "N behind").
+  function buildProgress() {
+    let aired = 0;
+    let done = 0;
+    for (const ep of episodes) {
+      if (!epHasAired(ep)) continue;
+      aired++;
+      if (watched.has(ep.id)) done++;
+    }
+    if (!aired) return null;
+    done = Math.min(done, aired);
+    const behind = aired - done;
+    const fill = el('div', { class: 'progress-fill' });
+    fill.style.width = Math.round((done / aired) * 100) + '%';
+    const labelText = behind === 0
+      ? `${done}/${aired} · ${t('caught_up_show')}`
+      : `${done}/${aired} · ${behind === 1 ? t('one_behind') : t('n_behind', behind)}`;
+    return el('div', { class: 'progress' }, [
+      el('div', { class: 'progress-bar' }, [fill]),
+      el('div', { class: 'progress-label muted', text: labelText }),
+    ]);
+  }
+
   document.title = `${I18N.app} — ${show.name}`;
   root.replaceChildren();
 
@@ -380,13 +404,27 @@ async function initShowDetail() {
     },
   });
 
+  const metaText = [
+    show.rating ? '⭐ ' + Number(show.rating).toFixed(1) : null,
+    show.premiered?.slice(0, 4),
+    STATUS_LABELS[show.status],
+    show.network || null,
+    show.runtime ? t('runtime_min', show.runtime) : null,
+  ].filter(Boolean).join(' · ');
+
   const info = el('div', { class: 'show-info' }, [
     el('h1', {}, [show.name + ' ', imdbLink(showId)]),
-    el('p', {
-      class: 'muted',
-      text: [show.premiered?.slice(0, 4), STATUS_LABELS[show.status]].filter(Boolean).join(' · '),
-    }),
+    el('p', { class: 'muted', text: metaText }),
   ]);
+
+  const genres = (show.genres || '').split(',').map((g) => g.trim()).filter(Boolean);
+  if (genres.length) {
+    info.append(el('p', { class: 'genres' }, genres.map((g) => el('span', { class: 'genre-chip', text: g }))));
+  }
+
+  const progress = buildProgress();
+  if (progress) info.append(progress);
+
   if (nextUp) info.append(buildCountdown(nextUp));
   info.append(
     el('p', { class: 'show-summary', text: show.overview ?? '' }),
@@ -525,7 +563,7 @@ async function initShowDetail() {
       refreshBtn.disabled = true;
       refreshBtn.textContent = t('refreshing');
       try {
-        await apiPost('/api/episodes.php', { show_id: showId });
+        await apiPost('/api/episodes.php', { show_id: showId, force: true });
         location.reload();
       } catch (err) {
         alert(err.message);
@@ -555,6 +593,21 @@ function initNav() {
   });
 }
 
+// Cron-free freshness: once per browser session, nudge the server to refresh
+// its most-stale running/upcoming show. Fire-and-forget; the server bounds and
+// claims the work, so this is safe to call from every page load.
+function initTick() {
+  try {
+    if (sessionStorage.getItem('tvtrack_ticked')) return;
+    sessionStorage.setItem('tvtrack_ticked', '1');
+  } catch {
+    return; // storage blocked — skip rather than ping on every navigation
+  }
+  const ping = () => fetch('/api/tick.php', { keepalive: true }).catch(() => {});
+  if ('requestIdleCallback' in window) requestIdleCallback(ping);
+  else setTimeout(ping, 1500);
+}
+
 // Footer sun/moon toggle. The theme is applied server-side on <html data-theme>
 // (no flash); here we switch it live and remember the choice in a cookie.
 function initTheme() {
@@ -572,6 +625,7 @@ function initTheme() {
 
 initNav();
 initTheme();
+initTick();
 initSearch();
 initDashboard();
 initCalendar();

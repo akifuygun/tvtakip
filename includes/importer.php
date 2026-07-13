@@ -18,6 +18,7 @@ require_once __DIR__ . '/http.php';
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w342';
+const TMDB_BACKDROP_BASE = 'https://image.tmdb.org/t/p/w780';
 const TVMAZE_BASE = 'https://api.tvmaze.com';
 
 // Episode IMDB ids fetched per import/refresh. Kept small so a single web
@@ -34,6 +35,26 @@ function tmdb_api_url(string $path, array $q = []): string
 function valid_date(mixed $value): ?string
 {
     return (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) ? $value : null;
+}
+
+/** Comma-joined genre string (max 255) from a list of names, or null. */
+function genres_string(array $names): ?string
+{
+    $names = array_values(array_filter(array_map(fn($n) => trim((string) $n), $names)));
+    return $names ? mb_substr(implode(', ', $names), 0, 255) : null;
+}
+
+/** Provider rating rounded to one decimal, or null when absent/zero. */
+function clean_rating(mixed $value): ?float
+{
+    return (is_numeric($value) && (float) $value > 0) ? round((float) $value, 1) : null;
+}
+
+/** Positive episode runtime in minutes (clamped), or null. */
+function clean_runtime(mixed $value): ?int
+{
+    $n = (int) $value;
+    return $n > 0 ? min($n, 65535) : null;
 }
 
 /** Base show + episodes (no per-episode IMDB ids) from TMDB, or null. */
@@ -71,9 +92,14 @@ function fetch_base_from_tmdb(string $imdbId): ?array
             'imdb_id' => $imdbId,
             'name' => $detail['name'] ?? $imdbId,
             'image_url' => !empty($detail['poster_path']) ? TMDB_IMG_BASE . $detail['poster_path'] : null,
+            'backdrop_url' => !empty($detail['backdrop_path']) ? TMDB_BACKDROP_BASE . $detail['backdrop_path'] : null,
             'status' => $detail['status'] ?? null,
             'overview' => trim((string) ($detail['overview'] ?? '')) ?: null,
             'premiered' => valid_date($detail['first_air_date'] ?? null),
+            'genres' => genres_string(array_column($detail['genres'] ?? [], 'name')),
+            'network' => trim((string) ($detail['networks'][0]['name'] ?? '')) ?: null,
+            'rating' => clean_rating($detail['vote_average'] ?? null),
+            'runtime' => clean_runtime($detail['episode_run_time'][0] ?? null),
         ],
         'episodes' => $episodes,
         'source' => 'tmdb',
@@ -131,9 +157,14 @@ function fetch_base_from_tvmaze(string $imdbId): ?array
             'imdb_id' => $imdbId,
             'name' => $show['name'] ?? $imdbId,
             'image_url' => $show['image']['medium'] ?? null,
+            'backdrop_url' => null, // TVmaze has no wide/backdrop image
             'status' => $show['status'] ?? null,
             'overview' => trim(strip_tags((string) ($show['summary'] ?? ''))) ?: null,
             'premiered' => valid_date($show['premiered'] ?? null),
+            'genres' => genres_string($show['genres'] ?? []),
+            'network' => trim((string) ($show['network']['name'] ?? $show['webChannel']['name'] ?? '')) ?: null,
+            'rating' => clean_rating($show['rating']['average'] ?? null),
+            'runtime' => clean_runtime($show['runtime'] ?? $show['averageRuntime'] ?? null),
         ],
         'episodes' => $episodes,
         'source' => 'tvmaze',
@@ -148,23 +179,35 @@ function fetch_base_from_tvmaze(string $imdbId): ?array
 function upsert_show(PDO $pdo, array $show, bool $markSynced): void
 {
     $stmt = $pdo->prepare(
-        'INSERT INTO shows (imdb_id, name, image_url, status, overview, premiered, synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
+        'INSERT INTO shows
+            (imdb_id, name, image_url, backdrop_url, status, overview, premiered,
+             genres, network, rating, runtime, synced_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
          ON DUPLICATE KEY UPDATE
              name = VALUES(name),
              image_url = COALESCE(VALUES(image_url), image_url),
+             backdrop_url = COALESCE(VALUES(backdrop_url), backdrop_url),
              status = COALESCE(VALUES(status), status),
              overview = COALESCE(VALUES(overview), overview),
              premiered = COALESCE(VALUES(premiered), premiered),
+             genres = COALESCE(VALUES(genres), genres),
+             network = COALESCE(VALUES(network), network),
+             rating = COALESCE(VALUES(rating), rating),
+             runtime = COALESCE(VALUES(runtime), runtime),
              synced_at = IF(VALUES(synced_at) IS NULL, synced_at, VALUES(synced_at))'
     );
     $stmt->execute([
         $show['imdb_id'],
         mb_substr(trim((string) ($show['name'] ?? '')) ?: $show['imdb_id'], 0, 255),
         mb_substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null,
+        mb_substr((string) ($show['backdrop_url'] ?? ''), 0, 500) ?: null,
         normalize_show_status($show['status'] ?? null),
         $show['overview'] ?? null,
         valid_date($show['premiered'] ?? null),
+        $show['genres'] ?? null,
+        mb_substr((string) ($show['network'] ?? ''), 0, 120) ?: null,
+        $show['rating'] ?? null,
+        $show['runtime'] ?? null,
         (int) $markSynced,
     ]);
 }

@@ -8,11 +8,11 @@ if (!is_logged_in()) {
     // Landing page: most-tracked running/upcoming shows with posters,
     // linking to the public series pages.
     $popular = db()->query(
-        "SELECT s.imdb_id, s.name, s.image_url, s.status, COUNT(us.user_id) AS trackers
+        "SELECT s.imdb_id, s.name, s.image_url, s.status, s.rating, COUNT(us.user_id) AS trackers
          FROM shows s LEFT JOIN user_shows us ON us.show_imdb_id = s.imdb_id
          WHERE s.image_url IS NOT NULL AND s.image_url <> ''
            AND s.status IN ('running', 'upcoming')
-         GROUP BY s.imdb_id, s.name, s.image_url, s.status
+         GROUP BY s.imdb_id, s.name, s.image_url, s.status, s.rating
          ORDER BY trackers DESC, s.name
          LIMIT 10"
     )->fetchAll();

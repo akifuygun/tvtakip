@@ -46,6 +46,6 @@
     </span>
     </span>
 </footer>
-<script src="/assets/js/app.js"></script>
+<script src="/assets/js/app.js?v=<?= ASSET_VERSION ?>"></script>
 </body>
 </html>

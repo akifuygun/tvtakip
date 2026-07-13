@@ -16,7 +16,9 @@ if (!valid_imdb_id($showId)) {
 }
 
 $stmt = db()->prepare(
-    'SELECT imdb_id, name, image_url, status, overview, premiered FROM shows WHERE imdb_id = ?'
+    'SELECT imdb_id, name, image_url, backdrop_url, status, overview, premiered,
+            genres, network, rating, runtime
+     FROM shows WHERE imdb_id = ?'
 );
 $stmt->execute([$showId]);
 $show = $stmt->fetch();
@@ -57,24 +59,57 @@ $metaDescription = text_excerpt($show['name'] . ' — ' . t('series_meta_suffix'
 if (!$episodes && !$show['overview']) {
     $noindex = true;
 }
-// Posters are small portraits; use the compact card and require https so the
-// preview isn't rejected for mixed content.
-if ($show['image_url'] && str_starts_with($show['image_url'], 'https://')) {
+// Social preview: a wide backdrop earns a large card; otherwise the portrait
+// poster on the compact card. Require https so the preview isn't rejected for
+// mixed content.
+if ($show['backdrop_url'] && str_starts_with($show['backdrop_url'], 'https://')) {
+    $ogImage = $show['backdrop_url'];
+    $twitterCard = 'summary_large_image';
+} elseif ($show['image_url'] && str_starts_with($show['image_url'], 'https://')) {
     $ogImage = $show['image_url'];
     $twitterCard = 'summary';
 }
-$jsonLd = json_encode(array_filter([
-    '@context' => 'https://schema.org',
+
+$genreList = array_values(array_filter(array_map('trim', explode(',', (string) $show['genres']))));
+// containsSeason nodes (real seasons only, ascending) for the TVSeries graph.
+$seasonNodes = [];
+foreach (array_reverse($seasons, true) as $sNum => $eps) {
+    if ($sNum > 0) {
+        $seasonNodes[] = [
+            '@type' => 'TVSeason',
+            'seasonNumber' => (int) $sNum,
+            'numberOfEpisodes' => count($eps),
+        ];
+    }
+}
+// aggregateRating is intentionally omitted: Google requires ratingCount, which
+// we don't store. The rating is shown in the UI instead. genre/season graph
+// and a breadcrumb are safe, high-value structured data.
+$tvSeriesLd = array_filter([
     '@type' => 'TVSeries',
     'name' => $show['name'],
     'url' => $canonicalUrl,
     'description' => text_excerpt($show['overview'] ?? '', 300) ?: null,
     'image' => $show['image_url'] ?: null,
     'startDate' => $show['premiered'] ?: null,
+    'genre' => $genreList ?: null,
     'numberOfEpisodes' => count($episodes) ?: null,
-    'numberOfSeasons' => count(array_filter(array_keys($seasons), fn($s) => $s > 0)) ?: null,
+    'numberOfSeasons' => count($seasonNodes) ?: null,
+    'containsSeason' => $seasonNodes ?: null,
     'sameAs' => 'https://www.imdb.com/title/' . $showId . '/',
-]), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
+]);
+$breadcrumbLd = [
+    '@type' => 'BreadcrumbList',
+    'itemListElement' => [
+        ['@type' => 'ListItem', 'position' => 1, 'name' => t('breadcrumb_home'), 'item' => seo_base() . lang_path('/')],
+        ['@type' => 'ListItem', 'position' => 2, 'name' => t('nav_browse'), 'item' => seo_base() . lang_path('/browse')],
+        ['@type' => 'ListItem', 'position' => 3, 'name' => $show['name'], 'item' => $canonicalUrl],
+    ],
+];
+$jsonLd = json_encode([
+    '@context' => 'https://schema.org',
+    '@graph' => [$tvSeriesLd, $breadcrumbLd],
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
 
 // Whether the viewer already tracks this show (drives the interactive header).
 $isTracked = false;
@@ -104,10 +139,16 @@ require __DIR__ . '/includes/header.php';
             <h1><?= htmlspecialchars($show['name']) ?>
                 <a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($showId) ?>/"
                    target="_blank" rel="noopener">IMDB</a></h1>
-            <p class="muted"><?= implode(' · ', array_filter([
+            <p class="muted"><?= htmlspecialchars(implode(' · ', array_filter([
+                $show['rating'] ? '⭐ ' . number_format((float) $show['rating'], 1) : null,
                 $show['premiered'] ? substr($show['premiered'], 0, 4) : null,
                 status_label($show['status']) ?: null,
-            ])) ?></p>
+                $show['network'] ?: null,
+                $show['runtime'] ? t('runtime_min', (int) $show['runtime']) : null,
+            ]))) ?></p>
+            <?php if ($genreList): ?>
+                <p class="genres"><?php foreach ($genreList as $g): ?><span class="genre-chip"><?= htmlspecialchars($g) ?></span><?php endforeach; ?></p>
+            <?php endif; ?>
             <?php if ($show['overview']): ?>
                 <p class="show-summary"><?= htmlspecialchars($show['overview']) ?></p>
             <?php endif; ?>

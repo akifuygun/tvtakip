@@ -60,7 +60,7 @@ $seoJsonLd = $jsonLd ?? json_encode([
     <meta name="twitter:description" content="<?= htmlspecialchars($metaDescription) ?>">
     <meta name="twitter:image" content="<?= htmlspecialchars($seoImage) ?>">
 
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="/assets/css/style.css?v=<?= ASSET_VERSION ?>">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg">
     <link rel="manifest" href="/manifest.webmanifest">
