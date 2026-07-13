@@ -15,16 +15,25 @@ $shows = db()->query(
          ELSE 4 END, name"
 )->fetchAll();
 
-// Filter bar: the 20 networks with the most RUNNING shows (keeps the bar tidy
-// as the catalog grows). Logos come from a static committed map
-// (includes/network_logos.php); the count shown is total shows on that network.
-$networks = db()->query(
-    "SELECT network, SUM(status = 'running') AS running_n, COUNT(*) AS n FROM shows
-     WHERE network IS NOT NULL AND network <> ''
-     GROUP BY network
-     ORDER BY running_n DESC, n DESC, network
-     LIMIT 20"
-)->fetchAll();
+// Filter bar: a MANUALLY CURATED list of major networks, in display order.
+// Edit this list to control which chips appear (exact TMDB name strings).
+// Only networks that actually have shows are shown; logos come from the static
+// map (includes/network_logos.php).
+$TOP_NETWORKS = [
+    'Netflix', 'Disney+', 'Prime Video', 'Apple TV', 'HBO', 'HBO Max', 'Hulu',
+    'Paramount+', 'Peacock', 'AMC', 'FX', 'Showtime', 'STARZ',
+    'ABC', 'NBC', 'CBS', 'FOX', 'The CW', 'BBC One',
+];
+$counts = db()->query(
+    "SELECT network, COUNT(*) AS n FROM shows
+     WHERE network IS NOT NULL AND network <> '' GROUP BY network"
+)->fetchAll(PDO::FETCH_KEY_PAIR);
+$networks = [];
+foreach ($TOP_NETWORKS as $name) {
+    if (!empty($counts[$name])) {
+        $networks[] = ['network' => $name, 'n' => (int) $counts[$name]];
+    }
+}
 
 $pageTitle = t('pub_browse_title');
 $canonicalUrl = seo_base() . lang_path('/browse');
