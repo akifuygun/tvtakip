@@ -694,6 +694,42 @@ function initTick() {
   else setTimeout(ping, 1500);
 }
 
+// Browse page: multi-select network logo chips filter the card grid entirely
+// client-side (all cards are already on the page). No selection = show all.
+function initBrowseFilter() {
+  const bar = document.getElementById('network-filter');
+  const grid = document.querySelector('.show-grid');
+  if (!bar || !grid) return;
+  const cards = [...grid.querySelectorAll('.show-card')];
+  const allChip = bar.querySelector('.net-all');
+  const chips = [...bar.querySelectorAll('.net-chip[data-network]')];
+  const selected = new Set();
+
+  const apply = () => {
+    const active = selected.size > 0;
+    for (const card of cards) {
+      const net = card.getAttribute('data-network') || '';
+      // Inline style overrides the .show-card { display: flex } rule.
+      card.style.display = active && !selected.has(net) ? 'none' : '';
+    }
+    if (allChip) allChip.classList.toggle('selected', !active);
+  };
+
+  chips.forEach((chip) => chip.addEventListener('click', () => {
+    const net = chip.dataset.network;
+    selected.has(net) ? selected.delete(net) : selected.add(net);
+    chip.classList.toggle('selected', selected.has(net));
+    apply();
+  }));
+  if (allChip) {
+    allChip.addEventListener('click', () => {
+      selected.clear();
+      chips.forEach((c) => c.classList.remove('selected'));
+      apply();
+    });
+  }
+}
+
 // Footer sun/moon toggle. The theme is applied server-side on <html data-theme>
 // (no flash); here we switch it live and remember the choice in a cookie.
 function initTheme() {
@@ -713,6 +749,7 @@ initNav();
 initTheme();
 initTick();
 initPosterLightbox();
+initBrowseFilter();
 initSearch();
 initDashboard();
 initCalendar();

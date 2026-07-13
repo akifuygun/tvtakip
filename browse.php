@@ -2,16 +2,25 @@
 // PUBLIC show directory (no login) — the crawl hub linking every series page.
 // Pretty URL /browse rewrites here.
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/network_logos.php';
 
 // Running first, then upcoming, then finished (canceled/ended); alphabetical within.
 $shows = db()->query(
-    "SELECT imdb_id, name, image_url, status, rating FROM shows
+    "SELECT imdb_id, name, image_url, status, rating, network FROM shows
      ORDER BY CASE status
          WHEN 'running' THEN 1
          WHEN 'upcoming' THEN 2
          WHEN 'canceled' THEN 3
          WHEN 'ended' THEN 3
          ELSE 4 END, name"
+)->fetchAll();
+
+// Networks present in the catalog, most-content first, for the filter bar.
+// Logos come from a static committed map (includes/network_logos.php).
+$networks = db()->query(
+    "SELECT network, COUNT(*) AS n FROM shows
+     WHERE network IS NOT NULL AND network <> ''
+     GROUP BY network ORDER BY n DESC, network"
 )->fetchAll();
 
 $pageTitle = t('pub_browse_title');
@@ -22,6 +31,23 @@ require __DIR__ . '/includes/header.php';
 ?>
 <h1><?= t('pub_browse_title') ?></h1>
 <p class="muted"><?= t('pub_browse_sub', count($shows)) ?></p>
+
+<?php if ($networks): ?>
+    <div id="network-filter" class="net-filter" aria-label="<?= t('filter_by_network') ?>">
+        <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
+        <?php foreach ($networks as $net): ?>
+            <?php $logo = network_logo($net['network']); ?>
+            <button type="button" class="net-chip" data-network="<?= htmlspecialchars($net['network']) ?>"
+                    title="<?= htmlspecialchars($net['network']) ?> (<?= (int) $net['n'] ?>)">
+                <?php if ($logo): ?>
+                    <img src="<?= htmlspecialchars($logo) ?>" alt="<?= htmlspecialchars($net['network']) ?>" loading="lazy">
+                <?php else: ?>
+                    <span><?= htmlspecialchars($net['network']) ?></span>
+                <?php endif; ?>
+            </button>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
 
 <div class="show-grid">
     <?php foreach ($shows as $show): ?>
