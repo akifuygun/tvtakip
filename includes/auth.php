@@ -289,6 +289,25 @@ function episode_code(int $season, int $number): string
     return sprintf('S%02dE%02d', $season, $number);
 }
 
+/** Fold provider genre-name variants into one canonical label (browse filter). */
+function canonical_genre(string $genre): string
+{
+    static $map = [
+        'Science-Fiction' => 'Sci-Fi & Fantasy',
+    ];
+    return $map[$genre] ?? $genre;
+}
+
+/** Unique canonical genres from a comma-separated string. */
+function genre_list(?string $genres): array
+{
+    $out = [];
+    foreach (array_filter(array_map('trim', explode(',', (string) $genres))) as $g) {
+        $out[canonical_genre($g)] = true;
+    }
+    return array_keys($out);
+}
+
 /** Shared public show-card markup (browse page, landing page). */
 function show_card_html(array $show, string $href): string
 {
@@ -305,7 +324,7 @@ function show_card_html(array $show, string $href): string
         : '';
     $meta = ($badge || $rating) ? '<div class="card-meta">' . $rating . $badge . '</div>' : '';
     $data = ' data-network="' . htmlspecialchars($show['network'] ?? '') . '"'
-        . ' data-genres="' . htmlspecialchars($show['genres'] ?? '') . '"'
+        . ' data-genres="' . htmlspecialchars(implode(', ', genre_list($show['genres'] ?? null))) . '"'
         . ' data-status="' . htmlspecialchars($show['status'] ?? '') . '"';
     return '<div class="show-card"' . $data . '><a href="' . htmlspecialchars($href) . '">'
         . $img . '<h3>' . $name . '</h3></a>' . $meta . '</div>';

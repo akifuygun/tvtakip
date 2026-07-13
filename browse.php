@@ -62,7 +62,7 @@ $othersCount = max(0, (int) db()->query('SELECT COUNT(*) FROM shows')->fetchColu
 $genreCounts = [];
 $statusCounts = [];
 foreach ($shows as $s) {
-    foreach (array_filter(array_map('trim', explode(',', (string) $s['genres']))) as $g) {
+    foreach (genre_list($s['genres']) as $g) {
         $genreCounts[$g] = ($genreCounts[$g] ?? 0) + 1;
     }
     if ($s['status']) {
