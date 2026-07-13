@@ -131,7 +131,8 @@ require __DIR__ . '/includes/header.php';
 <?php endif; ?>
     <article class="show-header">
         <?php if ($show['image_url']): ?>
-            <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="<?= htmlspecialchars($show['name']) ?>">
+            <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="<?= htmlspecialchars($show['name']) ?>"
+                 class="poster-zoom" data-backdrop="<?= htmlspecialchars($show['backdrop_url'] ?? '') ?>">
         <?php else: ?>
             <div class="no-poster"><?= t('no_image') ?></div>
         <?php endif; ?>

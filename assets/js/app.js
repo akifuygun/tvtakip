@@ -136,15 +136,17 @@ function addImagePlaceholder(showId, extraClass = '') {
 
 // Poster for the show-detail header: an <img> (with an admin remove overlay),
 // or a clickable "add image" box.
-function posterEl(showId, imageUrl) {
+function posterEl(showId, imageUrl, backdropUrl = null) {
   if (!imageUrl) {
     // Only admins can set posters; others just see a plain placeholder.
     return IS_ADMIN ? addImagePlaceholder(showId) : el('div', { class: 'no-poster', text: t('no_image') });
   }
-  const img = el('img', { src: imageUrl, alt: '' });
+  const img = el('img', { src: imageUrl, alt: '', class: 'poster-zoom' });
+  const images = [largePoster(imageUrl), backdropUrl].filter(Boolean);
+  img.addEventListener('click', () => openLightbox(images, 0));
   if (!IS_ADMIN) return img;
   const wrap = el('div', { class: 'poster-wrap' }, [img]);
-  wrap.append(makeRemoveButton(showId, () => wrap.replaceWith(posterEl(showId, null))));
+  wrap.append(makeRemoveButton(showId, () => wrap.replaceWith(posterEl(showId, null, backdropUrl))));
   return wrap;
 }
 
@@ -155,6 +157,90 @@ function imdbLink(imdbId, cls = 'imdb-link') {
     rel: 'noopener',
     class: cls,
     text: 'IMDB',
+  });
+}
+
+// Sharper poster for the lightbox: TMDB posters are stored at w342, so bump to
+// w780 for the enlarged view. Non-TMDB URLs (TVmaze) are returned unchanged.
+function largePoster(url) {
+  return url ? url.replace('/t/p/w342/', '/t/p/w780/') : url;
+}
+
+// Full-screen image viewer with a horizontal slider (poster -> backdrop).
+// images: array of URLs; opens at startIndex. Single image = no slider chrome.
+function openLightbox(images, startIndex = 0) {
+  images = (images || []).filter(Boolean);
+  if (!images.length) return;
+  let idx = Math.min(Math.max(startIndex, 0), images.length - 1);
+
+  const track = el('div', { class: 'lightbox-track' },
+    images.map((src) => el('div', { class: 'lightbox-slide' }, [el('img', { src, alt: '' })])));
+  const viewport = el('div', { class: 'lightbox-viewport' }, [track]);
+  const overlay = el('div', { class: 'lightbox', role: 'dialog', 'aria-modal': 'true' }, [viewport]);
+
+  let dots = null;
+  const update = () => {
+    track.style.transform = `translateX(${-idx * 100}%)`;
+    if (dots) [...dots.children].forEach((d, i) => d.classList.toggle('active', i === idx));
+  };
+  const go = (n) => { idx = (n + images.length) % images.length; update(); };
+
+  const closeBtn = el('button', { type: 'button', class: 'lightbox-close', 'aria-label': t('lb_close'), text: '✕' });
+  overlay.append(closeBtn);
+
+  if (images.length > 1) {
+    const prev = el('button', { type: 'button', class: 'lightbox-nav lightbox-prev', 'aria-label': t('lb_prev'), text: '‹' });
+    const next = el('button', { type: 'button', class: 'lightbox-nav lightbox-next', 'aria-label': t('lb_next'), text: '›' });
+    prev.addEventListener('click', (e) => { e.stopPropagation(); go(idx - 1); });
+    next.addEventListener('click', (e) => { e.stopPropagation(); go(idx + 1); });
+    dots = el('div', { class: 'lightbox-dots' }, images.map((_, i) => {
+      const d = el('button', { type: 'button', class: 'lightbox-dot', 'aria-label': `${i + 1}` });
+      d.addEventListener('click', (e) => { e.stopPropagation(); go(i); });
+      return d;
+    }));
+    overlay.append(prev, next, dots);
+  }
+
+  const prevOverflow = document.body.style.overflow;
+  const close = () => {
+    document.removeEventListener('keydown', onKey);
+    document.body.style.overflow = prevOverflow;
+    overlay.remove();
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowLeft') go(idx - 1);
+    else if (e.key === 'ArrowRight') go(idx + 1);
+  };
+  closeBtn.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+  // Click on the dim background (not an image or control) closes.
+  overlay.addEventListener('click', (e) => { if (e.target === overlay || e.target === viewport) close(); });
+
+  let startX = null;
+  viewport.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+  viewport.addEventListener('touchend', (e) => {
+    if (startX === null) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (images.length > 1 && Math.abs(dx) > 40) go(dx < 0 ? idx + 1 : idx - 1);
+    startX = null;
+  });
+
+  document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', onKey);
+  document.body.append(overlay);
+  update();
+  closeBtn.focus();
+}
+
+// Wire click-to-zoom on server-rendered (guest) series posters. The logged-in
+// poster is wired directly in posterEl(); noscript-wrapped markup is inert when
+// JS is on, so this only ever matches the guest page's live poster.
+function initPosterLightbox() {
+  document.querySelectorAll('img.poster-zoom').forEach((img) => {
+    if (img.dataset.lbBound) return;
+    img.dataset.lbBound = '1';
+    const images = [largePoster(img.getAttribute('src')), img.dataset.backdrop].filter(Boolean);
+    img.addEventListener('click', () => openLightbox(images, 0));
   });
 }
 
@@ -431,7 +517,7 @@ async function initShowDetail() {
     trackBtn,
   );
 
-  root.append(el('div', { class: 'show-header' }, [posterEl(showId, show.image_url), info]));
+  root.append(el('div', { class: 'show-header' }, [posterEl(showId, show.image_url, show.backdrop_url), info]));
 
   // Episodes grouped by season
   const seasons = new Map();
@@ -626,6 +712,7 @@ function initTheme() {
 initNav();
 initTheme();
 initTick();
+initPosterLightbox();
 initSearch();
 initDashboard();
 initCalendar();
