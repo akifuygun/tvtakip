@@ -6,7 +6,7 @@ require_once __DIR__ . '/includes/network_logos.php';
 
 // Running first, then upcoming, then finished (canceled/ended); alphabetical within.
 $shows = db()->query(
-    "SELECT imdb_id, name, image_url, status, rating, network FROM shows
+    "SELECT imdb_id, name, image_url, status, rating, network, genres FROM shows
      ORDER BY CASE status
          WHEN 'running' THEN 1
          WHEN 'upcoming' THEN 2
@@ -58,6 +58,24 @@ foreach ($NETWORK_GROUPS as [$label, $members]) {
 // "Others" = everything not in a curated group (incl. shows with no network).
 $othersCount = max(0, (int) db()->query('SELECT COUNT(*) FROM shows')->fetchColumn() - $groupedTotal);
 
+// Genre + status facets, derived from the already-loaded $shows (no extra query).
+$genreCounts = [];
+$statusCounts = [];
+foreach ($shows as $s) {
+    foreach (array_filter(array_map('trim', explode(',', (string) $s['genres']))) as $g) {
+        $genreCounts[$g] = ($genreCounts[$g] ?? 0) + 1;
+    }
+    if ($s['status']) {
+        $statusCounts[$s['status']] = ($statusCounts[$s['status']] ?? 0) + 1;
+    }
+}
+arsort($genreCounts); // most common first
+// Fixed status order; only those present render.
+$statuses = array_values(array_filter(
+    ['running', 'upcoming', 'ended', 'canceled'],
+    fn($st) => !empty($statusCounts[$st])
+));
+
 $pageTitle = t('pub_browse_title');
 $canonicalUrl = seo_base() . lang_path('/browse');
 $metaDescription = t('pub_browse_sub', count($shows));
@@ -67,27 +85,58 @@ require __DIR__ . '/includes/header.php';
 <h1><?= t('pub_browse_title') ?></h1>
 <p class="muted"><?= t('pub_browse_sub', count($shows)) ?></p>
 
-<?php if ($networks): ?>
-    <div id="network-filter" class="net-filter" aria-label="<?= t('filter_by_network') ?>">
-        <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
-        <?php foreach ($networks as $net): ?>
-            <button type="button" class="net-chip"
-                    data-networks="<?= htmlspecialchars(json_encode($net['members'])) ?>"
-                    title="<?= htmlspecialchars($net['label']) ?> (<?= (int) $net['n'] ?>)"
-                    aria-label="<?= htmlspecialchars($net['label']) ?>">
-                <?php if ($net['logo']): ?>
-                    <img src="<?= htmlspecialchars($net['logo']) ?>" alt="<?= htmlspecialchars($net['label']) ?>" loading="lazy">
-                <?php else: ?>
-                    <span><?= htmlspecialchars($net['label']) ?></span>
+<div class="filters">
+    <?php if ($networks): ?>
+        <div class="filter-group">
+            <span class="filter-label"><?= t('flt_network') ?></span>
+            <div id="network-filter" class="net-filter" aria-label="<?= t('filter_by_network') ?>">
+                <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
+                <?php foreach ($networks as $net): ?>
+                    <button type="button" class="net-chip"
+                            data-networks="<?= htmlspecialchars(json_encode($net['members'])) ?>"
+                            title="<?= htmlspecialchars($net['label']) ?> (<?= (int) $net['n'] ?>)"
+                            aria-label="<?= htmlspecialchars($net['label']) ?>">
+                        <?php if ($net['logo']): ?>
+                            <img src="<?= htmlspecialchars($net['logo']) ?>" alt="<?= htmlspecialchars($net['label']) ?>" loading="lazy">
+                        <?php else: ?>
+                            <span><?= htmlspecialchars($net['label']) ?></span>
+                        <?php endif; ?>
+                    </button>
+                <?php endforeach; ?>
+                <?php if ($othersCount > 0): ?>
+                    <button type="button" class="net-chip net-others" data-others="1"
+                            title="<?= t('network_others') ?> (<?= $othersCount ?>)" aria-label="<?= t('network_others') ?>"><?= t('network_others') ?></button>
                 <?php endif; ?>
-            </button>
-        <?php endforeach; ?>
-        <?php if ($othersCount > 0): ?>
-            <button type="button" class="net-chip net-others" data-others="1"
-                    title="<?= t('network_others') ?> (<?= $othersCount ?>)" aria-label="<?= t('network_others') ?>"><?= t('network_others') ?></button>
-        <?php endif; ?>
-    </div>
-<?php endif; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($genreCounts): ?>
+        <div class="filter-group">
+            <span class="filter-label"><?= t('flt_genre') ?></span>
+            <div id="genre-filter" class="net-filter" aria-label="<?= t('flt_genre') ?>">
+                <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
+                <?php foreach ($genreCounts as $g => $gn): ?>
+                    <button type="button" class="net-chip net-text" data-genre="<?= htmlspecialchars($g) ?>"
+                            title="<?= htmlspecialchars($g) ?> (<?= (int) $gn ?>)"><?= htmlspecialchars($g) ?></button>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($statuses): ?>
+        <div class="filter-group">
+            <span class="filter-label"><?= t('flt_status') ?></span>
+            <div id="status-filter" class="net-filter" aria-label="<?= t('flt_status') ?>">
+                <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
+                <?php foreach ($statuses as $st): ?>
+                    <button type="button" class="net-chip net-text" data-status="<?= htmlspecialchars($st) ?>"
+                            title="<?= htmlspecialchars(status_label($st)) ?> (<?= (int) $statusCounts[$st] ?>)"><?= htmlspecialchars(status_label($st)) ?></button>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+</div>
 
 <div class="show-grid">
     <?php foreach ($shows as $show): ?>

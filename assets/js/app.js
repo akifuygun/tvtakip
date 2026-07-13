@@ -698,57 +698,92 @@ function initTick() {
 // cards are already on the page). Each chip carries its member channel names
 // (data-networks); a card matches if its network is in any selected chip's set.
 // No selection = show all.
+// Browse faceted filter: Network (brand groups + Others), Genre and Status.
+// Within a facet chips are OR'd; across facets they're AND'd. All client-side.
 function initBrowseFilter() {
-  const bar = document.getElementById('network-filter');
   const grid = document.querySelector('.show-grid');
-  if (!bar || !grid) return;
-  const cards = [...grid.querySelectorAll('.show-card')];
-  const allChip = bar.querySelector('.net-all');
-  const chips = [...bar.querySelectorAll('.net-chip:not(.net-all)')];
-  const memberOf = new Map();      // regular chip -> Set(member networks)
-  const groupedUnion = new Set();  // every grouped network (for the "Others" complement)
-  chips.forEach((chip) => {
-    if (!chip.dataset.networks) return; // the Others chip has no member list
+  if (!grid) return;
+  const cards = [...grid.querySelectorAll('.show-card')].map((el) => ({
+    el,
+    net: el.getAttribute('data-network') || '',
+    genres: (el.getAttribute('data-genres') || '').split(',').map((s) => s.trim()).filter(Boolean),
+    status: el.getAttribute('data-status') || '',
+  }));
+
+  // Network facet: chips carry a member-network set (data-networks); the Others
+  // chip matches any network not in a curated group.
+  const netBar = document.getElementById('network-filter');
+  const netAll = netBar && netBar.querySelector('.net-all');
+  const netChips = netBar ? [...netBar.querySelectorAll('.net-chip:not(.net-all)')] : [];
+  const memberOf = new Map();
+  const groupedUnion = new Set();
+  netChips.forEach((chip) => {
+    if (!chip.dataset.networks) return; // Others chip has no member list
     let set;
     try { set = new Set(JSON.parse(chip.dataset.networks)); } catch { set = new Set(); }
     memberOf.set(chip, set);
     set.forEach((m) => groupedUnion.add(m));
   });
-  const selected = new Set();
-
-  const apply = () => {
-    const active = selected.size > 0;
-    let selNetworks = null;
-    let selOthers = false;
-    if (active) {
-      selNetworks = new Set();
-      selected.forEach((chip) => {
-        if (chip.dataset.others) selOthers = true;
-        else (memberOf.get(chip) || []).forEach((m) => selNetworks.add(m));
-      });
+  const selNet = new Set();
+  const matchesNet = (c) => {
+    if (!selNet.size) return true;
+    for (const chip of selNet) {
+      if (chip.dataset.others) { if (!groupedUnion.has(c.net)) return true; }
+      else if ((memberOf.get(chip) || new Set()).has(c.net)) return true;
     }
-    for (const card of cards) {
-      const net = card.getAttribute('data-network') || '';
-      // Others = any network not in a curated group. Inline style overrides
-      // the .show-card { display: flex } rule.
-      const show = !active || selNetworks.has(net) || (selOthers && !groupedUnion.has(net));
-      card.style.display = show ? '' : 'none';
-    }
-    if (allChip) allChip.classList.toggle('selected', !active);
+    return false;
   };
 
-  chips.forEach((chip) => chip.addEventListener('click', () => {
-    selected.has(chip) ? selected.delete(chip) : selected.add(chip);
-    chip.classList.toggle('selected', selected.has(chip));
+  // Genre + Status facets: plain value chips.
+  const genreBar = document.getElementById('genre-filter');
+  const statusBar = document.getElementById('status-filter');
+  const selGenre = new Set();
+  const selStatus = new Set();
+
+  const apply = () => {
+    for (const c of cards) {
+      const show = matchesNet(c)
+        && (!selGenre.size || c.genres.some((g) => selGenre.has(g)))
+        && (!selStatus.size || selStatus.has(c.status));
+      c.el.style.display = show ? '' : 'none'; // overrides .show-card { display: flex }
+    }
+    if (netAll) netAll.classList.toggle('selected', !selNet.size);
+    [[genreBar, selGenre], [statusBar, selStatus]].forEach(([bar, sel]) => {
+      const all = bar && bar.querySelector('.net-all');
+      if (all) all.classList.toggle('selected', !sel.size);
+    });
+  };
+
+  netChips.forEach((chip) => chip.addEventListener('click', () => {
+    selNet.has(chip) ? selNet.delete(chip) : selNet.add(chip);
+    chip.classList.toggle('selected', selNet.has(chip));
     apply();
   }));
-  if (allChip) {
-    allChip.addEventListener('click', () => {
-      selected.clear();
+  if (netAll) netAll.addEventListener('click', () => {
+    selNet.clear();
+    netChips.forEach((c) => c.classList.remove('selected'));
+    apply();
+  });
+
+  // Wire a value facet (genre/status): data-<attr> chips OR'd, All resets.
+  const wireValueFacet = (bar, attr, sel) => {
+    if (!bar) return;
+    const chips = [...bar.querySelectorAll(`.net-chip[data-${attr}]`)];
+    chips.forEach((chip) => chip.addEventListener('click', () => {
+      const v = chip.getAttribute(`data-${attr}`);
+      sel.has(v) ? sel.delete(v) : sel.add(v);
+      chip.classList.toggle('selected', sel.has(v));
+      apply();
+    }));
+    const all = bar.querySelector('.net-all');
+    if (all) all.addEventListener('click', () => {
+      sel.clear();
       chips.forEach((c) => c.classList.remove('selected'));
       apply();
     });
-  }
+  };
+  wireValueFacet(genreBar, 'genre', selGenre);
+  wireValueFacet(statusBar, 'status', selStatus);
 }
 
 // Footer sun/moon toggle. The theme is applied server-side on <html data-theme>

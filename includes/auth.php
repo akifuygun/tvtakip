@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '31';
+const ASSET_VERSION = '32';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -304,8 +304,10 @@ function show_card_html(array $show, string $href): string
         ? '<span class="card-rating">⭐ ' . number_format((float) $show['rating'], 1) . '</span>'
         : '';
     $meta = ($badge || $rating) ? '<div class="card-meta">' . $rating . $badge . '</div>' : '';
-    $net = ' data-network="' . htmlspecialchars($show['network'] ?? '') . '"';
-    return '<div class="show-card"' . $net . '><a href="' . htmlspecialchars($href) . '">'
+    $data = ' data-network="' . htmlspecialchars($show['network'] ?? '') . '"'
+        . ' data-genres="' . htmlspecialchars($show['genres'] ?? '') . '"'
+        . ' data-status="' . htmlspecialchars($show['status'] ?? '') . '"';
+    return '<div class="show-card"' . $data . '><a href="' . htmlspecialchars($href) . '">'
         . $img . '<h3>' . $name . '</h3></a>' . $meta . '</div>';
 }
 

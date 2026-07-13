@@ -523,12 +523,23 @@ a:hover { color: var(--accent-hover); }
   .show-header img { max-width: 140px; }
 }
 
-/* ---------- Browse network filter ---------- */
+/* ---------- Browse faceted filter (network / genre / status) ---------- */
+.filters { margin: 0 0 1.5rem; }
+.filter-group { margin-bottom: 0.85rem; }
+.filter-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.35rem;
+}
 .net-filter {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin: 0 0 1.25rem;
+  margin: 0;
   max-height: 8.5rem;
   overflow-y: auto;
   padding: 0.15rem;
@@ -549,8 +560,8 @@ a:hover { color: var(--accent-hover); }
 .net-chip > span { color: #1b2430; font-size: 0.8rem; font-weight: 600; }
 .net-chip:hover { border-color: var(--accent-hover); }
 .net-chip.selected { border-color: var(--accent); }
-/* The "All" reset and "Others" catch-all use the theme surface, not white logo chips. */
-.net-all, .net-others {
+/* Text chips (All / Others / genre / status) use the theme surface, not white logo chips. */
+.net-all, .net-others, .net-text {
   min-height: 40px;
   background: var(--surface);
   border: 2px solid var(--border);
@@ -558,7 +569,7 @@ a:hover { color: var(--accent-hover); }
   font-size: 0.8rem;
   font-weight: 600;
 }
-.net-all.selected, .net-others.selected { border-color: var(--accent); color: var(--accent); }
+.net-all.selected, .net-others.selected, .net-text.selected { border-color: var(--accent); color: var(--accent); }
 
 /* ---------- Poster lightbox ---------- */
 .poster-zoom { cursor: zoom-in; }
