@@ -40,6 +40,31 @@ if (is_logged_in()) {
     $stmt->execute([today(), current_user_id()]);
     $items = $stmt->fetchAll();
 
+    // Nothing left to watch? Fall back to what's coming up next — one upcoming
+    // (not-yet-aired) episode per tracked show, soonest first — so the calendar
+    // is useful instead of just "all caught up".
+    $upcoming = [];
+    if (!$items) {
+        $stmt = db()->prepare(
+            "SELECT e.season, e.number, e.airdate, e.airstamp,
+                    s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url
+             FROM user_shows us
+             JOIN shows s ON s.imdb_id = us.show_imdb_id
+             JOIN episodes e ON e.id = (
+                 SELECT e2.id FROM episodes e2
+                 WHERE e2.show_imdb_id = us.show_imdb_id
+                   AND ((e2.airstamp IS NOT NULL AND e2.airstamp > UTC_TIMESTAMP())
+                        OR (e2.airstamp IS NULL AND e2.airdate IS NOT NULL AND e2.airdate > ?))
+                 ORDER BY COALESCE(e2.airstamp, CONCAT(e2.airdate, ' 00:00:00')) ASC LIMIT 1
+             )
+             WHERE us.user_id = ?
+             ORDER BY COALESCE(e.airstamp, CONCAT(e.airdate, ' 00:00:00')) ASC
+             LIMIT 12"
+        );
+        $stmt->execute([today(), current_user_id()]);
+        $upcoming = $stmt->fetchAll();
+    }
+
     // Tracked shows whose episodes were never imported (show page never opened).
     $stmt = db()->prepare(
         'SELECT s.imdb_id, s.name FROM user_shows us
@@ -117,12 +142,7 @@ require __DIR__ . '/includes/header.php';
         </div>
     <?php endif; ?>
 
-    <?php if (!$items): ?>
-        <div class="hero">
-            <h2><?= t('all_caught_up') ?></h2>
-            <p><?= t('no_unwatched') ?> <a href="/search.php"><?= t('find_more') ?></a>.</p>
-        </div>
-    <?php else: ?>
+    <?php if ($items): ?>
         <div id="calendar" class="cal-grid">
             <?php foreach ($items as $ep): ?>
                 <?php
@@ -142,6 +162,44 @@ require __DIR__ . '/includes/header.php';
                     <button class="button button-small cal-watch-btn" data-episode-id="<?= (int) $ep['id'] ?>"><?= t('mark_watched') ?></button>
                 </div>
             <?php endforeach; ?>
+        </div>
+    <?php elseif ($upcoming): ?>
+        <div class="hero">
+            <h2><?= t('all_caught_up') ?></h2>
+            <p class="muted"><?= t('coming_up') ?></p>
+        </div>
+        <div class="cal-grid">
+            <?php foreach ($upcoming as $ep): ?>
+                <?php
+                $showUrl = htmlspecialchars(series_url($ep['show_imdb_id']));
+                $code = episode_code((int) $ep['season'], (int) $ep['number']);
+                // Show the air day in the viewer's timezone when an exact time is known.
+                $when = $ep['airstamp']
+                    ? (new DateTimeImmutable($ep['airstamp'], new DateTimeZone('UTC')))
+                        ->setTimezone(new DateTimeZone(date_default_timezone_get()))->format('Y-m-d')
+                    : $ep['airdate'];
+                ?>
+                <div class="show-card">
+                    <a href="<?= $showUrl ?>">
+                        <?php if ($ep['image_url']): ?>
+                            <img src="<?= htmlspecialchars($ep['image_url']) ?>" alt="">
+                        <?php else: ?>
+                            <div class="no-poster"><?= t('no_image') ?></div>
+                        <?php endif; ?>
+                    </a>
+                    <h3><a href="<?= $showUrl ?>"><?= htmlspecialchars($ep['show_name']) ?></a></h3>
+                    <span class="muted"><?= $code ?></span>
+                    <span class="next-ep">📅 <?= htmlspecialchars(format_date($when)) ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <div class="cta-row">
+            <a class="button button-secondary" href="/upcoming"><?= t('see_upcoming') ?></a>
+        </div>
+    <?php else: ?>
+        <div class="hero">
+            <h2><?= t('all_caught_up') ?></h2>
+            <p><?= t('no_unwatched') ?> <a href="/search.php"><?= t('find_more') ?></a>.</p>
         </div>
     <?php endif; ?>
 <?php endif; ?>
