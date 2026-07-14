@@ -8,7 +8,7 @@ require_login();
 $nextEpisodeWhere =
     '((e.airstamp IS NOT NULL AND e.airstamp > UTC_TIMESTAMP())
       OR (e.airstamp IS NULL AND e.airdate IS NOT NULL AND e.airdate >= ?))';
-$nextEpisodeOrder = "ORDER BY COALESCE(e.airstamp, CONCAT(e.airdate, ' 00:00:00')) ASC LIMIT 1";
+$nextEpisodeOrder = "ORDER BY COALESCE(e.airstamp, CONCAT(e.airdate, ' 00:00:00')) ASC, e.season ASC, e.number ASC LIMIT 1";
 $stmt = db()->prepare(
     "SELECT s.imdb_id, s.name, s.image_url, s.status,
             (SELECT e.airstamp FROM episodes e

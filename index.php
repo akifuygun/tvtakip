@@ -55,10 +55,10 @@ if (is_logged_in()) {
                  WHERE e2.show_imdb_id = us.show_imdb_id
                    AND ((e2.airstamp IS NOT NULL AND e2.airstamp > UTC_TIMESTAMP())
                         OR (e2.airstamp IS NULL AND e2.airdate IS NOT NULL AND e2.airdate > ?))
-                 ORDER BY COALESCE(e2.airstamp, CONCAT(e2.airdate, ' 00:00:00')) ASC LIMIT 1
+                 ORDER BY COALESCE(e2.airstamp, CONCAT(e2.airdate, ' 00:00:00')) ASC, e2.season ASC, e2.number ASC LIMIT 1
              )
              WHERE us.user_id = ?
-             ORDER BY COALESCE(e.airstamp, CONCAT(e.airdate, ' 00:00:00')) ASC
+             ORDER BY COALESCE(e.airstamp, CONCAT(e.airdate, ' 00:00:00')) ASC, e.season ASC, e.number ASC
              LIMIT 12"
         );
         $stmt->execute([today(), current_user_id()]);
