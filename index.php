@@ -168,6 +168,7 @@ require __DIR__ . '/includes/header.php';
             <h2><?= t('all_caught_up') ?></h2>
             <p class="muted"><?= t('coming_up') ?></p>
         </div>
+        <h2><?= t('pub_upcoming_title') ?></h2>
         <div class="cal-grid">
             <?php foreach ($upcoming as $ep): ?>
                 <?php
