@@ -1,5 +1,8 @@
 config.php
 deploy/
 .vscode/
+.claude/
+CLAUDE.md
+google*.html
 Thumbs.db
 .DS_Store
