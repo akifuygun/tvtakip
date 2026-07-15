@@ -280,6 +280,10 @@ a:hover { color: var(--accent-hover); }
 .status-ended { color: var(--muted); }
 .status-canceled { color: var(--danger); }
 .status-upcoming { color: var(--warning); }
+.status-released { color: var(--success); }
+
+/* My Movies: watched cards are dimmed (badge carries the state too). */
+.show-card.watched img { opacity: 0.55; }
 
 /* Bottom meta row for public cards (rating + status), kept aligned across cards */
 .show-card > .card-meta {

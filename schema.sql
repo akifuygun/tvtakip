@@ -79,3 +79,33 @@ CREATE TABLE IF NOT EXISTS watched_episodes (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Shared cache of movie metadata (TMDB-only; TVmaze has no movies).
+CREATE TABLE IF NOT EXISTS movies (
+    imdb_id VARCHAR(12) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    image_url VARCHAR(500) DEFAULT NULL,
+    backdrop_url VARCHAR(500) DEFAULT NULL,
+    status VARCHAR(50) DEFAULT NULL,  -- canonical: released|upcoming|canceled|unknown (normalize_movie_status)
+    overview TEXT DEFAULT NULL,
+    released DATE DEFAULT NULL,       -- TMDB release_date
+    genres VARCHAR(255) DEFAULT NULL,
+    studio VARCHAR(120) DEFAULT NULL, -- production_companies[0].name
+    rating DECIMAL(3,1) DEFAULT NULL,
+    runtime SMALLINT UNSIGNED DEFAULT NULL,  -- minutes
+    synced_at TIMESTAMP NULL DEFAULT NULL,   -- set when the TMDB import completed
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- A user's movie list. Watched state lives here (a movie is one watchable
+-- unit — no per-episode analog).
+CREATE TABLE IF NOT EXISTS user_movies (
+    user_id INT UNSIGNED NOT NULL,
+    movie_imdb_id VARCHAR(12) NOT NULL,
+    added_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    watched TINYINT(1) NOT NULL DEFAULT 0,
+    watched_at TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (user_id, movie_imdb_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (movie_imdb_id) REFERENCES movies(imdb_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

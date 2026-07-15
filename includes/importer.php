@@ -363,3 +363,93 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
 
     return $count;
 }
+
+// ---------------------------------------------------------------------------
+// Movies. TMDB-only (TVmaze has no movies); a movie is a single row, so the
+// import is just two HTTP calls — no phases, no backfill.
+
+/** Movie metadata from TMDB by IMDB id, or null when TMDB doesn't know it. */
+function fetch_movie_from_tmdb(string $imdbId): ?array
+{
+    $found = http_get_json(tmdb_api_url("/find/$imdbId", ['external_source' => 'imdb_id']));
+    $movie = $found['movie_results'][0] ?? null;
+    if (!$movie) {
+        return null;
+    }
+    $detail = http_get_json(tmdb_api_url('/movie/' . $movie['id']));
+    if (!$detail) {
+        return null;
+    }
+    return [
+        'imdb_id' => $imdbId,
+        'name' => $detail['title'] ?? $imdbId,
+        'image_url' => !empty($detail['poster_path']) ? TMDB_IMG_BASE . $detail['poster_path'] : null,
+        'backdrop_url' => !empty($detail['backdrop_path']) ? TMDB_BACKDROP_BASE . $detail['backdrop_path'] : null,
+        'status' => $detail['status'] ?? null,
+        'overview' => trim((string) ($detail['overview'] ?? '')) ?: null,
+        'released' => valid_date($detail['release_date'] ?? null),
+        'genres' => genres_string(array_column($detail['genres'] ?? [], 'name')),
+        'studio' => trim((string) ($detail['production_companies'][0]['name'] ?? '')) ?: null,
+        'rating' => clean_rating($detail['vote_average'] ?? null),
+        'runtime' => clean_runtime($detail['runtime'] ?? null), // scalar on movies
+    ];
+}
+
+/** Canonical movie upsert — same COALESCE guards as upsert_show(). */
+function upsert_movie(PDO $pdo, array $movie, bool $markSynced): void
+{
+    $stmt = $pdo->prepare(
+        'INSERT INTO movies
+            (imdb_id, name, image_url, backdrop_url, status, overview, released,
+             genres, studio, rating, runtime, synced_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
+         ON DUPLICATE KEY UPDATE
+             name = VALUES(name),
+             image_url = COALESCE(VALUES(image_url), image_url),
+             backdrop_url = COALESCE(VALUES(backdrop_url), backdrop_url),
+             status = COALESCE(VALUES(status), status),
+             overview = COALESCE(VALUES(overview), overview),
+             released = COALESCE(VALUES(released), released),
+             genres = COALESCE(VALUES(genres), genres),
+             studio = COALESCE(VALUES(studio), studio),
+             rating = COALESCE(VALUES(rating), rating),
+             runtime = COALESCE(VALUES(runtime), runtime),
+             synced_at = IF(VALUES(synced_at) IS NULL, synced_at, VALUES(synced_at))'
+    );
+    $stmt->execute([
+        $movie['imdb_id'],
+        mb_substr(trim((string) ($movie['name'] ?? '')) ?: $movie['imdb_id'], 0, 255),
+        mb_substr((string) ($movie['image_url'] ?? ''), 0, 500) ?: null,
+        mb_substr((string) ($movie['backdrop_url'] ?? ''), 0, 500) ?: null,
+        normalize_movie_status($movie['status'] ?? null),
+        $movie['overview'] ?? null,
+        valid_date($movie['released'] ?? null),
+        $movie['genres'] ?? null,
+        mb_substr((string) ($movie['studio'] ?? ''), 0, 120) ?: null,
+        $movie['rating'] ?? null,
+        $movie['runtime'] ?? null,
+        (int) $markSynced,
+    ]);
+}
+
+/** Import (or refresh) one movie. Throws RuntimeException when TMDB lacks it. */
+function import_movie(PDO $pdo, string $imdbId): void
+{
+    @set_time_limit(60);
+
+    $movie = fetch_movie_from_tmdb($imdbId);
+    if (!$movie) {
+        throw new RuntimeException('Movie not found on TMDB.');
+    }
+
+    // Reconnect first — the fetch may have outlasted an idle MySQL connection.
+    $pdo = db_live();
+    $pdo->beginTransaction();
+    try {
+        upsert_movie($pdo, $movie, true);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+}

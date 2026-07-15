@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '35';
+const ASSET_VERSION = '36';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -256,6 +256,12 @@ function series_url(string $imdbId, ?string $lang = null): string
     return lang_path('/series/' . $imdbId, $lang);
 }
 
+/** Public (SEO) URL of a movie page, in the given/current language. */
+function movie_url(string $imdbId, ?string $lang = null): string
+{
+    return lang_path('/movie/' . $imdbId, $lang);
+}
+
 /**
  * Scheme+host for absolute SEO URLs (canonical, og:url, sitemap). The Host
  * header is attacker-controlled, so only whitelisted hosts are echoed back;
@@ -376,6 +382,41 @@ function status_label(?string $status): string
         'ended' => t('status_ended'),
         'canceled' => t('status_canceled'),
         'upcoming' => t('status_upcoming'),
+        default => '',
+    };
+}
+
+/**
+ * Map TMDB's movie status vocabulary ("Released", "Post Production",
+ * "In Production", "Planned", "Rumored", "Canceled") to one canonical set:
+ * released | upcoming | canceled | unknown. Null when no status given.
+ */
+function normalize_movie_status(?string $status): ?string
+{
+    $key = strtolower(trim((string) $status));
+    if ($key === '') {
+        return null;
+    }
+    return [
+        'released' => 'released',
+        'post production' => 'upcoming',
+        'in production' => 'upcoming',
+        'planned' => 'upcoming',
+        'rumored' => 'upcoming',
+        'announced' => 'upcoming',
+        'upcoming' => 'upcoming',
+        'canceled' => 'canceled',
+        'cancelled' => 'canceled',
+    ][$key] ?? 'unknown';
+}
+
+/** Display label for a canonical movie status; empty string hides the badge. */
+function movie_status_label(?string $status): string
+{
+    return match ($status) {
+        'released' => t('movie_status_released'),
+        'upcoming' => t('status_upcoming'),
+        'canceled' => t('status_canceled'),
         default => '',
     };
 }

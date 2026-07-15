@@ -17,6 +17,16 @@ if (preg_match('#^(?:/tr)?/series(/|$)#', $path)) {
     echo 'Not Found';
     return true;
 }
+if (preg_match('#^(?:/tr)?/movie/(tt\d{6,10})/?$#', $path, $m)) {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/movie.php';
+    return true;
+}
+if (preg_match('#^(?:/tr)?/movie(/|$)#', $path)) {
+    http_response_code(404);
+    echo 'Not Found';
+    return true;
+}
 if (preg_match('#^(?:/tr)?/browse/?$#', $path)) {
     require __DIR__ . '/browse.php';
     return true;

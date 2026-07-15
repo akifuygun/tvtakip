@@ -33,4 +33,21 @@ foreach ($shows as $show) {
     }
 }
 
+// Movie pages (synced only). try/catch so the sitemap survives if this code
+// ever lands before the movies table exists.
+try {
+    $movies = db()->query(
+        'SELECT imdb_id, synced_at FROM movies WHERE synced_at IS NOT NULL ORDER BY imdb_id'
+    )->fetchAll();
+    foreach ($movies as $movie) {
+        $lastmod = '<lastmod>' . date('Y-m-d', strtotime($movie['synced_at'])) . '</lastmod>';
+        foreach (['en', 'tr'] as $lang) {
+            $loc = htmlspecialchars($base . movie_url($movie['imdb_id'], $lang), ENT_XML1);
+            echo "  <url><loc>{$loc}</loc>{$lastmod}<changefreq>monthly</changefreq><priority>0.5</priority></url>\n";
+        }
+    }
+} catch (Throwable $e) {
+    // movies table missing — skip silently
+}
+
 echo "</urlset>\n";

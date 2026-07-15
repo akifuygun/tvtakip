@@ -36,6 +36,11 @@ function seriesUrl(imdbId) {
   return (I18N.lang === 'tr' ? '/tr' : '') + `/series/${imdbId}`;
 }
 
+// Mirrors PHP movie_url(): language-prefixed public movie URL.
+function movieUrl(imdbId) {
+  return (I18N.lang === 'tr' ? '/tr' : '') + `/movie/${imdbId}`;
+}
+
 // Mirrors PHP episode_code(): S01E05.
 function epCode(ep) {
   return `S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')}`;
@@ -320,6 +325,158 @@ function renderSearchCard(item, trackedIds) {
     source,
     trackBtn,
   ]);
+}
+
+// ---------- My Movies page ----------
+function renderMovieSearchCard(item, myIds) {
+  const year = item.year ? ` (${item.year})` : '';
+  const poster = item.image
+    ? el('img', { src: item.image, alt: '' })
+    : el('div', { class: 'no-poster', text: t('no_image') });
+
+  if (!item.imdb_id) {
+    return el('div', { class: 'show-card' }, [
+      poster,
+      el('h3', { text: item.name + year }),
+      el('span', { class: 'muted', text: t('no_imdb') }),
+    ]);
+  }
+
+  const inList = myIds.has(item.imdb_id);
+  const addBtn = el('button', {
+    class: 'button button-small',
+    text: inList ? t('in_list') : t('add_movie'),
+    ...(inList ? { disabled: '' } : {}),
+    onclick: async () => {
+      addBtn.disabled = true;
+      addBtn.textContent = t('importing');
+      try {
+        await apiPost('/api/movies.php', { action: 'add', imdb_id: item.imdb_id });
+        myIds.add(item.imdb_id);
+        addBtn.textContent = t('in_list');
+      } catch (err) {
+        addBtn.disabled = false;
+        addBtn.textContent = t('add_movie');
+        alert(err.message);
+      }
+    },
+  });
+
+  return el('div', { class: 'show-card' }, [
+    el('a', { href: movieUrl(item.imdb_id) }, [poster]),
+    el('h3', {}, [el('a', { href: movieUrl(item.imdb_id), text: item.name + year })]),
+    addBtn,
+  ]);
+}
+
+function initMovies() {
+  const form = document.getElementById('movie-search-form');
+  if (!form) return;
+  const input = document.getElementById('movie-search-input');
+  const results = document.getElementById('movie-search-results');
+  const myIds = new Set(window.MY_MOVIE_IDS || []);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (!q) return;
+    results.textContent = t('searching');
+    try {
+      const { results: items } = await apiGet(`/api/movies.php?q=${encodeURIComponent(q)}`);
+      results.replaceChildren();
+      if (!items.length) {
+        results.textContent = t('no_movies_found');
+        return;
+      }
+      for (const item of items) {
+        results.append(renderMovieSearchCard(item, myIds));
+      }
+    } catch (err) {
+      results.textContent = t('search_failed', err.message);
+    }
+  });
+
+  // Toggle watched: flip the button/badge state and move the card between the
+  // "To watch" and "Watched" groups without a reload.
+  document.querySelectorAll('.movie-watch-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const toWatched = btn.dataset.watched !== '1';
+      btn.disabled = true;
+      try {
+        await apiPost('/api/movies.php', { action: 'watch', imdb_id: btn.dataset.movieId, watched: toWatched });
+        btn.dataset.watched = toWatched ? '1' : '0';
+        btn.textContent = toWatched ? t('movie_mark_unwatched') : t('movie_mark_watched');
+        const card = btn.closest('.show-card');
+        if (card) {
+          card.classList.toggle('watched', toWatched);
+          document.getElementById(toWatched ? 'movies-watched' : 'movies-towatch')?.append(card);
+        }
+      } catch (err) {
+        alert(err.message);
+      }
+      btn.disabled = false;
+    });
+  });
+
+  document.querySelectorAll('.movie-remove-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(t('remove_movie_confirm'))) return;
+      btn.disabled = true;
+      try {
+        await apiPost('/api/movies.php', { action: 'remove', imdb_id: btn.dataset.movieId });
+        myIds.delete(btn.dataset.movieId);
+        btn.closest('.show-card')?.remove();
+      } catch (err) {
+        btn.disabled = false;
+        alert(err.message);
+      }
+    });
+  });
+}
+
+// Movie page action buttons (add/remove + watched toggle). The page itself is
+// fully server-rendered; this only wires the two buttons.
+function initMovieDetail() {
+  const root = document.getElementById('movie-actions');
+  if (!root) return;
+  const movieId = root.dataset.movieId;
+  const listBtn = document.getElementById('movie-list-btn');
+  const watchBtn = document.getElementById('movie-watch-btn');
+
+  const setInList = (v) => {
+    root.dataset.inList = v ? '1' : '0';
+    listBtn.textContent = v ? t('remove_from_list') : t('add_to_list');
+  };
+  const setWatched = (v) => {
+    root.dataset.watched = v ? '1' : '0';
+    watchBtn.textContent = v ? t('movie_mark_unwatched') : t('movie_mark_watched');
+  };
+
+  listBtn.addEventListener('click', async () => {
+    const adding = root.dataset.inList !== '1';
+    listBtn.disabled = true;
+    try {
+      await apiPost('/api/movies.php', { action: adding ? 'add' : 'remove', imdb_id: movieId });
+      setInList(adding);
+      if (!adding) setWatched(false); // removing drops the row (and its flag)
+    } catch (err) {
+      alert(err.message);
+    }
+    listBtn.disabled = false;
+  });
+
+  watchBtn.addEventListener('click', async () => {
+    const toWatched = root.dataset.watched !== '1';
+    watchBtn.disabled = true;
+    try {
+      await apiPost('/api/movies.php', { action: 'watch', imdb_id: movieId, watched: toWatched });
+      setWatched(toWatched);
+      setInList(true); // marking watched auto-adds to the list server-side
+    } catch (err) {
+      alert(err.message);
+    }
+    watchBtn.disabled = false;
+  });
 }
 
 // ---------- Dashboard: untrack buttons ----------
@@ -836,6 +993,8 @@ initTick();
 initPosterLightbox();
 initBrowseFilter();
 initSearch();
+initMovies();
+initMovieDetail();
 initDashboard();
 initCalendar();
 initShowDetail();

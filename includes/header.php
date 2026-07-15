@@ -105,6 +105,7 @@ $seoJsonLd = $jsonLd ?? json_encode([
             <a href="/">📅 <?= t('nav_calendar') ?></a>
             <a href="/upcoming">🔜 <?= t('nav_upcoming') ?></a>
             <a href="/myshows.php">🎬 <?= t('nav_myshows') ?></a>
+            <a href="/mymovies.php">🍿 <?= t('nav_mymovies') ?></a>
             <a href="/browse">📺 <?= t('nav_browse') ?></a>
             <form class="nav-search" action="/search.php" method="get" role="search">
                 <input type="search" name="q" placeholder="🔍 <?= t('nav_search') ?>"

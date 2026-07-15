@@ -32,7 +32,7 @@ function lang_path(string $path, ?string $lang = null): string
 function is_public_path(string $barePath): bool
 {
     return $barePath === '/' || $barePath === '/index.php'
-        || preg_match('#^/(browse|upcoming|series/tt\d{6,10})/?$#', $barePath) === 1;
+        || preg_match('#^/(browse|upcoming|series/tt\d{6,10}|movie/tt\d{6,10})/?$#', $barePath) === 1;
 }
 
 // Handle a language switch before any output, then redirect to the same page
@@ -41,8 +41,8 @@ function is_public_path(string $barePath): bool
 function lang_switch_params(): array
 {
     $q = $_GET;
-    if (preg_match('#^(?:/tr)?/series/#', strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?'))) {
-        unset($q['id']); // injected by the /series/ttNNN rewrite
+    if (preg_match('#^(?:/tr)?/(series|movie)/#', strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?'))) {
+        unset($q['id']); // injected by the /series/ttNNN and /movie/ttNNN rewrites
     }
     return $q;
 }
@@ -165,6 +165,29 @@ $GLOBALS['I18N'] = [
         'untrack' => 'Untrack', 'no_image' => 'No image',
         'airs_today' => 'Airs today', 'day_remaining' => '%d day remaining', 'days_remaining' => '%d days remaining',
         'status_running' => 'Running', 'status_ended' => 'Ended', 'status_canceled' => 'Canceled', 'status_upcoming' => 'Upcoming',
+        // movies
+        'nav_mymovies' => 'Movies',
+        'mymovies_title' => 'My Movies',
+        'no_movies_yet' => "You're not tracking any movies yet",
+        'movies_empty_hint' => 'Search above to add your first movie.',
+        'movie_search_placeholder' => 'e.g. Inception',
+        'no_movies_found' => 'No movies found.',
+        'add_movie' => 'Add',
+        'in_list' => 'In list ✓',
+        'group_watchlist' => 'To watch',
+        'group_watched' => 'Watched',
+        'movie_watched_badge' => '✅ Watched',
+        'movie_mark_watched' => '✅ Mark watched',
+        'movie_mark_unwatched' => '❌ Mark not watched',
+        'remove_movie' => 'Remove',
+        'remove_movie_confirm' => 'Remove this movie from your list?',
+        'movie_not_found' => 'Movie not found.',
+        'movie_cta' => 'Sign up free to add this movie to your watchlist.',
+        'movie_meta_suffix' => 'overview, release date and details',
+        'movie_status_released' => 'Released',
+        'movie_release_label' => 'In cinemas: %s',
+        'add_to_list' => 'Add to my list',
+        'remove_from_list' => 'Remove from my list',
         // search
         'search_title' => 'Search shows', 'search_placeholder' => 'e.g. Breaking Bad', 'search_button' => 'Search',
         'searching' => 'Searching…', 'no_shows_found' => 'No shows found.', 'search_failed' => 'Search failed: %s',
@@ -277,6 +300,29 @@ $GLOBALS['I18N'] = [
         'untrack' => 'Takibi bırak', 'no_image' => 'Görsel yok',
         'airs_today' => 'Bugün yayında', 'day_remaining' => '%d gün kaldı', 'days_remaining' => '%d gün kaldı',
         'status_running' => 'Devam ediyor', 'status_ended' => 'Bitti', 'status_canceled' => 'İptal edildi', 'status_upcoming' => 'Yakında',
+        // movies
+        'nav_mymovies' => 'Filmler',
+        'mymovies_title' => 'Filmlerim',
+        'no_movies_yet' => 'Henüz film eklemedin',
+        'movies_empty_hint' => 'İlk filmini eklemek için yukarıdan ara.',
+        'movie_search_placeholder' => 'örn. Inception',
+        'no_movies_found' => 'Film bulunamadı.',
+        'add_movie' => 'Ekle',
+        'in_list' => 'Listede ✓',
+        'group_watchlist' => 'İzlenecekler',
+        'group_watched' => 'İzlenenler',
+        'movie_watched_badge' => '✅ İzlendi',
+        'movie_mark_watched' => '✅ İzlendi işaretle',
+        'movie_mark_unwatched' => '❌ İzlenmedi işaretle',
+        'remove_movie' => 'Kaldır',
+        'remove_movie_confirm' => 'Bu film listenden kaldırılsın mı?',
+        'movie_not_found' => 'Film bulunamadı.',
+        'movie_cta' => 'Bu filmi izleme listene eklemek için ücretsiz kayıt ol.',
+        'movie_meta_suffix' => 'özet, vizyon tarihi ve detaylar',
+        'movie_status_released' => 'Yayınlandı',
+        'movie_release_label' => 'Vizyon tarihi: %s',
+        'add_to_list' => 'Listeme ekle',
+        'remove_from_list' => 'Listemden kaldır',
         'search_title' => 'Dizi ara', 'search_placeholder' => 'örn. Breaking Bad', 'search_button' => 'Ara',
         'searching' => 'Aranıyor…', 'no_shows_found' => 'Dizi bulunamadı.', 'search_failed' => 'Arama başarısız: %s',
         'no_imdb' => 'IMDB kimliği yok — takip edilemez', 'track' => 'Takip et', 'tracking' => 'Takipte ✓', 'importing' => 'İçe aktarılıyor…',
