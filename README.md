@@ -1,10 +1,11 @@
 # TVTrack
 
-A web app to track TV series: search shows, follow them, and mark episodes as watched.
+A web app to track TV series and movies: search, follow shows, mark episodes as
+watched, and keep a movie watchlist.
 (English name TVTrack, Turkish name TVTakip; the `tvtakip` name persists in the domain, repo, and DB.)
 
 - **Stack:** Plain PHP 8 + MySQL, vanilla JS/CSS
-- **Canonical ids:** IMDB ids for both shows and episodes — no third-party ids in the DB
+- **Canonical ids:** IMDB ids for shows, episodes, and movies — no third-party ids in the DB
 - **Installable PWA**, mobile-friendly (hamburger nav), and **bilingual** — English
   (TVTrack) / Turkish (TVTakip), switchable via footer flags.
 
@@ -25,6 +26,10 @@ A web app to track TV series: search shows, follow them, and mark episodes as wa
   (IMDB lists two-part episodes under one id).
 - **Rules:** unaired episodes can't be marked watched; untracking keeps watched
   history; show statuses are normalized to running/upcoming/ended/canceled.
+- **Movies:** a single per-user list with a watched flag (a movie is one watchable
+  unit — no per-episode state). TMDB-only import; search + add live on the
+  My Movies page; marking watched auto-adds to the list and is gated on the
+  release date. Public movie pages at `/movie/ttNNN`.
 - **Accounts:** email login, display name shown in the header, self-service
   change-password. 30-day sessions plus a 60-day "remember me" token so the free
   host's short session GC doesn't force frequent logins.
@@ -38,23 +43,33 @@ A web app to track TV series: search shows, follow them, and mark episodes as wa
 
 ```
 index.php          Calendar — next unwatched aired episode of each tracked show
+                   (guests get the public landing page)
 myshows.php        Tracked shows grouped by status (Running / Upcoming / Ended)
+mymovies.php       Movie list: on-page search to add, To watch / Watched groups
 search.php         Search both providers and track shows
-show.php           Show detail + per-season episode toggles
+series.php         Unified show page (/series/ttNNN): public SEO for guests,
+                   interactive app when logged in (show.php 301-redirects here)
+movie.php          Public movie page (/movie/ttNNN) + add/watched buttons
+browse.php         Public catalog with network/genre/status filters
+upcoming.php       Upcoming episodes (public catalog; tracked-only when logged in)
 change-password.php  Self-service password change
 login.php / register.php / logout.php   (email login, display name in header)
-api/search.php     GET merged TVmaze+TMDB search (server-side)
+api/search.php     GET merged TVmaze+TMDB show search (server-side)
 api/track.php      POST: track/untrack by IMDB id (imports server-side if uncached)
 api/episodes.php   GET cached show+episodes+watched; POST imports/refreshes server-side
 api/watch.php      POST toggle episode watched; bulk (un)watch per show or season
+api/movies.php     GET movie search; POST add/remove/watch (single endpoint)
+api/tick.php       Cron-free freshness: refreshes the most-stale running show
 api/image.php      POST set/remove a show poster (admin only)
-includes/          db.php, auth.php, i18n.php, http.php, importer.php, header.php, footer.php
+includes/          db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
+                   network_logos.php, header.php, footer.php
 assets/            css/style.css, js/app.js, icons/ (PWA + logo)
-manifest.webmanifest, sw.js   PWA manifest + service worker (static-asset cache)
-scripts/           CLI utilities: import_watchlist.php (wipe + Trakt JSON import),
-                   backfill_images.php
-schema.sql         MySQL schema (users, shows, episodes, user_shows,
-                   watched_episodes, remember_tokens)
+manifest.php, sw.js   Localized PWA manifest + service worker (static-asset cache)
+sitemap.php        Dynamic sitemap (shows + movies, en + tr)
+scripts/           CLI utilities: import_popular.php, import_watchlist.php,
+                   backfill_images.php, backfill_airstamps.php, make_sync.php
+schema.sql         MySQL schema (users, shows, episodes, movies, user_shows,
+                   watched_episodes, user_movies, remember_tokens)
 config.sample.php  Copy to config.php: DB credentials, TMDB_API_KEY, ADMIN_EMAILS
 ```
 
