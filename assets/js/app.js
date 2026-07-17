@@ -41,6 +41,17 @@ function movieUrl(imdbId) {
   return (I18N.lang === 'tr' ? '/tr' : '') + `/movie/${imdbId}`;
 }
 
+// Wire a .filter-tabs / .filter-panel group inside `scope`: clicking a tab
+// activates it and shows only its panel. Shared by browse, My Shows, My Movies.
+function wireTabs(scope) {
+  const tabs = [...scope.querySelectorAll('.filter-tab')];
+  const panels = [...scope.querySelectorAll('.filter-panel')];
+  tabs.forEach((tab) => tab.addEventListener('click', () => {
+    tabs.forEach((t2) => t2.classList.toggle('active', t2 === tab));
+    panels.forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== tab.dataset.tab));
+  }));
+}
+
 // Mirrors PHP episode_code(): S01E05.
 function epCode(ep) {
   return `S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')}`;
@@ -384,12 +395,7 @@ function initMovies() {
   };
 
   // Tabs (same classes/behavior as the browse filter tabs).
-  const tabs = [...groups.querySelectorAll('.filter-tab')];
-  const panels = [...groups.querySelectorAll('.filter-panel')];
-  tabs.forEach((tab) => tab.addEventListener('click', () => {
-    tabs.forEach((t2) => t2.classList.toggle('active', t2 === tab));
-    panels.forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== tab.dataset.tab));
-  }));
+  wireTabs(groups);
 
   // After a successful add, drop the new card into the right grid live.
   const addCardToList = (item, watched) => {
@@ -584,6 +590,13 @@ function initMovieDetail() {
 
 // ---------- Dashboard: untrack buttons ----------
 function initDashboard() {
+  // Keep the My Shows tab counts in sync after a card is removed.
+  const refreshTabCounts = () => {
+    document.querySelectorAll('#myshows-tabs .filter-panel').forEach((p) => {
+      const s = document.querySelector(`#myshows-tabs [data-count="${p.dataset.panel}"]`);
+      if (s) s.textContent = p.querySelectorAll('.show-card').length;
+    });
+  };
   document.querySelectorAll('.untrack-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       if (!confirm(t('untrack_confirm'))) return;
@@ -591,12 +604,20 @@ function initDashboard() {
       try {
         await apiPost('/api/track.php', { action: 'untrack', imdb_id: btn.dataset.showId });
         btn.closest('.show-card')?.remove();
+        refreshTabCounts();
       } catch (err) {
         btn.disabled = false;
         alert(err.message);
       }
     });
   });
+}
+
+// My Shows: the status groups are tabs (same pattern as browse / My Movies).
+function initMyShows() {
+  const root = document.getElementById('myshows-tabs');
+  if (!root) return;
+  wireTabs(root);
 }
 
 // ---------- Calendar page ----------
@@ -1068,10 +1089,7 @@ function initBrowseFilter() {
   wireValueFacet(genreBar, 'genre', selGenre);
   wireValueFacet(statusBar, 'status', selStatus);
 
-  tabs.forEach((tab) => tab.addEventListener('click', () => {
-    tabs.forEach((t) => t.classList.toggle('active', t === tab));
-    panels.forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== tab.dataset.tab));
-  }));
+  wireTabs(document.querySelector('.filters') || document);
 
   if (moreBtn) moreBtn.addEventListener('click', () => { limit += BATCH; apply(); });
   apply(); // apply the initial display cap
@@ -1101,6 +1119,7 @@ initSearch();
 initMovies();
 initMovieDetail();
 initDashboard();
+initMyShows();
 initCalendar();
 initShowDetail();
 

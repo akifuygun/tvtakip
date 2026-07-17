@@ -451,22 +451,8 @@ a:hover { color: var(--accent-hover); }
 
 .next-ep { font-size: 0.78rem; color: var(--warning); }
 
-/* My Shows groups — the bordered box contains both the header and its cards */
-.show-group {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 1rem;
-  overflow: hidden;
-}
-.show-group > summary {
-  cursor: pointer;
-  font-size: 1.15rem;
-  font-weight: 700;
-  padding: 0.6rem 0.9rem;
-  background: var(--surface);
-}
-.show-group[open] > summary { border-bottom: 1px solid var(--border); }
-.show-group > .show-grid { padding: 1rem; background: var(--bg-raised); }
+/* My Movies: search results get breathing room above the tabs when populated. */
+#movie-search-results:not(:empty) { margin-bottom: 1.75rem; }
 
 .notice {
   background: rgba(79, 140, 255, 0.10);

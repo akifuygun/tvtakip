@@ -71,9 +71,9 @@ function next_episode_label(?string $airstamp, ?string $airdate): string
 
 // Group by status: running | upcoming (incl. unknown) | ended+canceled.
 $groups = [
-    'running' => ['title' => t('group_running'), 'open' => true, 'shows' => []],
-    'upcoming' => ['title' => t('group_upcoming'), 'open' => true, 'shows' => []],
-    'finished' => ['title' => t('group_finished'), 'open' => false, 'shows' => []],
+    'running' => ['title' => t('group_running'), 'shows' => []],
+    'upcoming' => ['title' => t('group_upcoming'), 'shows' => []],
+    'finished' => ['title' => t('group_finished'), 'shows' => []],
 ];
 foreach ($shows as $show) {
     $key = match ($show['status']) {
@@ -101,10 +101,9 @@ $byNextAirdate = static function ($a, $b) {
 usort($groups['running']['shows'], $byNextAirdate);
 usort($groups['upcoming']['shows'], $byNextAirdate);
 
-// With nothing running or upcoming, the finished group is all there is — open it.
-if (!$groups['running']['shows'] && !$groups['upcoming']['shows']) {
-    $groups['finished']['open'] = true;
-}
+// Tabs: only non-empty groups render; the first one starts active.
+$nonEmpty = array_filter($groups, fn($g) => (bool) $g['shows']);
+$activeGroup = array_key_first($nonEmpty);
 
 $pageTitle = t('myshows_title');
 $noindex = true;
@@ -117,35 +116,42 @@ require __DIR__ . '/includes/header.php';
     </div>
 <?php else: ?>
     <h1><?= t('myshows_title') ?></h1>
-    <?php foreach ($groups as $group): ?>
-        <?php if (!$group['shows']) continue; ?>
-        <details class="show-group"<?= $group['open'] ? ' open' : '' ?>>
-            <summary><?= $group['title'] ?> (<?= count($group['shows']) ?>)</summary>
-            <div class="show-grid">
-                <?php foreach ($group['shows'] as $show): ?>
-                    <?php $imdbId = htmlspecialchars($show['imdb_id']); ?>
-                    <div class="show-card" data-show-id="<?= $imdbId ?>">
-                        <a href="<?= htmlspecialchars(series_url($show['imdb_id'])) ?>">
-                            <?php if ($show['image_url']): ?>
-                                <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="">
-                            <?php else: ?>
-                                <div class="no-poster"><?= t('no_image') ?></div>
+    <div id="myshows-tabs">
+        <div class="filter-tabs" role="tablist">
+            <?php foreach ($nonEmpty as $key => $group): ?>
+                <button type="button" class="filter-tab<?= $key === $activeGroup ? ' active' : '' ?>" data-tab="<?= $key ?>">
+                    <?= $group['title'] ?> (<span data-count="<?= $key ?>"><?= count($group['shows']) ?></span>)
+                </button>
+            <?php endforeach; ?>
+        </div>
+        <?php foreach ($nonEmpty as $key => $group): ?>
+            <div class="filter-panel<?= $key === $activeGroup ? '' : ' hidden' ?>" data-panel="<?= $key ?>">
+                <div class="show-grid">
+                    <?php foreach ($group['shows'] as $show): ?>
+                        <?php $imdbId = htmlspecialchars($show['imdb_id']); ?>
+                        <div class="show-card" data-show-id="<?= $imdbId ?>">
+                            <a href="<?= htmlspecialchars(series_url($show['imdb_id'])) ?>">
+                                <?php if ($show['image_url']): ?>
+                                    <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="">
+                                <?php else: ?>
+                                    <div class="no-poster"><?= t('no_image') ?></div>
+                                <?php endif; ?>
+                                <h3><?= htmlspecialchars($show['name']) ?></h3>
+                            </a>
+                            <?php if (status_label($show['status'])): ?>
+                                <span class="status status-<?= htmlspecialchars($show['status']) ?>"><?= status_label($show['status']) ?></span>
                             <?php endif; ?>
-                            <h3><?= htmlspecialchars($show['name']) ?></h3>
-                        </a>
-                        <?php if (status_label($show['status'])): ?>
-                            <span class="status status-<?= htmlspecialchars($show['status']) ?>"><?= status_label($show['status']) ?></span>
-                        <?php endif; ?>
-                        <?php if ($label = next_episode_label($show['next_airstamp'], $show['next_airdate'])): ?>
-                            <span class="next-ep">📅 <?= $label ?></span>
-                        <?php endif; ?>
-                        <?= progress_html((int) $show['watched_count'], (int) $show['aired_count']) ?>
-                        <button class="button button-small button-danger untrack-btn"
-                                data-show-id="<?= $imdbId ?>"><?= t('untrack') ?></button>
-                    </div>
-                <?php endforeach; ?>
+                            <?php if ($label = next_episode_label($show['next_airstamp'], $show['next_airdate'])): ?>
+                                <span class="next-ep">📅 <?= $label ?></span>
+                            <?php endif; ?>
+                            <?= progress_html((int) $show['watched_count'], (int) $show['aired_count']) ?>
+                            <button class="button button-small button-danger untrack-btn"
+                                    data-show-id="<?= $imdbId ?>"><?= t('untrack') ?></button>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
-        </details>
-    <?php endforeach; ?>
+        <?php endforeach; ?>
+    </div>
 <?php endif; ?>
 <?php require __DIR__ . '/includes/footer.php'; ?>
