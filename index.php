@@ -65,6 +65,18 @@ if (is_logged_in()) {
         $upcoming = $stmt->fetchAll();
     }
 
+    // Unwatched movies from the user's list that are already released — shown
+    // as their own section below the episode calendar.
+    $stmt = db()->prepare(
+        'SELECT m.imdb_id, m.name, m.image_url, m.released
+         FROM user_movies um JOIN movies m ON m.imdb_id = um.movie_imdb_id
+         WHERE um.user_id = ? AND um.watched = 0
+           AND m.released IS NOT NULL AND m.released <= ?
+         ORDER BY um.added_at, m.name'
+    );
+    $stmt->execute([current_user_id(), today()]);
+    $moviesToWatch = $stmt->fetchAll();
+
     // Tracked shows whose episodes were never imported (show page never opened).
     $stmt = db()->prepare(
         'SELECT s.imdb_id, s.name FROM user_shows us
@@ -201,6 +213,30 @@ require __DIR__ . '/includes/header.php';
         <div class="hero">
             <h2><?= t('all_caught_up') ?></h2>
             <p><?= t('no_unwatched') ?> <a href="/search.php"><?= t('find_more') ?></a>.</p>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($moviesToWatch): ?>
+        <div id="cal-movies-section">
+            <h2><?= t('cal_movies_title') ?></h2>
+            <div class="cal-grid">
+                <?php foreach ($moviesToWatch as $mv): ?>
+                    <?php $mvUrl = htmlspecialchars(movie_url($mv['imdb_id'])); ?>
+                    <div class="show-card">
+                        <a href="<?= $mvUrl ?>">
+                            <?php if ($mv['image_url']): ?>
+                                <img src="<?= htmlspecialchars($mv['image_url']) ?>" alt="" loading="lazy">
+                            <?php else: ?>
+                                <div class="no-poster"><?= t('no_image') ?></div>
+                            <?php endif; ?>
+                        </a>
+                        <h3><a href="<?= $mvUrl ?>"><?= htmlspecialchars($mv['name']) ?></a></h3>
+                        <span class="muted"><?= substr($mv['released'], 0, 4) ?></span>
+                        <button class="button button-small cal-movie-watch-btn"
+                                data-movie-id="<?= htmlspecialchars($mv['imdb_id']) ?>"><?= t('mark_watched') ?></button>
+                    </div>
+                <?php endforeach; ?>
+            </div>
         </div>
     <?php endif; ?>
 <?php endif; ?>

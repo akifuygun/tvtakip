@@ -620,6 +620,26 @@ function initMyShows() {
   wireTabs(root);
 }
 
+// Calendar "Movies to watch" section: mark watched removes the card in place,
+// and the whole section goes with the last card.
+function initCalendarMovies() {
+  const section = document.getElementById('cal-movies-section');
+  if (!section) return;
+  section.querySelectorAll('.cal-movie-watch-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        await apiPost('/api/movies.php', { action: 'watch', imdb_id: btn.dataset.movieId, watched: true });
+        btn.closest('.show-card')?.remove();
+        if (!section.querySelector('.show-card')) section.remove();
+      } catch (err) {
+        btn.disabled = false;
+        alert(err.message);
+      }
+    });
+  });
+}
+
 // ---------- Calendar page ----------
 function initCalendar() {
   const cal = document.getElementById('calendar');
@@ -1121,6 +1141,7 @@ initMovieDetail();
 initDashboard();
 initMyShows();
 initCalendar();
+initCalendarMovies();
 initShowDetail();
 
 // PWA: register the service worker (HTTPS only — it silently no-ops on http).
