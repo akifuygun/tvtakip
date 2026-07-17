@@ -16,10 +16,10 @@ $stmt = db()->prepare(
             (SELECT e.airdate FROM episodes e
              WHERE e.show_imdb_id = s.imdb_id AND $nextEpisodeWhere $nextEpisodeOrder) AS next_airdate,
             (SELECT COUNT(*) FROM episodes e
-             WHERE e.show_imdb_id = s.imdb_id AND " . aired_sql('e') . ") AS aired_count,
+             WHERE e.show_imdb_id = s.imdb_id AND " . certainly_aired_sql('e') . ") AS aired_count,
             (SELECT COUNT(*) FROM watched_episodes we
              JOIN episodes e2 ON e2.id = we.episode_id
-             WHERE e2.show_imdb_id = s.imdb_id AND we.user_id = ? AND " . aired_sql('e2') . ") AS watched_count
+             WHERE e2.show_imdb_id = s.imdb_id AND we.user_id = ? AND " . certainly_aired_sql('e2') . ") AS watched_count
      FROM user_shows us JOIN shows s ON s.imdb_id = us.show_imdb_id
      WHERE us.user_id = ? ORDER BY s.name"
 );

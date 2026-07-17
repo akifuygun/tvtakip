@@ -31,7 +31,7 @@ if (is_logged_in()) {
              LEFT JOIN watched_episodes we2 ON we2.episode_id = e2.id AND we2.user_id = us.user_id
              WHERE e2.show_imdb_id = us.show_imdb_id
                AND we2.episode_id IS NULL
-               AND e2.airdate IS NOT NULL AND ' . aired_sql('e2') . '
+               AND e2.airdate IS NOT NULL AND ' . certainly_aired_sql('e2') . '
              ORDER BY e2.airdate, e2.season, e2.number LIMIT 1
          )
          WHERE us.user_id = ?
@@ -54,7 +54,7 @@ if (is_logged_in()) {
                  SELECT e2.id FROM episodes e2
                  WHERE e2.show_imdb_id = us.show_imdb_id
                    AND ((e2.airstamp IS NOT NULL AND e2.airstamp > UTC_TIMESTAMP())
-                        OR (e2.airstamp IS NULL AND e2.airdate IS NOT NULL AND e2.airdate > ?))
+                        OR (e2.airstamp IS NULL AND e2.airdate IS NOT NULL AND e2.airdate >= ?))
                  ORDER BY COALESCE(e2.airstamp, CONCAT(e2.airdate, ' 00:00:00')) ASC, e2.season ASC, e2.number ASC LIMIT 1
              )
              WHERE us.user_id = ?

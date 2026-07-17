@@ -289,6 +289,23 @@ function aired_sql(string $alias = ''): string
         OR ({$p}airstamp IS NULL AND {$p}airdate IS NOT NULL AND {$p}airdate <= ?))";
 }
 
+/**
+ * Strict variant for DISPLAY surfaces (calendar, progress counts): a date-only
+ * episode counts as aired only once its air date is OVER in the user's
+ * timezone. "Airs July 17" means at some unknown time during July 17, so
+ * midnight-of-the-17th (what aired_sql's fallback allows) can be hours early —
+ * users saw episodes "ready to watch" before their actual release. Marking
+ * watched stays on the permissive aired_sql so a user who watches an episode
+ * on its release evening isn't blocked. Episodes with exact airstamps behave
+ * identically under both. Appends one positional param; callers pass today().
+ */
+function certainly_aired_sql(string $alias = ''): string
+{
+    $p = $alias !== '' ? $alias . '.' : '';
+    return "(({$p}airstamp IS NOT NULL AND {$p}airstamp <= UTC_TIMESTAMP())
+        OR ({$p}airstamp IS NULL AND {$p}airdate IS NOT NULL AND {$p}airdate < ?))";
+}
+
 /** SxxEyy code for an episode. */
 function episode_code(int $season, int $number): string
 {
