@@ -285,6 +285,15 @@ a:hover { color: var(--accent-hover); }
 /* My Movies: watched cards are dimmed (badge carries the state too). */
 .show-card.watched img { opacity: 0.55; }
 
+/* Bottom-aligned action stack on movie cards (badge + buttons), so buttons
+   line up across cards even when titles wrap to different heights. */
+.show-card > .card-actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 /* Bottom meta row for public cards (rating + status), kept aligned across cards */
 .show-card > .card-meta {
   margin-top: auto;

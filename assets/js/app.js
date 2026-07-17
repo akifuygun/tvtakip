@@ -328,44 +328,33 @@ function renderSearchCard(item, trackedIds) {
 }
 
 // ---------- My Movies page ----------
-function renderMovieSearchCard(item, myIds) {
+// A full list card, built client-side so adds appear without a reload.
+// Mirrors movie_card_html() in mymovies.php — keep in sync.
+function buildMovieCard(item, watched) {
   const year = item.year ? ` (${item.year})` : '';
   const poster = item.image
     ? el('img', { src: item.image, alt: '' })
     : el('div', { class: 'no-poster', text: t('no_image') });
-
-  if (!item.imdb_id) {
-    return el('div', { class: 'show-card' }, [
-      poster,
-      el('h3', { text: item.name + year }),
-      el('span', { class: 'muted', text: t('no_imdb') }),
-    ]);
-  }
-
-  const inList = myIds.has(item.imdb_id);
-  const addBtn = el('button', {
-    class: 'button button-small',
-    text: inList ? t('in_list') : t('add_movie'),
-    ...(inList ? { disabled: '' } : {}),
-    onclick: async () => {
-      addBtn.disabled = true;
-      addBtn.textContent = t('importing');
-      try {
-        await apiPost('/api/movies.php', { action: 'add', imdb_id: item.imdb_id });
-        myIds.add(item.imdb_id);
-        addBtn.textContent = t('in_list');
-      } catch (err) {
-        addBtn.disabled = false;
-        addBtn.textContent = t('add_movie');
-        alert(err.message);
-      }
-    },
-  });
-
-  return el('div', { class: 'show-card' }, [
+  return el('div', {
+    class: 'show-card' + (watched ? ' watched' : ''),
+    'data-movie-id': item.imdb_id,
+  }, [
     el('a', { href: movieUrl(item.imdb_id) }, [poster]),
     el('h3', {}, [el('a', { href: movieUrl(item.imdb_id), text: item.name + year })]),
-    addBtn,
+    el('div', { class: 'card-actions' }, [
+      ...(watched ? [el('span', { class: 'next-ep', text: t('movie_watched_badge') })] : []),
+      el('button', {
+        class: 'button button-small movie-watch-btn',
+        'data-movie-id': item.imdb_id,
+        'data-watched': watched ? '1' : '0',
+        text: watched ? t('movie_mark_unwatched') : t('movie_mark_watched'),
+      }),
+      el('button', {
+        class: 'button button-small button-danger movie-remove-btn',
+        'data-movie-id': item.imdb_id,
+        text: t('remove_movie'),
+      }),
+    ]),
   ]);
 }
 
@@ -374,7 +363,108 @@ function initMovies() {
   if (!form) return;
   const input = document.getElementById('movie-search-input');
   const results = document.getElementById('movie-search-results');
+  const groups = document.getElementById('movies-groups');
+  const empty = document.getElementById('movies-empty');
+  const toWatchGrid = document.getElementById('movies-towatch');
+  const watchedGrid = document.getElementById('movies-watched');
   const myIds = new Set(window.MY_MOVIE_IDS || []);
+
+  // Tab counts + empty-state visibility, derived from the grids themselves.
+  const refresh = () => {
+    const tw = toWatchGrid.querySelectorAll('.show-card').length;
+    const w = watchedGrid.querySelectorAll('.show-card').length;
+    const setCount = (key, n) => {
+      const s = document.querySelector(`[data-count="${key}"]`);
+      if (s) s.textContent = n;
+    };
+    setCount('towatch', tw);
+    setCount('watched', w);
+    empty.style.display = tw + w ? 'none' : '';
+    groups.style.display = tw + w ? '' : 'none';
+  };
+
+  // Tabs (same classes/behavior as the browse filter tabs).
+  const tabs = [...groups.querySelectorAll('.filter-tab')];
+  const panels = [...groups.querySelectorAll('.filter-panel')];
+  tabs.forEach((tab) => tab.addEventListener('click', () => {
+    tabs.forEach((t2) => t2.classList.toggle('active', t2 === tab));
+    panels.forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== tab.dataset.tab));
+  }));
+
+  // After a successful add, drop the new card into the right grid live.
+  const addCardToList = (item, watched) => {
+    myIds.add(item.imdb_id);
+    (watched ? watchedGrid : toWatchGrid).append(buildMovieCard(item, watched));
+    refresh();
+  };
+
+  const renderSearchResult = (item) => {
+    const year = item.year ? ` (${item.year})` : '';
+    const poster = item.image
+      ? el('img', { src: item.image, alt: '' })
+      : el('div', { class: 'no-poster', text: t('no_image') });
+
+    if (!item.imdb_id) {
+      return el('div', { class: 'show-card' }, [
+        poster,
+        el('h3', { text: item.name + year }),
+        el('span', { class: 'muted', text: t('no_imdb') }),
+      ]);
+    }
+
+    const inList = myIds.has(item.imdb_id);
+    const addBtn = el('button', {
+      class: 'button button-small movie-add-btn',
+      'data-movie-id': item.imdb_id,
+      text: inList ? t('in_list') : t('add_movie'),
+      ...(inList ? { disabled: '' } : {}),
+    });
+    const addWatchedBtn = el('button', {
+      class: 'button button-small button-secondary movie-addw-btn',
+      'data-movie-id': item.imdb_id,
+      text: t('add_watched'),
+      ...(inList ? { disabled: '' } : {}),
+    });
+    const settle = (ok) => {
+      addBtn.disabled = ok;
+      addWatchedBtn.disabled = ok;
+      addBtn.textContent = ok ? t('in_list') : t('add_movie');
+    };
+    addBtn.addEventListener('click', async () => {
+      addBtn.disabled = true;
+      addWatchedBtn.disabled = true;
+      addBtn.textContent = t('importing');
+      try {
+        await apiPost('/api/movies.php', { action: 'add', imdb_id: item.imdb_id });
+        settle(true);
+        addCardToList(item, false);
+      } catch (err) {
+        settle(false);
+        alert(err.message);
+      }
+    });
+    addWatchedBtn.addEventListener('click', async () => {
+      addBtn.disabled = true;
+      addWatchedBtn.disabled = true;
+      addBtn.textContent = t('importing');
+      try {
+        // "watch" auto-adds the movie to the list server-side (import + upsert).
+        await apiPost('/api/movies.php', { action: 'add', imdb_id: item.imdb_id });
+        await apiPost('/api/movies.php', { action: 'watch', imdb_id: item.imdb_id, watched: true });
+        settle(true);
+        addCardToList(item, true);
+      } catch (err) {
+        settle(false);
+        alert(err.message);
+      }
+    });
+
+    return el('div', { class: 'show-card' }, [
+      el('a', { href: movieUrl(item.imdb_id) }, [poster]),
+      el('h3', {}, [el('a', { href: movieUrl(item.imdb_id), text: item.name + year })]),
+      el('div', { class: 'card-actions' }, [addBtn, addWatchedBtn]),
+    ]);
+  };
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -389,48 +479,61 @@ function initMovies() {
         return;
       }
       for (const item of items) {
-        results.append(renderMovieSearchCard(item, myIds));
+        results.append(renderSearchResult(item));
       }
     } catch (err) {
       results.textContent = t('search_failed', err.message);
     }
   });
 
-  // Toggle watched: flip the button/badge state and move the card between the
-  // "To watch" and "Watched" groups without a reload.
-  document.querySelectorAll('.movie-watch-btn').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const toWatched = btn.dataset.watched !== '1';
-      btn.disabled = true;
+  // Card buttons via delegation, so client-built cards work like server ones.
+  groups.addEventListener('click', async (e) => {
+    const watchBtn = e.target.closest('.movie-watch-btn');
+    if (watchBtn) {
+      const toWatched = watchBtn.dataset.watched !== '1';
+      watchBtn.disabled = true;
       try {
-        await apiPost('/api/movies.php', { action: 'watch', imdb_id: btn.dataset.movieId, watched: toWatched });
-        btn.dataset.watched = toWatched ? '1' : '0';
-        btn.textContent = toWatched ? t('movie_mark_unwatched') : t('movie_mark_watched');
-        const card = btn.closest('.show-card');
-        if (card) {
-          card.classList.toggle('watched', toWatched);
-          document.getElementById(toWatched ? 'movies-watched' : 'movies-towatch')?.append(card);
+        await apiPost('/api/movies.php', { action: 'watch', imdb_id: watchBtn.dataset.movieId, watched: toWatched });
+        watchBtn.dataset.watched = toWatched ? '1' : '0';
+        watchBtn.textContent = toWatched ? t('movie_mark_unwatched') : t('movie_mark_watched');
+        const card = watchBtn.closest('.show-card');
+        card.classList.toggle('watched', toWatched);
+        // Swap the badge (any status badge gives way to the watched badge).
+        card.querySelector('.card-actions .next-ep')?.remove();
+        card.querySelector('.card-actions .status')?.remove();
+        if (toWatched) {
+          card.querySelector('.card-actions').prepend(el('span', { class: 'next-ep', text: t('movie_watched_badge') }));
         }
+        (toWatched ? watchedGrid : toWatchGrid).append(card);
+        refresh();
       } catch (err) {
         alert(err.message);
       }
-      btn.disabled = false;
-    });
-  });
+      watchBtn.disabled = false;
+      return;
+    }
 
-  document.querySelectorAll('.movie-remove-btn').forEach((btn) => {
-    btn.addEventListener('click', async () => {
+    const removeBtn = e.target.closest('.movie-remove-btn');
+    if (removeBtn) {
       if (!confirm(t('remove_movie_confirm'))) return;
-      btn.disabled = true;
+      removeBtn.disabled = true;
       try {
-        await apiPost('/api/movies.php', { action: 'remove', imdb_id: btn.dataset.movieId });
-        myIds.delete(btn.dataset.movieId);
-        btn.closest('.show-card')?.remove();
+        const id = removeBtn.dataset.movieId;
+        await apiPost('/api/movies.php', { action: 'remove', imdb_id: id });
+        myIds.delete(id);
+        removeBtn.closest('.show-card')?.remove();
+        // Re-enable this movie's buttons in any visible search results.
+        results.querySelectorAll(`.movie-add-btn[data-movie-id="${id}"], .movie-addw-btn[data-movie-id="${id}"]`)
+          .forEach((b) => {
+            b.disabled = false;
+            if (b.classList.contains('movie-add-btn')) b.textContent = t('add_movie');
+          });
+        refresh();
       } catch (err) {
-        btn.disabled = false;
+        removeBtn.disabled = false;
         alert(err.message);
       }
-    });
+    }
   });
 }
 
@@ -855,7 +958,9 @@ function initTick() {
 // Within a facet chips are OR'd; across facets they're AND'd. All client-side.
 function initBrowseFilter() {
   const grid = document.querySelector('.show-grid');
-  if (!grid) return;
+  // #network-filter only exists on browse — without this guard the tab wiring
+  // below would also grab the My Movies tabs (same .filter-tab classes).
+  if (!grid || !document.getElementById('network-filter')) return;
   const cards = [...grid.querySelectorAll('.show-card')].map((el) => ({
     el,
     net: el.getAttribute('data-network') || '',
