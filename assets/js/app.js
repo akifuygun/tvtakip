@@ -760,15 +760,22 @@ async function initShowDetail() {
   document.title = `${I18N.app} — ${show.name}`;
   root.replaceChildren();
 
-  // Soonest unaired episode with a known air time → live countdown.
+  // Soonest unaired episode with a known air time → live countdown. Regular
+  // episodes outrank specials (season 0) — weekly companion specials would
+  // otherwise hijack the countdown; specials only count when nothing else is
+  // scheduled.
   let nextUp = null;
   for (const ep of episodes) {
     if (epHasAired(ep)) continue;
     const target = ep.airstamp
       ? airstampDate(ep.airstamp)
       : (ep.airdate ? new Date(ep.airdate + 'T00:00:00') : null);
-    if (target && (!nextUp || target < nextUp.target)) {
-      nextUp = { ep, target };
+    if (!target) continue;
+    const special = Number(ep.season) === 0;
+    if (!nextUp
+        || (nextUp.special && !special)
+        || (nextUp.special === special && target < nextUp.target)) {
+      nextUp = { ep, target, special };
     }
   }
 
