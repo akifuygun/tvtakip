@@ -101,13 +101,16 @@ $byNextAirdate = static function ($a, $b) {
     }
     return strcmp($a['next_airdate'], $b['next_airdate']);
 };
-// Running: most unwatched (aired) episodes first — the shows you can act on —
-// then soonest next episode. Upcoming keeps the pure next-air-date order.
+// Running + Ended: most unwatched (aired) episodes first — the shows you can
+// act on — then soonest next episode (name, in practice, for ended shows).
+// Upcoming keeps the pure next-air-date order.
 $unwatchedCount = static fn($s) => max(0, (int) $s['aired_count'] - (int) $s['watched_count']);
-usort($groups['running']['shows'], static function ($a, $b) use ($byNextAirdate, $unwatchedCount) {
+$byBacklog = static function ($a, $b) use ($byNextAirdate, $unwatchedCount) {
     $diff = $unwatchedCount($b) <=> $unwatchedCount($a);
     return $diff !== 0 ? $diff : $byNextAirdate($a, $b);
-});
+};
+usort($groups['running']['shows'], $byBacklog);
+usort($groups['finished']['shows'], $byBacklog);
 usort($groups['upcoming']['shows'], $byNextAirdate);
 
 // Tabs: only non-empty groups render; the first one starts active.

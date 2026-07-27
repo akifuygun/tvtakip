@@ -65,14 +65,14 @@ if (is_logged_in()) {
         $upcoming = $stmt->fetchAll();
     }
 
-    // Unwatched movies from the user's list that are already released — shown
-    // as their own section below the episode calendar.
+    // Unwatched movies from the user's list — released ones first (watchable
+    // now, with a Watched button), then not-yet-released ones with their
+    // release date (movies with no known date stay off the calendar).
     $stmt = db()->prepare(
         'SELECT m.imdb_id, m.name, m.image_url, m.released
          FROM user_movies um JOIN movies m ON m.imdb_id = um.movie_imdb_id
-         WHERE um.user_id = ? AND um.watched = 0
-           AND m.released IS NOT NULL AND m.released <= ?
-         ORDER BY um.added_at, m.name'
+         WHERE um.user_id = ? AND um.watched = 0 AND m.released IS NOT NULL
+         ORDER BY (m.released > ?), um.added_at, m.name'
     );
     $stmt->execute([current_user_id(), today()]);
     $moviesToWatch = $stmt->fetchAll();
@@ -232,8 +232,12 @@ require __DIR__ . '/includes/header.php';
                         </a>
                         <h3><a href="<?= $mvUrl ?>"><?= htmlspecialchars($mv['name']) ?></a></h3>
                         <span class="muted"><?= substr($mv['released'], 0, 4) ?></span>
-                        <button class="button button-small cal-movie-watch-btn"
-                                data-movie-id="<?= htmlspecialchars($mv['imdb_id']) ?>"><?= t('mark_watched') ?></button>
+                        <?php if ($mv['released'] <= today()): ?>
+                            <button class="button button-small cal-movie-watch-btn"
+                                    data-movie-id="<?= htmlspecialchars($mv['imdb_id']) ?>"><?= t('mark_watched') ?></button>
+                        <?php else: ?>
+                            <span class="next-ep">📅 <?= htmlspecialchars(format_date($mv['released'])) ?></span>
+                        <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
             </div>
