@@ -241,7 +241,7 @@ $GLOBALS['I18N'] = [
         'theme_light' => 'Açık tema', 'theme_dark' => 'Koyu tema',
         'meta_description' => 'Favori dizilerini takip et, yeni bölümleri kaçırma ve izlediklerini işaretle — ücretsiz, sade bir kişisel dizi takip uygulaması.',
         'tagline' => 'Dizilerini takip et, hiçbir bölümü kaçırma.',
-        'nav_browse' => 'Diziler', 'nav_upcoming' => 'Yaklaşanlar',
+        'nav_browse' => 'Gözat', 'nav_upcoming' => 'Yaklaşanlar',
         'features_title' => 'Dizilerini takip etmek için gereken her şey',
         'feat_calendar_t' => 'Bölüm takvimi',
         'feat_calendar_d' => 'Giriş yaptığın anda her dizinin izlemediğin ilk bölümünü gör.',
