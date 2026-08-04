@@ -40,18 +40,39 @@ if (!$show) {
         require __DIR__ . '/includes/footer.php';
         exit;
     }
-    http_response_code(404);
-    $pageTitle = t('series_not_found');
-    $noindex = true;
-    require __DIR__ . '/includes/header.php';
-    ?>
-    <div class="hero">
-        <h1><?= t('series_not_found') ?></h1>
-        <p><a class="button" href="/browse"><?= t('browse_all_shows') ?></a></p>
-    </div>
-    <?php
-    require __DIR__ . '/includes/footer.php';
-    exit;
+    // Guests enrich the cache too: import inline on first visit (no authed API
+    // to do it async). Single-flight lock so id-enumeration can't fan out
+    // concurrent provider imports; skipped episode-id backfill keeps the page
+    // load bounded (ids converge via later refreshes).
+    if (db()->query("SELECT GET_LOCK('tvtrack_guest_import', 0)")->fetchColumn()) {
+        try {
+            require_once __DIR__ . '/includes/importer.php';
+            import_show(db(), $showId, 0);
+            $stmt->execute([$showId]);
+            $show = $stmt->fetch();
+        } catch (Throwable $e) {
+            // unknown to both providers, or provider failure — 404 below
+        }
+        try {
+            db()->query("SELECT RELEASE_LOCK('tvtrack_guest_import')");
+        } catch (Throwable $e) {
+            // reconnected mid-import — the old connection released it already
+        }
+    }
+    if (!$show) {
+        http_response_code(404);
+        $pageTitle = t('series_not_found');
+        $noindex = true;
+        require __DIR__ . '/includes/header.php';
+        ?>
+        <div class="hero">
+            <h1><?= t('series_not_found') ?></h1>
+            <p><a class="button" href="/browse"><?= t('browse_all_shows') ?></a></p>
+        </div>
+        <?php
+        require __DIR__ . '/includes/footer.php';
+        exit;
+    }
 }
 
 $stmt = db()->prepare(

@@ -24,10 +24,10 @@ $stmt = db()->prepare(
 $stmt->execute([$movieId]);
 $movie = $stmt->fetch();
 
-if (!$movie && is_logged_in()) {
-    // Search results link straight to /movie/ttNNN for movies not yet in the
-    // cache — import on first visit (two TMDB calls) for logged-in viewers.
-    // Guests/crawlers keep the 404 below.
+if (!$movie) {
+    // Import on first visit (two TMDB calls) for anyone — search results and
+    // even hand-typed /movie/ttNNN links resolve if TMDB knows the id; each
+    // visit enriches the shared cache. Unknown ids fall through to the 404.
     require_once __DIR__ . '/includes/importer.php';
     try {
         import_movie(db(), $movieId);
