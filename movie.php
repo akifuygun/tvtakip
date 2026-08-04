@@ -24,6 +24,20 @@ $stmt = db()->prepare(
 $stmt->execute([$movieId]);
 $movie = $stmt->fetch();
 
+if (!$movie && is_logged_in()) {
+    // Search results link straight to /movie/ttNNN for movies not yet in the
+    // cache — import on first visit (two TMDB calls) for logged-in viewers.
+    // Guests/crawlers keep the 404 below.
+    require_once __DIR__ . '/includes/importer.php';
+    try {
+        import_movie(db(), $movieId);
+        $stmt->execute([$movieId]);
+        $movie = $stmt->fetch();
+    } catch (RuntimeException $e) {
+        // unknown to TMDB — fall through to the 404
+    }
+}
+
 if (!$movie) {
     http_response_code(404);
     $pageTitle = t('movie_not_found');

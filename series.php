@@ -24,6 +24,22 @@ $stmt->execute([$showId]);
 $show = $stmt->fetch();
 
 if (!$show) {
+    // Logged-in viewers get the interactive shell instead of a 404: search
+    // results link straight to /series/ttNNN for shows not yet in the cache,
+    // and app.js imports the show server-side on first open (its POST to
+    // api/episodes.php). Guests/crawlers keep the 404.
+    if (is_logged_in()) {
+        $pageTitle = $showId;
+        $noindex = true;
+        require __DIR__ . '/includes/header.php';
+        ?>
+        <div id="show-detail" data-show-id="<?= htmlspecialchars($showId) ?>" data-tracked="0">
+            <p class="loading"><?= t('loading_show') ?></p>
+        </div>
+        <?php
+        require __DIR__ . '/includes/footer.php';
+        exit;
+    }
     http_response_code(404);
     $pageTitle = t('series_not_found');
     $noindex = true;
