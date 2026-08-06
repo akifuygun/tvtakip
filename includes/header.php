@@ -129,6 +129,11 @@ $seoJsonLd = $jsonLd ?? json_encode([
             <a href="<?= lang_path('/browse') ?>">📺 <?= t('nav_browse') ?></a>
             <a href="<?= lang_path('/movies') ?>">🍿 <?= t('nav_mymovies') ?></a>
             <a href="<?= lang_path('/upcoming') ?>">📅 <?= t('nav_upcoming') ?></a>
+            <form class="nav-search" action="/search.php" method="get" role="search">
+                <input type="search" name="q" placeholder="🔍 <?= t('nav_search') ?>"
+                       aria-label="<?= t('nav_search') ?>">
+            </form>
+            <a class="nav-search-link" href="/search.php">🔍 <?= t('nav_search') ?></a>
             <span class="nav-sep">|</span>
             <a href="/login.php"><?= t('login') ?></a>
             <a href="/register.php"><?= t('register') ?></a>

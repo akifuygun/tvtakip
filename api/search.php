@@ -2,9 +2,9 @@
 // GET ?q=... -> {results: [{imdb_id|null, name, year, image, source}]}
 // Queries TVmaze and TMDB server-side in parallel-ish and merges by IMDB id,
 // so the TMDB key never reaches the browser and either provider being down
-// only narrows the results.
+// only narrows the results. PUBLIC — guests search too (results link to
+// public pages, and clicking imports the show into the shared cache).
 require_once __DIR__ . '/../includes/importer.php';
-require_login_json();
 
 $q = trim((string) ($_GET['q'] ?? ''));
 if ($q === '' || mb_strlen($q) > 100) {

@@ -310,6 +310,15 @@ function renderSearchCard(item, trackedIds) {
     ]);
   }
 
+  // Guests get link-only cards — the series page imports on first visit.
+  if (!window.CAN_TRACK) {
+    return el('div', { class: 'show-card' }, [
+      el('a', { href: seriesUrl(item.imdb_id) }, [poster]),
+      el('h3', {}, [el('a', { href: seriesUrl(item.imdb_id), text: item.name + year })]),
+      source,
+    ]);
+  }
+
   const isTracked = trackedIds.has(item.imdb_id);
   const trackBtn = el('button', {
     class: 'button button-small track-btn',
