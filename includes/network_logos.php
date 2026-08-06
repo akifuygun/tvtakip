@@ -55,6 +55,10 @@ function network_logo(string $name): ?string
         'GAİN' => '/assets/networks/gain.png',
         'Exxen' => '/assets/networks/exxen.png',
         'YouTube' => '/assets/networks/youtube.png',
+        // Badge-only (deliberately in no filter group — these shows stay
+        // under the "Others" chip but still get a poster badge):
+        'Peacock' => '/assets/networks/peacock.png',
+        'Adult Swim' => '/assets/networks/adult-swim.png',
     ];
     return $map[$name] ?? null;
 }
