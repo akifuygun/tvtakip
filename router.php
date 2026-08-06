@@ -22,6 +22,10 @@ if (preg_match('#^(?:/tr)?/movie/(tt\d{6,10})/?$#', $path, $m)) {
     require __DIR__ . '/movie.php';
     return true;
 }
+if (preg_match('#^(?:/tr)?/movies/?$#', $path)) {
+    require __DIR__ . '/movies.php';
+    return true;
+}
 if (preg_match('#^(?:/tr)?/movie(/|$)#', $path)) {
     http_response_code(404);
     echo 'Not Found';

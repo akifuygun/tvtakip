@@ -12,6 +12,7 @@ echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
 $static = [
     ['/', 'weekly', '1.0'],
     ['/browse', 'weekly', '0.8'],
+    ['/movies', 'weekly', '0.7'],
     ['/upcoming', 'daily', '0.8'],
 ];
 foreach ($static as [$path, $freq, $prio]) {

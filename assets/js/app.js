@@ -543,6 +543,49 @@ function initMovies() {
   });
 }
 
+// Public movies page: search renders link-only cards (no add buttons — the
+// movie page itself imports on first visit and offers actions to logged-in
+// users). Works for guests; the search API's GET is public.
+function initPubMovies() {
+  const form = document.getElementById('pub-movie-search-form');
+  if (!form) return;
+  const input = document.getElementById('pub-movie-search-input');
+  const results = document.getElementById('pub-movie-search-results');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (!q) return;
+    results.textContent = t('searching');
+    try {
+      const { results: items } = await apiGet(`/api/movies.php?q=${encodeURIComponent(q)}`);
+      results.replaceChildren();
+      if (!items.length) {
+        results.textContent = t('no_movies_found');
+        return;
+      }
+      for (const item of items) {
+        const year = item.year ? ` (${item.year})` : '';
+        const poster = item.image
+          ? el('img', { src: item.image, alt: '' })
+          : el('div', { class: 'no-poster', text: t('no_image') });
+        results.append(item.imdb_id
+          ? el('div', { class: 'show-card' }, [
+              el('a', { href: movieUrl(item.imdb_id) }, [poster]),
+              el('h3', {}, [el('a', { href: movieUrl(item.imdb_id), text: item.name + year })]),
+            ])
+          : el('div', { class: 'show-card' }, [
+              poster,
+              el('h3', { text: item.name + year }),
+              el('span', { class: 'muted', text: t('no_imdb') }),
+            ]));
+      }
+    } catch (err) {
+      results.textContent = t('search_failed', err.message);
+    }
+  });
+}
+
 // Movie page action buttons (add/remove + watched toggle). The page itself is
 // fully server-rendered; this only wires the two buttons.
 function initMovieDetail() {
@@ -1150,6 +1193,7 @@ initPosterLightbox();
 initBrowseFilter();
 initSearch();
 initMovies();
+initPubMovies();
 initMovieDetail();
 initDashboard();
 initMyShows();

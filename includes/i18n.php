@@ -32,7 +32,7 @@ function lang_path(string $path, ?string $lang = null): string
 function is_public_path(string $barePath): bool
 {
     return $barePath === '/' || $barePath === '/index.php'
-        || preg_match('#^/(browse|upcoming|series/tt\d{6,10}|movie/tt\d{6,10})/?$#', $barePath) === 1;
+        || preg_match('#^/(browse|upcoming|movies|series/tt\d{6,10}|movie/tt\d{6,10})/?$#', $barePath) === 1;
 }
 
 // Handle a language switch before any output, then redirect to the same page
@@ -175,6 +175,8 @@ $GLOBALS['I18N'] = [
         'add_movie' => 'Add',
         'add_watched' => 'Add as watched',
         'cal_movies_title' => 'Movies to watch',
+        'pub_movies_title' => 'Browse Movies',
+        'pub_movies_sub' => 'Details, ratings and release dates for %d movies.',
         'in_list' => 'In list ✓',
         'group_watchlist' => 'To watch',
         'group_watched' => 'Watched',
@@ -312,6 +314,8 @@ $GLOBALS['I18N'] = [
         'add_movie' => 'Ekle',
         'add_watched' => 'İzlenmiş olarak ekle',
         'cal_movies_title' => 'İzlenecek filmler',
+        'pub_movies_title' => 'Filmlere Gözat',
+        'pub_movies_sub' => '%d filmin detayları, puanları ve vizyon tarihleri.',
         'in_list' => 'Listede ✓',
         'group_watchlist' => 'İzlenecekler',
         'group_watched' => 'İzlenenler',

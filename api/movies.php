@@ -10,8 +10,9 @@
 //      -> sets the watched flag. Marking watched auto-adds the movie to the
 //         list (upsert), and is gated on the release date like episode airing.
 require_once __DIR__ . '/../includes/importer.php';
-require_login_json();
 
+// GET (search) is public — the guest movies page searches too, and results
+// only link to public pages. Mutations below stay login-gated.
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $q = trim((string) ($_GET['q'] ?? ''));
     if ($q === '' || mb_strlen($q) > 100) {
@@ -42,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     json_response(['results' => $out]);
 }
 
+require_login_json();
 $data = read_json_post();
 $action = $data['action'] ?? '';
 $imdbId = $data['imdb_id'] ?? '';

@@ -127,6 +127,7 @@ $seoJsonLd = $jsonLd ?? json_encode([
             </form>
         <?php else: ?>
             <a href="<?= lang_path('/browse') ?>">📺 <?= t('nav_browse') ?></a>
+            <a href="<?= lang_path('/movies') ?>">🍿 <?= t('nav_mymovies') ?></a>
             <a href="<?= lang_path('/upcoming') ?>">📅 <?= t('nav_upcoming') ?></a>
             <span class="nav-sep">|</span>
             <a href="/login.php"><?= t('login') ?></a>
