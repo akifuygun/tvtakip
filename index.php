@@ -8,11 +8,11 @@ if (!is_logged_in()) {
     // Landing page: most-tracked running/upcoming shows with posters,
     // linking to the public series pages.
     $popular = db()->query(
-        "SELECT s.imdb_id, s.name, s.image_url, s.status, s.rating, COUNT(us.user_id) AS trackers
+        "SELECT s.imdb_id, s.name, s.image_url, s.status, s.rating, s.network, COUNT(us.user_id) AS trackers
          FROM shows s LEFT JOIN user_shows us ON us.show_imdb_id = s.imdb_id
          WHERE s.image_url IS NOT NULL AND s.image_url <> ''
            AND s.status IN ('running', 'upcoming')
-         GROUP BY s.imdb_id, s.name, s.image_url, s.status, s.rating
+         GROUP BY s.imdb_id, s.name, s.image_url, s.status, s.rating, s.network
          ORDER BY trackers DESC, s.name
          LIMIT 10"
     )->fetchAll();
@@ -23,7 +23,7 @@ if (is_logged_in()) {
     // de-duping in PHP. Oldest pending episode first.
     $stmt = db()->prepare(
         'SELECT e.id, e.imdb_id, e.season, e.number, e.name AS ep_name, e.airdate,
-                s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url
+                s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url, s.network
          FROM user_shows us
          JOIN shows s ON s.imdb_id = us.show_imdb_id
          JOIN episodes e ON e.id = (
@@ -47,7 +47,7 @@ if (is_logged_in()) {
     if (!$items) {
         $stmt = db()->prepare(
             "SELECT e.season, e.number, e.airdate, e.airstamp,
-                    s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url
+                    s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url, s.network
              FROM user_shows us
              JOIN shows s ON s.imdb_id = us.show_imdb_id
              JOIN episodes e ON e.id = (
@@ -162,6 +162,7 @@ require __DIR__ . '/includes/header.php';
                 $code = episode_code((int) $ep['season'], (int) $ep['number']);
                 ?>
                 <div class="show-card">
+                    <?= network_badge_html($ep['network']) ?>
                     <a href="<?= $showUrl ?>">
                         <?php if ($ep['image_url']): ?>
                             <img src="<?= htmlspecialchars($ep['image_url']) ?>" alt="">
@@ -193,6 +194,7 @@ require __DIR__ . '/includes/header.php';
                     : $ep['airdate'];
                 ?>
                 <div class="show-card">
+                    <?= network_badge_html($ep['network']) ?>
                     <a href="<?= $showUrl ?>">
                         <?php if ($ep['image_url']): ?>
                             <img src="<?= htmlspecialchars($ep['image_url']) ?>" alt="">

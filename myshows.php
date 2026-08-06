@@ -13,7 +13,7 @@ $nextEpisodeWhere =
 // airstamp, so their midnight date-fallback beats the real episode's stamp).
 $nextEpisodeOrder = "ORDER BY (e.season = 0), COALESCE(e.airstamp, CONCAT(e.airdate, ' 00:00:00')) ASC, e.season ASC, e.number ASC LIMIT 1";
 $stmt = db()->prepare(
-    "SELECT s.imdb_id, s.name, s.image_url, s.status,
+    "SELECT s.imdb_id, s.name, s.image_url, s.status, s.network,
             (SELECT e.airstamp FROM episodes e
              WHERE e.show_imdb_id = s.imdb_id AND $nextEpisodeWhere $nextEpisodeOrder) AS next_airstamp,
             (SELECT e.airdate FROM episodes e
@@ -142,6 +142,7 @@ require __DIR__ . '/includes/header.php';
                     <?php foreach ($group['shows'] as $show): ?>
                         <?php $imdbId = htmlspecialchars($show['imdb_id']); ?>
                         <div class="show-card" data-show-id="<?= $imdbId ?>">
+                            <?= network_badge_html($show['network']) ?>
                             <a href="<?= htmlspecialchars(series_url($show['imdb_id'])) ?>">
                                 <?php if ($show['image_url']): ?>
                                     <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="">

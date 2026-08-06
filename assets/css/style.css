@@ -285,6 +285,26 @@ a:hover { color: var(--accent-hover); }
 /* My Movies: watched cards are dimmed (badge carries the state too). */
 .show-card.watched img { opacity: 0.55; }
 
+/* Network logo badge overlaid on a card poster's top-right corner. White pill
+   so the (transparent-background) logos read over any poster art. The
+   .show-card > .net-badge specificity beats the generic .show-card img poster
+   sizing (width:100%, 2:3, cover). */
+.show-card > .net-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
+  width: auto;
+  height: 16px;
+  max-width: 56px;
+  aspect-ratio: auto;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 4px;
+  padding: 3px 5px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
 /* Bottom-aligned action stack on movie cards (badge + buttons), so buttons
    line up across cards even when titles wrap to different heights. */
 .show-card > .card-actions {
