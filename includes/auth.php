@@ -331,12 +331,12 @@ function genre_list(?string $genres): array
     return array_keys($out);
 }
 
-/** Network logo badge overlaid on a card poster; '' when we have no logo
- *  image for that network (only the self-hosted set in network_logos.php). */
+/** Network logo badge overlaid on a card poster; '' when neither the network
+ *  nor its brand group has a self-hosted logo (network_logos.php). */
 function network_badge_html(?string $network): string
 {
     require_once __DIR__ . '/network_logos.php';
-    $logo = $network ? network_logo($network) : null;
+    $logo = $network ? network_group_logo($network) : null;
     return $logo
         ? '<img class="net-badge" src="' . htmlspecialchars($logo) . '" alt="' . htmlspecialchars($network) . '" loading="lazy">'
         : '';

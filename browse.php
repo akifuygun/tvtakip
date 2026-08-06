@@ -15,30 +15,10 @@ $shows = db()->query(
          ELSE 4 END, name"
 )->fetchAll();
 
-// Filter bar: MANUALLY CURATED brand groups, in display order. A chip targets a
-// network/producer and matches all of its channels — [display label, [member
-// channel names (exact TMDB strings)]]. The first member supplies the logo
-// (includes/network_logos.php). Edit here; only groups with shows render.
-$NETWORK_GROUPS = [
-    ['Netflix', ['Netflix']],
-    ['Disney', ['Disney+', 'Disney Channel', 'Disney XD']],
-    ['Prime Video', ['Prime Video']],
-    ['Apple TV', ['Apple TV']],
-    ['HBO', ['HBO', 'HBO Max', 'HBO Latin America', 'BluTV', 'DC Universe']],
-    ['Paramount', ['Paramount+', 'Paramount Network', 'Paramount+ with Showtime']],
-    ['FX', ['FX', 'FXX']],
-    ['STARZ', ['STARZ']],
-    ['ABC', ['ABC', 'ABC Family', 'ABC Kids', 'ABC.com']],
-    ['NBC', ['NBC']],
-    ['CBS', ['CBS', 'CBS All Access']],
-    ['FOX', ['FOX']],
-    ['The CW', ['The CW']],
-    ['BBC', ['BBC One', 'BBC Two', 'BBC Three', 'BBC America']],
-    ['tabii', ['tabii']],
-    ['GAİN', ['GAİN']],
-    ['Exxen', ['Exxen']],
-    ['YouTube', ['YouTube', 'YouTube Premium']],
-];
+// Filter bar: the curated brand groups (shared with the poster badges) live in
+// includes/network_logos.php — a chip targets a network/producer and matches
+// all of its member channels; only groups with shows render.
+$NETWORK_GROUPS = network_groups();
 $counts = db()->query(
     "SELECT network, COUNT(*) AS n FROM shows
      WHERE network IS NOT NULL AND network <> '' GROUP BY network"
