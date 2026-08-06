@@ -19,25 +19,38 @@ $shows = db()->query(
 // includes/network_logos.php — a chip targets a network/producer and matches
 // all of its member channels; only groups with shows render.
 $NETWORK_GROUPS = network_groups();
-$counts = db()->query(
-    "SELECT network, COUNT(*) AS n FROM shows
-     WHERE network IS NOT NULL AND network <> '' GROUP BY network"
-)->fetchAll(PDO::FETCH_KEY_PAIR);
-$networks = [];
-$groupedTotal = 0;
-foreach ($NETWORK_GROUPS as [$label, $members]) {
-    $total = 0;
+// Chip totals + the Others complement, computed from each show's (comma-
+// separated) network list: a show counts once per group any of its networks
+// belongs to; Others = shows with no network in any group (incl. no network).
+$memberToGroups = [];
+foreach ($NETWORK_GROUPS as $gi => [$label, $members]) {
     foreach ($members as $m) {
-        $total += (int) ($counts[$m] ?? 0);
-    }
-    $groupedTotal += $total;
-    if ($total > 0) {
-        $networks[] = ['label' => $label, 'logo' => network_logo($members[0]), 'members' => $members, 'n' => $total];
+        $memberToGroups[$m][] = $gi;
     }
 }
-// "Others" = everything not in a curated group (incl. shows with no network).
-// $shows is the full unfiltered table, so count($shows) is the total.
-$othersCount = max(0, count($shows) - $groupedTotal);
+$groupCounts = array_fill(0, count($NETWORK_GROUPS), 0);
+$othersCount = 0;
+foreach ($shows as $s) {
+    $gids = [];
+    foreach (network_names($s['network']) as $n) {
+        foreach ($memberToGroups[$n] ?? [] as $gi) {
+            $gids[$gi] = true;
+        }
+    }
+    if (!$gids) {
+        $othersCount++;
+        continue;
+    }
+    foreach (array_keys($gids) as $gi) {
+        $groupCounts[$gi]++;
+    }
+}
+$networks = [];
+foreach ($NETWORK_GROUPS as $gi => [$label, $members]) {
+    if ($groupCounts[$gi] > 0) {
+        $networks[] = ['label' => $label, 'logo' => network_logo($members[0]), 'members' => $members, 'n' => $groupCounts[$gi]];
+    }
+}
 
 // Genre + status facets, derived from the already-loaded $shows (no extra query).
 $genreCounts = [];

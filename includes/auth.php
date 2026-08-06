@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '42';
+const ASSET_VERSION = '43';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -331,14 +331,15 @@ function genre_list(?string $genres): array
     return array_keys($out);
 }
 
-/** Network logo badge overlaid on a card poster; '' when neither the network
- *  nor its brand group has a self-hosted logo (network_logos.php). */
+/** Network logo badge overlaid on a card poster; '' when none of the show's
+ *  networks (comma-separated list) has a self-hosted logo, directly or via
+ *  its brand group (network_logos.php). */
 function network_badge_html(?string $network): string
 {
     require_once __DIR__ . '/network_logos.php';
-    $logo = $network ? network_group_logo($network) : null;
-    return $logo
-        ? '<img class="net-badge" src="' . htmlspecialchars($logo) . '" alt="' . htmlspecialchars($network) . '" loading="lazy">'
+    $badge = network_badge_info($network);
+    return $badge
+        ? '<img class="net-badge" src="' . htmlspecialchars($badge[1]) . '" alt="' . htmlspecialchars($badge[0]) . '" loading="lazy">'
         : '';
 }
 

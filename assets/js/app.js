@@ -1011,7 +1011,8 @@ function initBrowseFilter() {
   if (!grid || !document.getElementById('network-filter')) return;
   const cards = [...grid.querySelectorAll('.show-card')].map((el) => ({
     el,
-    net: el.getAttribute('data-network') || '',
+    // Comma-separated list — network-hoppers carry every network they aired on.
+    nets: (el.getAttribute('data-network') || '').split(',').map((s) => s.trim()).filter(Boolean),
     genres: (el.getAttribute('data-genres') || '').split(',').map((s) => s.trim()).filter(Boolean),
     status: el.getAttribute('data-status') || '',
   }));
@@ -1034,8 +1035,13 @@ function initBrowseFilter() {
   const matchesNet = (c) => {
     if (!selNet.size) return true;
     for (const chip of selNet) {
-      if (chip.dataset.others) { if (!groupedUnion.has(c.net)) return true; }
-      else if ((memberOf.get(chip) || new Set()).has(c.net)) return true;
+      if (chip.dataset.others) {
+        // Others = none of the card's networks belong to any curated group.
+        if (!c.nets.some((n) => groupedUnion.has(n))) return true;
+      } else {
+        const set = memberOf.get(chip) || new Set();
+        if (c.nets.some((n) => set.has(n))) return true;
+      }
     }
     return false;
   };

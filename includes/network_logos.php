@@ -80,19 +80,30 @@ function network_logo(string $name): ?string
     return $map[$name] ?? null;
 }
 
-/**
- * Logo for a network, falling back to its brand group's logo — so e.g. an
- * "HBO Max" show carries the HBO badge. Null when neither matches.
- */
-function network_group_logo(string $name): ?string
+/** Split a comma-separated network list ("FOX, Netflix") into trimmed names. */
+function network_names(?string $list): array
 {
-    $direct = network_logo($name);
-    if ($direct) {
-        return $direct;
+    return array_values(array_filter(array_map('trim', explode(',', (string) $list))));
+}
+
+/**
+ * Badge for a show's (possibly multi-valued) network list: [name, logo] of the
+ * first listed network with its own logo, else the first whose brand group has
+ * one (e.g. "HBO Max" -> HBO's logo). Null when nothing matches.
+ */
+function network_badge_info(?string $list): ?array
+{
+    $names = network_names($list);
+    foreach ($names as $n) {
+        if ($logo = network_logo($n)) {
+            return [$n, $logo];
+        }
     }
-    foreach (network_groups() as [$label, $members]) {
-        if (in_array($name, $members, true)) {
-            return network_logo($members[0]);
+    foreach ($names as $n) {
+        foreach (network_groups() as [$label, $members]) {
+            if (in_array($n, $members, true) && ($logo = network_logo($members[0]))) {
+                return [$n, $logo];
+            }
         }
     }
     return null;
