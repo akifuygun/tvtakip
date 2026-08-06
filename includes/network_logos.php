@@ -13,11 +13,11 @@ function network_groups(): array
 {
     return [
         ['Netflix', ['Netflix']],
-        ['Disney', ['Disney+', 'Disney Channel', 'Disney XD']],
+        ['Disney', ['Disney+', 'Disney Channel', 'Disney XD', 'Hulu']],
         ['Prime Video', ['Prime Video']],
         ['Apple TV', ['Apple TV']],
-        ['HBO', ['HBO', 'HBO Max', 'HBO Latin America', 'BluTV', 'DC Universe']],
-        ['Paramount', ['Paramount+', 'Paramount Network', 'Paramount+ with Showtime']],
+        ['HBO', ['HBO', 'HBO Max', 'Max', 'HBO Latin America', 'BluTV', 'DC Universe']],
+        ['Paramount', ['Paramount+', 'Paramount Network', 'Paramount+ with Showtime', 'Showtime']],
         ['FX', ['FX', 'FXX']],
         ['STARZ', ['STARZ']],
         ['ABC', ['ABC', 'ABC Family', 'ABC Kids', 'ABC.com']],
@@ -55,10 +55,27 @@ function network_logo(string $name): ?string
         'GAİN' => '/assets/networks/gain.png',
         'Exxen' => '/assets/networks/exxen.png',
         'YouTube' => '/assets/networks/youtube.png',
+        // Group members with their own channel branding (badge shows the
+        // channel's logo; the direct match wins over the group fallback):
+        'Max' => '/assets/networks/max.png',
+        'Showtime' => '/assets/networks/showtime.png',
+        'Hulu' => '/assets/networks/hulu.png',
         // Badge-only (deliberately in no filter group — these shows stay
         // under the "Others" chip but still get a poster badge):
         'Peacock' => '/assets/networks/peacock.png',
         'Adult Swim' => '/assets/networks/adult-swim.png',
+        'Cartoon Network' => '/assets/networks/cartoon-network.png',
+        'AMC' => '/assets/networks/amc.png',
+        'Syfy' => '/assets/networks/syfy.png',
+        'USA Network' => '/assets/networks/usa-network.png',
+        'Nickelodeon' => '/assets/networks/nickelodeon.png',
+        'ITV1' => '/assets/networks/itv1.png',
+        'Tokyo MX' => '/assets/networks/tokyo-mx.png',
+        'TV Tokyo' => '/assets/networks/tv-tokyo.png',
+        'AT-X' => '/assets/networks/at-x.png',
+        'MBS' => '/assets/networks/mbs.png',
+        'Fuji TV' => '/assets/networks/fuji-tv.png',
+        'Nippon TV' => '/assets/networks/nippon-tv.png',
     ];
     return $map[$name] ?? null;
 }
