@@ -93,7 +93,7 @@ require __DIR__ . '/includes/header.php';
 <p class="muted"><?= t('pub_browse_sub', count($shows)) ?></p>
 
 <form id="pub-show-search-form" class="search-form">
-    <input type="search" id="pub-show-search-input" placeholder="<?= t('search_placeholder') ?>"
+    <input type="search" id="pub-show-search-input" placeholder="<?= t('browse_search_placeholder') ?>"
            aria-label="<?= t('pub_browse_title') ?>">
     <button type="submit" class="button"><?= t('search_button') ?></button>
 </form>
