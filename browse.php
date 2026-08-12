@@ -104,12 +104,12 @@ require __DIR__ . '/includes/header.php';
         <?php foreach ($facets as $f): ?>
             <button type="button" class="filter-tab<?= $f === $activeFacet ? ' active' : '' ?>" data-tab="<?= $f ?>"><?= t('flt_' . $f) ?></button>
         <?php endforeach; ?>
-        <button type="button" class="filter-tab" data-tab="name">🔍 <?= t('flt_name') ?></button>
+        <button type="button" class="filter-tab" data-tab="name"><?= t('flt_name') ?></button>
     </div>
 
     <div class="filter-panel hidden" data-panel="name">
         <input type="search" id="browse-name" class="title-search"
-               placeholder="<?= t('filter_by_name') ?>" aria-label="<?= t('filter_by_name') ?>">
+               placeholder="🔍 <?= t('filter_by_name') ?>" aria-label="<?= t('filter_by_name') ?>">
     </div>
 
     <?php if ($networks): ?>
