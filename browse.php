@@ -89,7 +89,11 @@ $metaDescription = t('pub_browse_sub', count($shows));
 
 require __DIR__ . '/includes/header.php';
 ?>
-<h1><?= t('pub_browse_title') ?></h1>
+<div class="page-head">
+    <h1><?= t('pub_browse_title') ?></h1>
+    <input type="search" id="browse-name" class="title-search"
+           placeholder="🔍 <?= t('filter_by_name') ?>" aria-label="<?= t('filter_by_name') ?>">
+</div>
 <p class="muted"><?= t('pub_browse_sub', count($shows)) ?></p>
 
 <div class="filters">

@@ -308,8 +308,12 @@ function backfill_episode_imdb_ids(PDO $pdo, string $imdbId, int $limit): int
  *
  * $backfillLimit: episode ids to fetch this call (CLI passes a large value to
  * complete in one run; the web default keeps each request short).
+ * $prune: also DELETE episodes the provider no longer lists (renumbered or
+ * removed) — only the manual "Refresh" uses this, so a transient provider gap
+ * during auto-refresh can never mass-delete; watched rows of pruned ghosts go
+ * with them via the FK cascade (they refer to episodes that no longer exist).
  */
-function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BATCH): int
+function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BATCH, bool $prune = false): int
 {
     @set_time_limit(120);
 
@@ -349,6 +353,22 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
     try {
         upsert_show($pdo, $payload['show'], true);
         $count = upsert_episodes($pdo, $imdbId, $payload['episodes']);
+        if ($prune && $payload['episodes']) {
+            // Drop rows the provider no longer lists, keyed by the episode
+            // identity (season, number). Guarded by non-empty payload.
+            $pairs = [];
+            $params = [$imdbId];
+            foreach ($payload['episodes'] as $ep) {
+                $pairs[] = '(?, ?)';
+                $params[] = max(0, (int) ($ep['season'] ?? 0));
+                $params[] = max(0, (int) ($ep['number'] ?? 0));
+            }
+            $stmt = $pdo->prepare(
+                'DELETE FROM episodes WHERE show_imdb_id = ?
+                 AND (season, number) NOT IN (' . implode(', ', $pairs) . ')'
+            );
+            $stmt->execute($params);
+        }
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();

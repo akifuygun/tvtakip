@@ -72,17 +72,15 @@ function next_episode_label(?string $airstamp, ?string $airdate): string
     return $days === 1 ? t('day_remaining', 1) : t('days_remaining', $days);
 }
 
-// Group by status: running | upcoming (incl. unknown) | ended+canceled.
+// Two tabs: active (running + upcoming/unknown, merged) | ended+canceled.
 $groups = [
-    'running' => ['title' => t('group_running'), 'shows' => []],
-    'upcoming' => ['title' => t('group_upcoming'), 'shows' => []],
+    'active' => ['title' => t('group_active'), 'shows' => []],
     'finished' => ['title' => t('group_finished'), 'shows' => []],
 ];
 foreach ($shows as $show) {
     $key = match ($show['status']) {
-        'running' => 'running',
         'ended', 'canceled' => 'finished',
-        default => 'upcoming',
+        default => 'active',
     };
     $groups[$key]['shows'][] = $show;
 }
@@ -101,17 +99,16 @@ $byNextAirdate = static function ($a, $b) {
     }
     return strcmp($a['next_airdate'], $b['next_airdate']);
 };
-// Running + Ended: most unwatched (aired) episodes first — the shows you can
-// act on — then soonest next episode (name, in practice, for ended shows).
-// Upcoming keeps the pure next-air-date order.
+// Both tabs: most unwatched (aired) episodes first — the shows you can act
+// on — then soonest next episode / premiere (upcoming shows have no backlog,
+// so they interleave with caught-up running shows by date).
 $unwatchedCount = static fn($s) => max(0, (int) $s['aired_count'] - (int) $s['watched_count']);
 $byBacklog = static function ($a, $b) use ($byNextAirdate, $unwatchedCount) {
     $diff = $unwatchedCount($b) <=> $unwatchedCount($a);
     return $diff !== 0 ? $diff : $byNextAirdate($a, $b);
 };
-usort($groups['running']['shows'], $byBacklog);
+usort($groups['active']['shows'], $byBacklog);
 usort($groups['finished']['shows'], $byBacklog);
-usort($groups['upcoming']['shows'], $byNextAirdate);
 
 // Tabs: only non-empty groups render; the first one starts active.
 $nonEmpty = array_filter($groups, fn($g) => (bool) $g['shows']);

@@ -56,6 +56,11 @@ a:hover { color: var(--accent-hover); }
   padding: 0.75rem 1.25rem;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  /* Stay pinned to the top while scrolling. */
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
 }
 .site-header .brand { display: inline-flex; align-items: center; color: var(--text); }
 .brand-logo { height: 1.8rem; width: auto; display: block; }
@@ -540,6 +545,36 @@ a:hover { color: var(--accent-hover); }
   .cal-watch-btn { width: 100%; }
 
   .show-header img { max-width: 140px; }
+}
+
+/* Page title row with a compact inline filter input (browse). */
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.page-head h1 { margin: 0.5rem 0; }
+.title-search {
+  width: 200px;
+  padding: 0.35rem 0.65rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+.title-search:focus { outline: none; border-color: var(--accent); }
+
+/* Inline network logo (upcoming list rows) — tiny white pill next to the text. */
+.net-inline {
+  height: 13px;
+  width: auto;
+  vertical-align: -2px;
+  background: #fff;
+  border-radius: 3px;
+  padding: 2px 3px;
+  margin-right: 0.3rem;
 }
 
 /* ---------- Browse faceted filter (network / genre / status tabs) ---------- */

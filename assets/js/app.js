@@ -1067,7 +1067,13 @@ function initBrowseFilter() {
     nets: (el.getAttribute('data-network') || '').split(',').map((s) => s.trim()).filter(Boolean),
     genres: (el.getAttribute('data-genres') || '').split(',').map((s) => s.trim()).filter(Boolean),
     status: el.getAttribute('data-status') || '',
+    name: (el.querySelector('h3')?.textContent || '').toLowerCase(),
   }));
+
+  // Free-text name filter (the small input beside the title), ANDed with the
+  // facets below.
+  const nameInput = document.getElementById('browse-name');
+  let nameQ = '';
 
   // Network facet: chips carry a member-network set (data-networks); the Others
   // chip matches any network not in a curated group.
@@ -1121,6 +1127,7 @@ function initBrowseFilter() {
     let matched = 0;
     for (const c of cards) {
       const ok = matchesNet(c)
+        && (!nameQ || c.name.includes(nameQ))
         && (!selGenre.size || c.genres.some((g) => selGenre.has(g)))
         && (!selStatus.size || selStatus.has(c.status));
       // Show a card only if it matches AND is within the current cap.
@@ -1142,6 +1149,13 @@ function initBrowseFilter() {
 
   // A facet change resets the cap to the first batch of the new result set.
   const refilter = () => { limit = BATCH; apply(); };
+
+  if (nameInput) {
+    nameInput.addEventListener('input', () => {
+      nameQ = nameInput.value.trim().toLowerCase();
+      refilter();
+    });
+  }
 
   netChips.forEach((chip) => chip.addEventListener('click', () => {
     selNet.has(chip) ? selNet.delete(chip) : selNet.add(chip);

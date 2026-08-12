@@ -75,7 +75,9 @@ $fresh = (bool) $stmt->fetchColumn();
 
 if ($force || !$fresh) {
     try {
-        import_show(db(), $imdbId);
+        // The manual Refresh button (force) is a FULL refresh: metadata,
+        // episodes, airstamps, AND pruning of episodes the provider dropped.
+        import_show(db(), $imdbId, BACKFILL_BATCH, $force);
     } catch (RuntimeException $e) {
         json_response(['error' => $e->getMessage()], 404);
     }

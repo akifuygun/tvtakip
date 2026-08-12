@@ -2,6 +2,7 @@
 // PUBLIC upcoming-episodes page (no login) — fresh, regularly changing content.
 // Pretty URL /upcoming rewrites here.
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/network_logos.php';
 
 const UPCOMING_DAYS = 30;
 
@@ -12,7 +13,7 @@ $mine = is_logged_in();
 // Padded by a day on both sides: the airstamp shifts a US-evening episode
 // into the next local (Istanbul) day, which is what we group and filter by.
 $sql = 'SELECT e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp,
-               s.imdb_id, s.name AS show_name
+               s.imdb_id, s.name AS show_name, s.network
         FROM episodes e JOIN shows s ON s.imdb_id = e.show_imdb_id ';
 $params = [
     date('Y-m-d', strtotime(today() . ' -1 day')),
@@ -79,6 +80,9 @@ require __DIR__ . '/includes/header.php';
         <ul class="episode-list episode-list-plain">
             <?php foreach ($rows as $ep): ?>
                 <li><span class="ep-title">
+                    <?php if ($b = network_badge_info($ep['network'])): ?>
+                        <img class="net-inline" src="<?= htmlspecialchars($b[1]) ?>" alt="<?= htmlspecialchars($b[0]) ?>" loading="lazy">
+                    <?php endif; ?>
                     <a class="cal-show" href="<?= htmlspecialchars(series_url($ep['imdb_id'])) ?>"><?= htmlspecialchars($ep['show_name']) ?></a>
                     <?= episode_code((int) $ep['season'], (int) $ep['number']) ?>
                     <?= htmlspecialchars($ep['ep_name'] ?? '') ?>
