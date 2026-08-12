@@ -16,7 +16,11 @@ watched, and keep a movie watchlist.
   and no provider data is accepted from clients (the shared cache can't be poisoned).
 - **Search** (`api/search.php`) queries [TVmaze](https://www.tvmaze.com/api) (free, no
   key, fuzzy) and [TMDB](https://developer.themoviedb.org/) (free API key) and merges
-  results by IMDB id, so shows missing from either provider still appear.
+  results by IMDB id, so shows missing from either provider still appear. Search is
+  **public** (shows and movies), and visiting any not-yet-cached `/series/ttNNN` or
+  `/movie/ttNNN` imports it on first visit — every visitor grows the shared catalog;
+  tracking/watching stays login-only. A per-session background ping also keeps the
+  most-stale running show fresh (cron-free auto-refresh).
 - **Episode data** comes from TMDB, including each episode's IMDB id via its
   `external_ids` endpoint, with TVmaze as fallback for shows TMDB doesn't know
   (their episode IMDB ids stay empty and are backfilled on refresh once TMDB has them).
@@ -29,7 +33,8 @@ watched, and keep a movie watchlist.
 - **Movies:** a single per-user list with a watched flag (a movie is one watchable
   unit — no per-episode state). TMDB-only import; search + add live on the
   My Movies page; marking watched auto-adds to the list and is gated on the
-  release date. Public movie pages at `/movie/ttNNN`.
+  release date. Public movie pages at `/movie/ttNNN` and a public catalog at
+  `/movies`.
 - **Accounts:** email login, display name shown in the header, self-service
   change-password. 30-day sessions plus a 60-day "remember me" token so the free
   host's short session GC doesn't force frequent logins.
@@ -44,17 +49,22 @@ watched, and keep a movie watchlist.
 ```
 index.php          Calendar — next unwatched aired episode of each tracked show
                    (guests get the public landing page)
-myshows.php        Tracked shows grouped by status (Running / Upcoming / Ended)
-mymovies.php       Movie list: on-page search to add, To watch / Watched groups
-search.php         Search both providers and track shows
+myshows.php        Tracked shows in tabs (Running / Upcoming + Cancelled / Ended),
+                   most-behind first
+mymovies.php       Movie list: on-page search to add, To watch / Watched tabs
+search.php         Search both providers (public; Track buttons when logged in)
 series.php         Unified show page (/series/ttNNN): public SEO for guests,
-                   interactive app when logged in (show.php 301-redirects here)
-movie.php          Public movie page (/movie/ttNNN) + add/watched buttons
-browse.php         Public catalog with network/genre/status filters
+                   interactive app when logged in; uncached ids import on visit
+                   (show.php 301-redirects here)
+movie.php          Public movie page (/movie/ttNNN) + add/watched buttons;
+                   uncached ids import on visit
+browse.php         Public show catalog: provider search bar + network/genre/
+                   status/name filter tabs, network logo badges on posters
+movies.php         Public movie catalog (/movies) with guest search
 upcoming.php       Upcoming episodes (public catalog; tracked-only when logged in)
 change-password.php  Self-service password change
 login.php / register.php / logout.php   (email login, display name in header)
-api/search.php     GET merged TVmaze+TMDB show search (server-side)
+api/search.php     GET merged TVmaze+TMDB show search (server-side, public)
 api/track.php      POST: track/untrack by IMDB id (imports server-side if uncached)
 api/episodes.php   GET cached show+episodes+watched; POST imports/refreshes server-side
 api/watch.php      POST toggle episode watched; bulk (un)watch per show or season

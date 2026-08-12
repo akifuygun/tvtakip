@@ -552,6 +552,48 @@ function initMovies() {
   });
 }
 
+// Browse page: provider (TVmaze+TMDB) show search, same shape as the movies
+// page — link-only cards; the series page imports on first visit for anyone.
+function initPubShows() {
+  const form = document.getElementById('pub-show-search-form');
+  if (!form) return;
+  const input = document.getElementById('pub-show-search-input');
+  const results = document.getElementById('pub-show-search-results');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (!q) return;
+    results.textContent = t('searching');
+    try {
+      const { results: items } = await apiGet(`/api/search.php?q=${encodeURIComponent(q)}`);
+      results.replaceChildren();
+      if (!items.length) {
+        results.textContent = t('no_shows_found');
+        return;
+      }
+      for (const item of items) {
+        const year = item.year ? ` (${item.year})` : '';
+        const poster = item.image
+          ? el('img', { src: item.image, alt: '' })
+          : el('div', { class: 'no-poster', text: t('no_image') });
+        results.append(item.imdb_id
+          ? el('div', { class: 'show-card' }, [
+              el('a', { href: seriesUrl(item.imdb_id) }, [poster]),
+              el('h3', {}, [el('a', { href: seriesUrl(item.imdb_id), text: item.name + year })]),
+            ])
+          : el('div', { class: 'show-card' }, [
+              poster,
+              el('h3', { text: item.name + year }),
+              el('span', { class: 'muted', text: t('no_imdb') }),
+            ]));
+      }
+    } catch (err) {
+      results.textContent = t('search_failed', err.message);
+    }
+  });
+}
+
 // Public movies page: search renders link-only cards (no add buttons — the
 // movie page itself imports on first visit and offers actions to logged-in
 // users). Works for guests; the search API's GET is public.
@@ -1057,9 +1099,9 @@ function initTick() {
 // Browse faceted filter: Network (brand groups + Others), Genre and Status.
 // Within a facet chips are OR'd; across facets they're AND'd. All client-side.
 function initBrowseFilter() {
-  const grid = document.querySelector('.show-grid');
-  // #network-filter only exists on browse — without this guard the tab wiring
-  // below would also grab the My Movies tabs (same .filter-tab classes).
+  // The explicit id matters: the page also has a (search-results) .show-grid
+  // above the catalog grid.
+  const grid = document.getElementById('browse-grid');
   if (!grid || !document.getElementById('network-filter')) return;
   const cards = [...grid.querySelectorAll('.show-card')].map((el) => ({
     el,
@@ -1142,8 +1184,10 @@ function initBrowseFilter() {
     });
     // Mark tabs whose (possibly hidden) facet is actively filtering.
     tabs.forEach((tab) => {
-      const sel = selByFacet[tab.dataset.tab];
-      tab.classList.toggle('has-active', !!sel && sel.size > 0);
+      const active = tab.dataset.tab === 'name'
+        ? nameQ.length > 0
+        : (selByFacet[tab.dataset.tab]?.size ?? 0) > 0;
+      tab.classList.toggle('has-active', active);
     });
   };
 
@@ -1216,6 +1260,7 @@ initPosterLightbox();
 initBrowseFilter();
 initSearch();
 initMovies();
+initPubShows();
 initPubMovies();
 initMovieDetail();
 initDashboard();

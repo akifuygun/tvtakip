@@ -396,6 +396,7 @@ a:hover { color: var(--accent-hover); }
 .episodes-actions { display: flex; gap: 0.5rem; }
 
 .season {
+  position: relative; /* anchors the absolutely-positioned season button */
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -403,7 +404,14 @@ a:hover { color: var(--accent-hover); }
   padding: 0.5rem 0.9rem;
 }
 .season summary { cursor: pointer; font-weight: 600; }
-.season-watched-btn { float: right; }
+/* Absolute, not float: a float protrudes below the summary line and the first
+   episode row (a flex container / BFC) narrows to avoid it, misaligning its
+   toggle button. */
+.season-watched-btn {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.9rem;
+}
 .episode-list { list-style: none; padding: 0.25rem 0 0; margin: 0; }
 .episode-list li {
   display: flex;
@@ -476,8 +484,10 @@ a:hover { color: var(--accent-hover); }
 
 .next-ep { font-size: 0.78rem; color: var(--warning); }
 
-/* My Movies: search results get breathing room above the tabs when populated. */
-#movie-search-results:not(:empty) { margin-bottom: 1.75rem; }
+/* Search-result grids get breathing room below them when populated. */
+#movie-search-results:not(:empty),
+#pub-movie-search-results:not(:empty),
+#pub-show-search-results:not(:empty) { margin-bottom: 1.75rem; }
 
 .notice {
   background: rgba(79, 140, 255, 0.10);
@@ -534,7 +544,7 @@ a:hover { color: var(--accent-hover); }
   .ep-toggle-btn { min-width: 0; width: 100%; }
 
   /* Season header button drops below the title, full width. */
-  .season-watched-btn { float: none; display: block; width: 100%; margin-top: 0.5rem; }
+  .season-watched-btn { position: static; display: block; width: 100%; margin-top: 0.5rem; }
 
   /* Show-page action buttons share the row evenly instead of overflowing. */
   .episodes-actions { width: 100%; }
@@ -547,14 +557,7 @@ a:hover { color: var(--accent-hover); }
   .show-header img { max-width: 140px; }
 }
 
-/* Page title row with a compact inline filter input (browse). */
-.page-head {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.page-head h1 { margin: 0.5rem 0; }
+/* Compact filter input (lives inside the browse "Name" filter tab panel). */
 .title-search {
   width: 200px;
   padding: 0.35rem 0.65rem;

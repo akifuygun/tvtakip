@@ -89,18 +89,27 @@ $metaDescription = t('pub_browse_sub', count($shows));
 
 require __DIR__ . '/includes/header.php';
 ?>
-<div class="page-head">
-    <h1><?= t('pub_browse_title') ?></h1>
-    <input type="search" id="browse-name" class="title-search"
-           placeholder="🔍 <?= t('filter_by_name') ?>" aria-label="<?= t('filter_by_name') ?>">
-</div>
+<h1><?= t('pub_browse_title') ?></h1>
 <p class="muted"><?= t('pub_browse_sub', count($shows)) ?></p>
+
+<form id="pub-show-search-form" class="search-form">
+    <input type="search" id="pub-show-search-input" placeholder="<?= t('search_placeholder') ?>"
+           aria-label="<?= t('pub_browse_title') ?>">
+    <button type="submit" class="button"><?= t('search_button') ?></button>
+</form>
+<div id="pub-show-search-results" class="show-grid"></div>
 
 <div class="filters">
     <div class="filter-tabs" role="tablist">
         <?php foreach ($facets as $f): ?>
             <button type="button" class="filter-tab<?= $f === $activeFacet ? ' active' : '' ?>" data-tab="<?= $f ?>"><?= t('flt_' . $f) ?></button>
         <?php endforeach; ?>
+        <button type="button" class="filter-tab" data-tab="name">🔍 <?= t('flt_name') ?></button>
+    </div>
+
+    <div class="filter-panel hidden" data-panel="name">
+        <input type="search" id="browse-name" class="title-search"
+               placeholder="<?= t('filter_by_name') ?>" aria-label="<?= t('filter_by_name') ?>">
     </div>
 
     <?php if ($networks): ?>
@@ -152,7 +161,7 @@ require __DIR__ . '/includes/header.php';
     <?php endif; ?>
 </div>
 
-<div class="show-grid">
+<div class="show-grid" id="browse-grid">
     <?php foreach ($shows as $show): ?>
         <?= show_card_html($show, series_url($show['imdb_id'])) ?>
     <?php endforeach; ?>
