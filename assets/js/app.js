@@ -928,7 +928,8 @@ async function initShowDetail() {
     seasons.get(ep.season).push(ep);
   }
 
-  const allToggles = []; // per-episode setWatched fns, for mark-all
+  const allToggles = []; // per-episode {watched(), setWatched()}, for mark-all
+  let updateMarkAll = null; // hides "Mark All Watched" when nothing is left
   const epContainer = el('div', { class: 'seasons' });
   // Newest season first; only that one starts unfolded.
   const orderedSeasons = [...seasons.entries()].sort((a, b) => b[0] - a[0]);
@@ -951,6 +952,7 @@ async function initShowDetail() {
         toggleBtn.classList.toggle('button-secondary', value);
         li.classList.toggle('watched', value);
         updateSeasonBtn?.();
+        updateMarkAll?.();
       };
       if (hasAired) {
         setWatched(isWatched);
@@ -964,7 +966,7 @@ async function initShowDetail() {
           }
           toggleBtn.disabled = false;
         });
-        allToggles.push(setWatched);
+        allToggles.push({ watched: () => isWatched, setWatched });
         seasonToggles.push({ watched: () => isWatched, setWatched });
       } else {
         // Unaired (future or unknown airdate): not markable, and bulk actions skip it.
@@ -1018,7 +1020,7 @@ async function initShowDetail() {
       markAllBtn.disabled = true;
       try {
         await apiPost('/api/watch.php', { show_id: showId, all: true });
-        for (const setWatched of allToggles) setWatched(true);
+        for (const tog of allToggles) tog.setWatched(true);
       } catch (err) {
         alert(err.message);
       }
@@ -1034,13 +1036,22 @@ async function initShowDetail() {
       unmarkAllBtn.disabled = true;
       try {
         await apiPost('/api/watch.php', { show_id: showId, all: true, watched: false });
-        for (const setWatched of allToggles) setWatched(false);
+        for (const tog of allToggles) tog.setWatched(false);
       } catch (err) {
         alert(err.message);
       }
       unmarkAllBtn.disabled = false;
     },
   });
+
+  // "Mark All Watched" only renders while something is actually markable: it
+  // hides once every aired episode is watched (or none has aired) and comes
+  // back the moment any unwatch happens — every watch-state change above runs
+  // through setWatched, which calls this.
+  updateMarkAll = () => {
+    markAllBtn.style.display = allToggles.some((tog) => !tog.watched()) ? '' : 'none';
+  };
+  updateMarkAll();
 
   // Server-side re-import: picks up newly aired episodes and backfills
   // episode IMDB ids as TMDB gets them.
