@@ -143,6 +143,7 @@ require __DIR__ . '/includes/header.php';
 <?php else: ?>
     <h1><?= t('calendar_title') ?></h1>
     <p class="muted"><?= t('calendar_sub') ?></p>
+    <p id="cal-refresh" class="muted" hidden><?= t('cal_checking') ?></p>
 
     <?php if ($unsynced): ?>
         <div class="notice">

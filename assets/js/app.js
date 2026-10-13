@@ -753,6 +753,48 @@ function initCalendar() {
   });
 }
 
+// The server refreshes this viewer's stale tracked shows a few per request
+// (airing ones first), so keep calling while some are left — capped per visit —
+// and re-render in place whenever a round brought new or moved episodes.
+const CAL_REFRESH_ROUNDS = 10;
+async function refreshCalendar() {
+  let indicate = false; // only once the check outlasts a quick no-op round
+  const setNote = (on) => {
+    const note = document.getElementById('cal-refresh');
+    if (note) note.hidden = !on;
+  };
+  const timer = setTimeout(() => { indicate = true; setNote(true); }, 800);
+  try {
+    for (let round = 0; round < CAL_REFRESH_ROUNDS; round++) {
+      const res = await apiGet('/api/tick.php?scope=mine');
+      if (res.changed) {
+        await reloadCalendar();
+        setNote(indicate && res.more); // the fresh render starts hidden
+      }
+      if (!res.more) break;
+    }
+  } catch {
+    // best-effort: the calendar stays as first rendered
+  } finally {
+    clearTimeout(timer);
+    setNote(false);
+  }
+}
+
+// Swap in a fresh server render of this page (same URL, so same language) and
+// re-wire its buttons.
+async function reloadCalendar() {
+  const res = await fetch(location.href, { cache: 'no-store' });
+  if (!res.ok) return;
+  const next = new DOMParser().parseFromString(await res.text(), 'text/html').querySelector('main');
+  const main = document.querySelector('main');
+  // Only ever replace a calendar with a calendar (never, say, a login page).
+  if (!main || !next?.querySelector('#cal-refresh')) return;
+  main.replaceChildren(...next.childNodes);
+  initCalendar();
+  initCalendarMovies();
+}
+
 // ---------- Show detail page ----------
 async function initShowDetail() {
   const root = document.getElementById('show-detail');
@@ -1092,10 +1134,14 @@ function initNav() {
   });
 }
 
-// Cron-free freshness: once per browser session, nudge the server to refresh
-// its most-stale running/upcoming show. Fire-and-forget; the server bounds and
-// claims the work, so this is safe to call from every page load.
-function initTick() {
+// Cron-free freshness — the host has no cron and bans automated periodic
+// requests, so refreshes ride on real page views: the calendar refreshes the
+// viewer's own stale shows on every visit, then once per browser session any
+// page nudges the server to refresh the most-stale shows site-wide (the
+// viewer's own first). The server bounds and claims the work, so this is safe
+// to call from every page load.
+async function initTick() {
+  if (document.getElementById('cal-refresh')) await refreshCalendar();
   try {
     if (sessionStorage.getItem('tvtrack_ticked')) return;
     sessionStorage.setItem('tvtrack_ticked', '1');
