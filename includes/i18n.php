@@ -107,7 +107,6 @@ $GLOBALS['I18N'] = [
         'lang_tr' => 'Türkçe', 'lang_en' => 'English',
         'theme_light' => 'Light mode', 'theme_dark' => 'Dark mode',
         'data_credit' => 'Data:',
-        'tmdb_notice' => 'This website uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.',
         'meta_description' => "Track your favorite TV series, follow upcoming episodes, and mark what you've watched — a free, no-clutter personal TV episode tracker.",
         'tagline' => 'Track your TV series and never miss an episode.',
         // public pages & landing
@@ -259,7 +258,6 @@ $GLOBALS['I18N'] = [
         'lang_tr' => 'Türkçe', 'lang_en' => 'English',
         'theme_light' => 'Açık tema', 'theme_dark' => 'Koyu tema',
         'data_credit' => 'Veriler:',
-        'tmdb_notice' => 'Bu web sitesi TMDB ve TMDB API\'lerini kullanır ancak TMDB tarafından onaylanmamış, sertifikalandırılmamış veya başka bir şekilde desteklenmemiştir.',
         'meta_description' => 'Favori dizilerini takip et, yeni bölümleri kaçırma ve izlediklerini işaretle — ücretsiz, sade bir kişisel dizi takip uygulaması.',
         'tagline' => 'Dizilerini takip et, hiçbir bölümü kaçırma.',
         'nav_browse' => 'Dizilere Gözat', 'nav_upcoming' => 'Yaklaşan Bölümler',

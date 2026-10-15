@@ -125,11 +125,15 @@ a:hover { color: var(--accent-hover); }
   font-size: 0.85rem;
   border-top: 1px solid var(--border);
   padding: 0.75rem 1.25rem;
+  background: var(--surface);
+  /* Pinned to the bottom while scrolling, like the header at the top
+     (desktop only — phones keep it in flow to save screen height). */
+  position: sticky;
+  bottom: 0;
+  z-index: 150;
+  box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.15);
 }
 .footer-controls { display: flex; align-items: center; gap: 1rem; }
-/* Provider credits (required by TMDB, TVmaze and TheTVDB terms): own line. */
-.footer-credits { flex-basis: 100%; margin: 0; font-size: 0.72rem; line-height: 1.6; }
-.tmdb-logo { height: 0.62rem; width: auto; vertical-align: baseline; }
 .footer-flags { display: flex; align-items: center; gap: 0.5rem; }
 .flag { display: inline-flex; line-height: 0; opacity: 0.5; border-radius: 3px; }
 .flag svg { display: block; border-radius: 3px; }
@@ -532,6 +536,7 @@ a:hover { color: var(--accent-hover); }
 @media (max-width: 560px) {
   .site-header { padding: 0.6rem 0.9rem; }
   .container { padding: 1rem 0.9rem; }
+  .site-footer { position: static; box-shadow: none; }
 
   /* Collapse the nav behind a hamburger button. */
   .nav-toggle { display: inline-flex; align-items: center; }

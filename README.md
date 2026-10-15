@@ -124,4 +124,4 @@ Show and movie data from [TMDB](https://www.themoviedb.org/),
 provided by TheTVDB; please consider adding missing information or subscribing).
 This product uses TMDB and the TMDB APIs but is not endorsed, certified, or
 otherwise approved by TMDB. All three providers require attribution — the site
-footer carries it (TMDB logo + notice, TVmaze and TheTVDB links); keep it.
+footer carries a "Data: TMDB · TVmaze · TheTVDB" line with links; keep it.
