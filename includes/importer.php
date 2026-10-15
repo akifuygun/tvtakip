@@ -77,6 +77,18 @@ function clean_runtime(mixed $value): ?int
     return $n > 0 ? min($n, 65535) : null;
 }
 
+/** Finale flag from a TMDB episode_type: 'season' | 'midseason', '' for a
+ *  regular episode, null when TMDB didn't say. */
+function tmdb_finale(?string $episodeType): ?string
+{
+    return match ($episodeType) {
+        null => null,
+        'finale' => 'season',
+        'mid_season' => 'midseason',
+        default => '',
+    };
+}
+
 /** Turkish overview from a TMDB detail fetched with
  *  append_to_response=translations, or null. */
 function tmdb_tr_overview(array $detail): ?string
@@ -116,6 +128,7 @@ function fetch_base_from_tmdb(string $imdbId): ?array
                 'number' => max(0, (int) ($ep['episode_number'] ?? 0)),
                 'name' => trim((string) ($ep['name'] ?? '')),
                 'airdate' => valid_date($ep['air_date'] ?? null),
+                'finale' => tmdb_finale($ep['episode_type'] ?? null),
             ];
         }
     }
@@ -223,7 +236,7 @@ function tvdb_get(string $path): ?array
 /**
  * A show on TheTVDB: 'airs' => its regular air time as ['time' => 'HH:MM',
  * 'tz' => zone] or null, 'episodes' => its dated regular episodes as
- * [season, number, name, airdate] rows, and 'overview_tr' => its Turkish
+ * [season, number, name, airdate, finale] rows, and 'overview_tr' => its Turkish
  * description or null. All empty when TheTVDB doesn't know the show (or no
  * key is configured); null when TheTVDB couldn't be asked, so callers keep
  * what's stored. A time with no air day is TheTVDB's unset
@@ -271,11 +284,13 @@ function tvdb_show(string $imdbId): ?array
             continue;
         }
         $name = trim((string) ($ep['name'] ?? ''));
+        $finale = (string) ($ep['finaleType'] ?? '');
         $episodes[] = [
             'season' => $season,
             'number' => $number,
             'name' => preg_match('/^(TBA|TBD)?$/i', $name) ? null : $name,
             'airdate' => $airdate,
+            'finale' => in_array($finale, ['season', 'series', 'midseason'], true) ? $finale : '',
         ];
     }
     return ['airs' => $airs, 'episodes' => $episodes, 'overview_tr' => tvdb_tr_overview($d)];
@@ -291,6 +306,31 @@ function tvdb_tr_overview(array $record): ?string
         }
     }
     return null;
+}
+
+/**
+ * TheTVDB's finale flags onto the base episodes, only where it describes the
+ * same episode (same season, number AND air date — numbering can differ).
+ * Its flag wins when it has one: only TheTVDB tells a series finale apart.
+ * A "series finale" with a later season known to either side is a stale flag
+ * from before a renewal, so it counts as a season finale.
+ */
+function tvdb_merge_finales(array &$episodes, array $tvdbEpisodes): void
+{
+    $flags = [];
+    foreach ($tvdbEpisodes as $ep) {
+        if ($ep['finale'] !== '') {
+            $flags[$ep['season'] . '-' . $ep['number'] . '-' . $ep['airdate']] = $ep['finale'];
+        }
+    }
+    $lastSeason = max([0, ...array_column($episodes, 'season'), ...array_column($tvdbEpisodes, 'season')]);
+    foreach ($episodes as &$ep) {
+        $key = $ep['season'] . '-' . $ep['number'] . '-' . $ep['airdate'];
+        if (isset($flags[$key])) {
+            $ep['finale'] = $flags[$key] === 'series' && $ep['season'] < $lastSeason ? 'season' : $flags[$key];
+        }
+    }
+    unset($ep);
 }
 
 /**
@@ -426,7 +466,7 @@ function upsert_episodes(PDO $pdo, string $showImdbId, array $episodes): int
         $placeholders = [];
         $params = [];
         foreach ($chunk as $ep) {
-            $placeholders[] = '(?, ?, ?, ?, ?, ?, ?)';
+            $placeholders[] = '(?, ?, ?, ?, ?, ?, ?, ?)';
             $params[] = $showImdbId;
             $params[] = valid_imdb_id($ep['imdb_id'] ?? null) ? $ep['imdb_id'] : null;
             $params[] = max(0, (int) ($ep['season'] ?? 0));
@@ -434,15 +474,19 @@ function upsert_episodes(PDO $pdo, string $showImdbId, array $episodes): int
             $params[] = mb_substr(trim((string) ($ep['name'] ?? '')), 0, 255) ?: null;
             $params[] = valid_date($ep['airdate'] ?? null);
             $params[] = $ep['airstamp'] ?? null;
+            $params[] = $ep['finale'] ?? null;
         }
+        // finale: '' (a provider said "regular episode") clears an old flag;
+        // null (provider has no flags, e.g. TVmaze) keeps it.
         $stmt = $pdo->prepare(
-            'INSERT INTO episodes (show_imdb_id, imdb_id, season, number, name, airdate, airstamp)
+            'INSERT INTO episodes (show_imdb_id, imdb_id, season, number, name, airdate, airstamp, finale)
              VALUES ' . implode(', ', $placeholders) . '
              ON DUPLICATE KEY UPDATE
                  imdb_id = COALESCE(VALUES(imdb_id), imdb_id),
                  name = VALUES(name),
                  airdate = VALUES(airdate),
-                 airstamp = COALESCE(VALUES(airstamp), airstamp)'
+                 airstamp = COALESCE(VALUES(airstamp), airstamp),
+                 finale = COALESCE(VALUES(finale), finale)'
         );
         $stmt->execute($params);
         $count += count($chunk);
@@ -555,6 +599,7 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
     // TheTVDB was unreachable.
     $tvdb = tvdb_show($imdbId);
     if ($tvdb) {
+        tvdb_merge_finales($payload['episodes'], $tvdb['episodes']);
         array_push($payload['episodes'], ...tvdb_upcoming_episodes($payload['episodes'], $tvdb['episodes']));
         // Turkish description: TMDB's when it has one, else TheTVDB's.
         $payload['show']['overview_tr'] ??= $tvdb['overview_tr'];

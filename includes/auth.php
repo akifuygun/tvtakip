@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '50';
+const ASSET_VERSION = '51';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -330,6 +330,24 @@ function certainly_aired_sql(string $alias = ''): string
 function episode_code(int $season, int $number): string
 {
     return sprintf('S%02dE%02d', $season, $number);
+}
+
+/** Premiere/finale badge for an episode ('' for regular ones and specials).
+ *  Finales come from provider flags; premieres are simply episode 1. */
+function episode_badge_html(int $season, int $number, ?string $finale): string
+{
+    if ($season < 1) {
+        return '';
+    }
+    [$key, $kind] = match ($finale) {
+        'series' => ['ep_series_finale', 'finale'],
+        'season' => ['ep_season_finale', 'finale'],
+        'midseason' => ['ep_midseason_finale', 'finale'],
+        default => $number === 1
+            ? [$season === 1 ? 'ep_series_premiere' : 'ep_season_premiere', 'premiere']
+            : [null, null],
+    };
+    return $key ? '<span class="ep-badge ep-badge-' . $kind . '">' . t($key) . '</span>' : '';
 }
 
 /** Fold provider genre-name variants into one canonical label (browse filter). */

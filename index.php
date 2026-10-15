@@ -22,7 +22,7 @@ if (is_logged_in()) {
     // earlier (viewer's day) — resolved in SQL (one row per show) instead of
     // fetching the whole backlog and de-duping in PHP. Oldest pending first.
     $stmt = db()->prepare(
-        'SELECT e.id, e.imdb_id, e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp,
+        'SELECT e.id, e.imdb_id, e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp, e.finale,
                 s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url, s.network
          FROM user_shows us
          JOIN shows s ON s.imdb_id = us.show_imdb_id
@@ -46,7 +46,7 @@ if (is_logged_in()) {
     $upcoming = [];
     if (!$items) {
         $stmt = db()->prepare(
-            "SELECT e.season, e.number, e.airdate, e.airstamp,
+            "SELECT e.season, e.number, e.airdate, e.airstamp, e.finale,
                     s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url, s.network
              FROM user_shows us
              JOIN shows s ON s.imdb_id = us.show_imdb_id
@@ -172,7 +172,7 @@ require __DIR__ . '/includes/header.php';
                         <?php endif; ?>
                     </a>
                     <h3><a href="<?= $showUrl ?>"><?= htmlspecialchars($ep['show_name']) ?></a></h3>
-                    <span class="muted"><?= $code ?></span>
+                    <span class="muted"><?= $code ?> <?= episode_badge_html((int) $ep['season'], (int) $ep['number'], $ep['finale']) ?></span>
                     <?php if ($ep['airstamp'] !== null && $ep['airstamp'] > gmdate('Y-m-d H:i:s')): ?>
                         <?php
                         // Airs later today: not markable until its airstamp, so show the local time.
@@ -213,7 +213,7 @@ require __DIR__ . '/includes/header.php';
                         <?php endif; ?>
                     </a>
                     <h3><a href="<?= $showUrl ?>"><?= htmlspecialchars($ep['show_name']) ?></a></h3>
-                    <span class="muted"><?= $code ?></span>
+                    <span class="muted"><?= $code ?> <?= episode_badge_html((int) $ep['season'], (int) $ep['number'], $ep['finale']) ?></span>
                     <span class="next-ep">📅 <?= htmlspecialchars(format_date($when)) ?></span>
                 </div>
             <?php endforeach; ?>

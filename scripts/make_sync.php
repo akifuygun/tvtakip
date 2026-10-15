@@ -90,7 +90,7 @@ try {
 
 // Episodes
 $stmt = $pdo->query(
-    'SELECT show_imdb_id, imdb_id, season, number, name, airdate, airstamp FROM episodes ORDER BY show_imdb_id, season, number'
+    'SELECT show_imdb_id, imdb_id, season, number, name, airdate, airstamp, finale FROM episodes ORDER BY show_imdb_id, season, number'
 );
 $total = 0;
 $chunk = [];
@@ -99,17 +99,18 @@ $flush = function () use (&$chunk, $out) {
         return;
     }
     fwrite($out,
-        'INSERT INTO episodes (show_imdb_id,imdb_id,season,number,name,airdate,airstamp) VALUES '
+        'INSERT INTO episodes (show_imdb_id,imdb_id,season,number,name,airdate,airstamp,finale) VALUES '
         . implode(',', $chunk)
         . ' ON DUPLICATE KEY UPDATE imdb_id=COALESCE(VALUES(imdb_id),imdb_id),'
         . ' name=VALUES(name), airdate=VALUES(airdate),'
-        . ' airstamp=COALESCE(VALUES(airstamp),airstamp);' . "\n");
+        . ' airstamp=COALESCE(VALUES(airstamp),airstamp),'
+        . ' finale=COALESCE(VALUES(finale),finale);' . "\n");
     $chunk = [];
 };
 foreach ($stmt as $r) {
     $chunk[] = '(' . implode(',', [
         $q($r['show_imdb_id']), $q($r['imdb_id']), (int) $r['season'], (int) $r['number'],
-        $q($r['name']), $q($r['airdate']), $q($r['airstamp']),
+        $q($r['name']), $q($r['airdate']), $q($r['airstamp']), $q($r['finale']),
     ]) . ')';
     $total++;
     if (count($chunk) >= 250) {

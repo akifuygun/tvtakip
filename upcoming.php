@@ -12,7 +12,7 @@ $mine = is_logged_in();
 
 // Padded by a day on both sides: the airstamp shifts a US-evening episode
 // into the next local (Istanbul) day, which is what we group and filter by.
-$sql = 'SELECT e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp,
+$sql = 'SELECT e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp, e.finale,
                s.imdb_id, s.name AS show_name, s.network
         FROM episodes e JOIN shows s ON s.imdb_id = e.show_imdb_id ';
 $params = [
@@ -85,6 +85,7 @@ require __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                     <a class="cal-show" href="<?= htmlspecialchars(series_url($ep['imdb_id'])) ?>"><?= htmlspecialchars($ep['show_name']) ?></a>
                     <?= episode_code((int) $ep['season'], (int) $ep['number']) ?>
+                    <?= episode_badge_html((int) $ep['season'], (int) $ep['number'], $ep['finale']) ?>
                     <?= htmlspecialchars($ep['ep_name'] ?? '') ?>
                     <?php if ($ep['local_time']): ?><span class="muted">· <?= $ep['local_time'] ?></span><?php endif; ?>
                 </span></li>
