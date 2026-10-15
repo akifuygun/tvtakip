@@ -17,7 +17,7 @@ if (!valid_imdb_id($movieId)) {
 }
 
 $stmt = db()->prepare(
-    'SELECT imdb_id, name, image_url, backdrop_url, gallery, status, overview, overview_tr, released,
+    'SELECT imdb_id, name, image_url, backdrop_url, gallery, trailer, status, overview, overview_tr, released,
             genres, studio, rating, runtime
      FROM movies WHERE imdb_id = ?'
 );
@@ -120,7 +120,11 @@ require __DIR__ . '/includes/header.php';
     <div class="show-info">
         <h1><?= htmlspecialchars($movie['name']) ?>
             <a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($movieId) ?>/"
-               target="_blank" rel="noopener">IMDB</a></h1>
+               target="_blank" rel="noopener">IMDB</a>
+            <?php if ($trailer = localized_trailer($movie)): ?>
+                <button type="button" class="trailer-link" data-trailer="<?= htmlspecialchars($trailer) ?>"
+                        title="<?= t('trailer_title') ?>">▶ <?= t('trailer') ?></button>
+            <?php endif; ?></h1>
         <p class="muted"><?= htmlspecialchars(implode(' · ', array_filter([
             $movie['rating'] ? '⭐ ' . number_format((float) $movie['rating'], 1) : null,
             $movie['released'] ? substr($movie['released'], 0, 4) : null,

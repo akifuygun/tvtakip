@@ -44,6 +44,10 @@ watched, and keep a movie watchlist.
   - *Poster slider:* clicking a poster opens the poster plus up to 9 large backdrops
     (TMDB, text-free first; TheTVDB backgrounds top up shows with few), loaded one
     slide ahead as you browse.
+  - *Trailers:* a "▶ Trailer" badge on show and movie pages plays the YouTube
+    trailer in an overlay (Turkish one on Turkish pages when available; TMDB,
+    TheTVDB filling missing languages), via the privacy-enhanced player, loaded
+    only on click.
 - **Rules:** unaired episodes can't be marked watched; untracking keeps watched
   history; show statuses are normalized to running/upcoming/ended/canceled.
 - **Movies:** a single per-user list with a watched flag (a movie is one watchable

@@ -12,7 +12,7 @@ require_login_json();
 function cache_payload(string $imdbId): array
 {
     $stmt = db()->prepare(
-        'SELECT imdb_id, name, image_url, backdrop_url, gallery, status, overview, overview_tr, premiered,
+        'SELECT imdb_id, name, image_url, backdrop_url, gallery, trailer, status, overview, overview_tr, premiered,
                 genres, network, rating, runtime, synced_at
          FROM shows WHERE imdb_id = ?'
     );
@@ -20,6 +20,7 @@ function cache_payload(string $imdbId): array
     $show = $stmt->fetch() ?: null;
     if ($show) {
         $show['gallery'] = json_decode((string) $show['gallery'], true) ?: [];
+        $show['trailer'] = json_decode((string) $show['trailer'], true) ?: null; // {en, tr} keys
     }
 
     $stmt = db()->prepare(

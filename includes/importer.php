@@ -96,8 +96,42 @@ function tmdb_finale(?string $episodeType): ?string
     };
 }
 
-/** TMDB detail query: translations + English/text-free images in the same call. */
-const TMDB_DETAIL_EXTRAS = ['append_to_response' => 'translations,images', 'include_image_language' => 'en,null'];
+/** TMDB detail query: translations, English/text-free images and EN/TR videos
+ *  in the same call. */
+const TMDB_DETAIL_EXTRAS = [
+    'append_to_response' => 'translations,images,videos',
+    'include_image_language' => 'en,null',
+    'include_video_language' => 'en,tr,null',
+];
+
+/** YouTube video id from a watch / youtu.be / embed URL (or a bare id), else null. */
+function youtube_key(?string $urlOrKey): ?string
+{
+    $s = trim((string) $urlOrKey);
+    if (preg_match('~(?:v=|youtu\.be/|/embed/)([A-Za-z0-9_-]{11})~', $s, $m)) {
+        return $m[1];
+    }
+    return preg_match('/^[A-Za-z0-9_-]{11}$/', $s) ? $s : null;
+}
+
+/** Best YouTube trailer per language ('en', 'tr') from a TMDB detail fetched
+ *  with TMDB_DETAIL_EXTRAS: official before fan uploads, trailers before
+ *  teasers, newest first. Language-less videos count as English. */
+function tmdb_trailers(array $detail): array
+{
+    $videos = array_filter($detail['videos']['results'] ?? [], fn($v) => ($v['site'] ?? '') === 'YouTube'
+        && in_array($v['type'] ?? '', ['Trailer', 'Teaser'], true) && youtube_key($v['key'] ?? null));
+    usort($videos, fn($a, $b) => [!empty($b['official']), $b['type'] === 'Trailer', $b['published_at'] ?? '']
+        <=> [!empty($a['official']), $a['type'] === 'Trailer', $a['published_at'] ?? '']);
+    $out = [];
+    foreach ($videos as $v) {
+        $lang = ($v['iso_639_1'] ?? null) ?: 'en';
+        if (in_array($lang, ['en', 'tr'], true) && !isset($out[$lang])) {
+            $out[$lang] = $v['key'];
+        }
+    }
+    return $out;
+}
 
 /** Backdrop URLs for the lightbox slider from a TMDB detail fetched with
  *  TMDB_DETAIL_EXTRAS: text-free ones first, then English, best-voted first. */
@@ -163,6 +197,7 @@ function fetch_base_from_tmdb(string $imdbId): ?array
             'overview' => trim((string) ($detail['overview'] ?? '')) ?: null,
             'overview_tr' => tmdb_tr_overview($detail),
             'gallery' => tmdb_gallery($detail),
+            'trailer' => tmdb_trailers($detail),
             'premiered' => valid_date($detail['first_air_date'] ?? null),
             'genres' => genres_string(array_column($detail['genres'] ?? [], 'name')),
             // ALL networks the show aired on (network-hoppers list several),
@@ -258,7 +293,8 @@ function tvdb_get(string $path): ?array
  * A show on TheTVDB: 'airs' => its regular air time as ['time' => 'HH:MM',
  * 'tz' => zone] or null, 'episodes' => its dated regular episodes as
  * [season, number, name, airdate, finale] rows, 'overview_tr' => its Turkish
- * description or null, and 'id' => its TheTVDB series id (kept in memory for
+ * description or null, 'trailers' => YouTube keys by language ('en'/'tr'),
+ * and 'id' => its TheTVDB series id (kept in memory for
  * follow-up calls, never stored). All empty when TheTVDB doesn't know the show (or no
  * key is configured); null when TheTVDB couldn't be asked, so callers keep
  * what's stored. A time with no air day is TheTVDB's unset
@@ -266,7 +302,7 @@ function tvdb_get(string $path): ?array
  */
 function tvdb_show(string $imdbId): ?array
 {
-    $none = ['id' => null, 'airs' => null, 'episodes' => [], 'overview_tr' => null];
+    $none = ['id' => null, 'airs' => null, 'episodes' => [], 'overview_tr' => null, 'trailers' => []];
     if (!defined('TVDB_API_KEY') || TVDB_API_KEY === '') {
         return $none;
     }
@@ -315,7 +351,16 @@ function tvdb_show(string $imdbId): ?array
             'finale' => in_array($finale, ['season', 'series', 'midseason'], true) ? $finale : '',
         ];
     }
-    return ['id' => $seriesId, 'airs' => $airs, 'episodes' => $episodes, 'overview_tr' => tvdb_tr_overview($d)];
+    $trailers = [];
+    foreach ($d['trailers'] ?? [] as $tr) {
+        $lang = ['eng' => 'en', 'tur' => 'tr'][$tr['language'] ?? ''] ?? null;
+        $key = youtube_key($tr['url'] ?? null);
+        if ($lang && $key && !isset($trailers[$lang])) {
+            $trailers[$lang] = $key;
+        }
+    }
+    return ['id' => $seriesId, 'airs' => $airs, 'episodes' => $episodes,
+            'overview_tr' => tvdb_tr_overview($d), 'trailers' => $trailers];
 }
 
 /** Up to $limit TheTVDB series background URLs (text-free first, best-scored
@@ -451,6 +496,19 @@ function gallery_json(array $urls): ?string
     return $urls ? json_encode($urls, JSON_UNESCAPED_SLASHES) : null;
 }
 
+/** Trailer map ({"en": key, "tr": key}) as stored JSON, or null for none (so
+ *  COALESCE keeps an earlier map when a provider returns no videos). */
+function trailer_json(array $byLang): ?string
+{
+    $clean = [];
+    foreach (['en', 'tr'] as $lang) {
+        if ($key = youtube_key($byLang[$lang] ?? null)) {
+            $clean[$lang] = $key;
+        }
+    }
+    return $clean ? json_encode($clean) : null;
+}
+
 /**
  * Canonical show upsert. COALESCE guards: a provider with less data can
  * never blank out values another already filled in. synced_at only moves
@@ -460,14 +518,15 @@ function upsert_show(PDO $pdo, array $show, bool $markSynced): void
 {
     $stmt = $pdo->prepare(
         'INSERT INTO shows
-            (imdb_id, name, image_url, backdrop_url, gallery, status, overview, overview_tr, premiered,
+            (imdb_id, name, image_url, backdrop_url, gallery, trailer, status, overview, overview_tr, premiered,
              genres, network, rating, runtime, synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
          ON DUPLICATE KEY UPDATE
              name = VALUES(name),
              image_url = COALESCE(VALUES(image_url), image_url),
              backdrop_url = COALESCE(VALUES(backdrop_url), backdrop_url),
              gallery = COALESCE(VALUES(gallery), gallery),
+             trailer = COALESCE(VALUES(trailer), trailer),
              status = COALESCE(VALUES(status), status),
              overview = COALESCE(VALUES(overview), overview),
              overview_tr = COALESCE(VALUES(overview_tr), overview_tr),
@@ -484,6 +543,7 @@ function upsert_show(PDO $pdo, array $show, bool $markSynced): void
         mb_substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null,
         mb_substr((string) ($show['backdrop_url'] ?? ''), 0, 500) ?: null,
         gallery_json($show['gallery'] ?? []),
+        trailer_json($show['trailer'] ?? []),
         normalize_show_status($show['status'] ?? null),
         $show['overview'] ?? null,
         $show['overview_tr'] ?? null,
@@ -645,6 +705,8 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
         array_push($payload['episodes'], ...tvdb_upcoming_episodes($payload['episodes'], $tvdb['episodes']));
         // Turkish description: TMDB's when it has one, else TheTVDB's.
         $payload['show']['overview_tr'] ??= $tvdb['overview_tr'];
+        // Trailers: TMDB's per language, TheTVDB's for languages TMDB lacks.
+        $payload['show']['trailer'] = ($payload['show']['trailer'] ?? []) + $tvdb['trailers'];
         // Slider images: top up a thin TMDB gallery with TheTVDB backgrounds.
         $gallery = $payload['show']['gallery'] ?? [];
         if ($tvdb['id'] && count($gallery) < GALLERY_TVDB_BELOW) {
@@ -772,6 +834,7 @@ function fetch_movie_from_tmdb(string $imdbId): ?array
         'overview' => trim((string) ($detail['overview'] ?? '')) ?: null,
         'overview_tr' => tmdb_tr_overview($detail),
         'gallery' => tmdb_gallery($detail),
+        'trailer' => tmdb_trailers($detail),
         'released' => valid_date($detail['release_date'] ?? null),
         'genres' => genres_string(array_column($detail['genres'] ?? [], 'name')),
         'studio' => trim((string) ($detail['production_companies'][0]['name'] ?? '')) ?: null,
@@ -785,14 +848,15 @@ function upsert_movie(PDO $pdo, array $movie, bool $markSynced): void
 {
     $stmt = $pdo->prepare(
         'INSERT INTO movies
-            (imdb_id, name, image_url, backdrop_url, gallery, status, overview, overview_tr, released,
+            (imdb_id, name, image_url, backdrop_url, gallery, trailer, status, overview, overview_tr, released,
              genres, studio, rating, runtime, synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
          ON DUPLICATE KEY UPDATE
              name = VALUES(name),
              image_url = COALESCE(VALUES(image_url), image_url),
              backdrop_url = COALESCE(VALUES(backdrop_url), backdrop_url),
              gallery = COALESCE(VALUES(gallery), gallery),
+             trailer = COALESCE(VALUES(trailer), trailer),
              status = COALESCE(VALUES(status), status),
              overview = COALESCE(VALUES(overview), overview),
              overview_tr = COALESCE(VALUES(overview_tr), overview_tr),
@@ -809,6 +873,7 @@ function upsert_movie(PDO $pdo, array $movie, bool $markSynced): void
         mb_substr((string) ($movie['image_url'] ?? ''), 0, 500) ?: null,
         mb_substr((string) ($movie['backdrop_url'] ?? ''), 0, 500) ?: null,
         gallery_json($movie['gallery'] ?? []),
+        trailer_json($movie['trailer'] ?? []),
         normalize_movie_status($movie['status'] ?? null),
         $movie['overview'] ?? null,
         $movie['overview_tr'] ?? null,

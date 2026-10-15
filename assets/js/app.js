@@ -260,6 +260,61 @@ function openLightbox(images, startIndex = 0) {
   closeBtn.focus();
 }
 
+// Trailer for the page language from a {en, tr} map of YouTube keys.
+function pickTrailer(byLang) {
+  if (!byLang || typeof byLang !== 'object') return null;
+  return byLang[I18N.lang] || byLang.en || byLang.tr || null;
+}
+
+// "▶ Trailer" badge (sits next to the IMDB badge in the title).
+function trailerButton(key) {
+  const btn = el('button', { type: 'button', class: 'trailer-link', title: t('trailer_title'), text: `▶ ${t('trailer')}` });
+  btn.dataset.trailer = key;
+  btn.dataset.bound = '1';
+  btn.addEventListener('click', () => openTrailer(key));
+  return btn;
+}
+
+// Plays a YouTube trailer in the lightbox overlay. Nothing loads from YouTube
+// until this is opened, and the privacy-enhanced (no-cookie) player is used;
+// closing removes the iframe, which stops playback.
+function openTrailer(key) {
+  if (!/^[A-Za-z0-9_-]{11}$/.test(key || '')) return;
+  const frame = el('iframe', {
+    src: `https://www.youtube-nocookie.com/embed/${key}?autoplay=1&rel=0`,
+    title: t('trailer'),
+    allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen',
+    allowfullscreen: '',
+  });
+  const box = el('div', { class: 'lightbox-video' }, [frame]);
+  const closeBtn = el('button', { type: 'button', class: 'lightbox-close', 'aria-label': t('lb_close'), text: '✕' });
+  const overlay = el('div', { class: 'lightbox', role: 'dialog', 'aria-modal': 'true' }, [box, closeBtn]);
+
+  const prevOverflow = document.body.style.overflow;
+  const close = () => {
+    document.removeEventListener('keydown', onKey);
+    document.body.style.overflow = prevOverflow;
+    overlay.remove();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', onKey);
+  document.body.append(overlay);
+  closeBtn.focus();
+}
+
+// Wire server-rendered trailer badges (series guest page, movie page).
+function initTrailerButtons() {
+  document.querySelectorAll('button.trailer-link[data-trailer]').forEach((btn) => {
+    if (btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => openTrailer(btn.dataset.trailer));
+  });
+}
+
 // Wire click-to-zoom on server-rendered (guest) series posters. The logged-in
 // poster is wired directly in posterEl(); noscript-wrapped markup is inert when
 // JS is on, so this only ever matches the guest page's live poster.
@@ -956,8 +1011,9 @@ async function initShowDetail() {
     show.runtime ? t('runtime_min', show.runtime) : null,
   ].filter(Boolean).join(' · ');
 
+  const trailerKey = pickTrailer(show.trailer);
   const info = el('div', { class: 'show-info' }, [
-    el('h1', {}, [show.name + ' ', imdbLink(showId)]),
+    el('h1', {}, [show.name + ' ', imdbLink(showId), ...(trailerKey ? [' ', trailerButton(trailerKey)] : [])]),
     el('p', { class: 'muted', text: metaText }),
   ]);
 
@@ -1342,6 +1398,7 @@ initTheme();
 initLayout();
 initTick();
 initPosterLightbox();
+initTrailerButtons();
 initBrowseFilter();
 initSearch();
 initMovies();

@@ -81,6 +81,15 @@ function localized_overview(array $row): ?string
     return current_lang() === 'tr' && !empty($row['overview_tr']) ? $row['overview_tr'] : ($row['overview'] ?? null);
 }
 
+/** A show/movie row's YouTube trailer key for the page language (the other
+ *  language's when that's all there is), or null. */
+function localized_trailer(array $row): ?string
+{
+    $byLang = json_decode((string) ($row['trailer'] ?? ''), true) ?: [];
+    $key = $byLang[current_lang()] ?? $byLang['en'] ?? $byLang['tr'] ?? null;
+    return is_string($key) && preg_match('/^[A-Za-z0-9_-]{11}$/', $key) ? $key : null;
+}
+
 /** Locale-formatted date for public pages (TR: 15.07.2026, EN: Jul 15, 2026). */
 function format_date(?string $ymd): string
 {
@@ -107,6 +116,7 @@ $GLOBALS['I18N'] = [
         'lang_tr' => 'Türkçe', 'lang_en' => 'English',
         'theme_light' => 'Light mode', 'theme_dark' => 'Dark mode',
         'layout_top' => 'Top bar layout', 'layout_side' => 'Side panel layout',
+        'trailer' => 'Trailer', 'trailer_title' => 'Watch the trailer',
         'data_credit' => 'Data:',
         'meta_description' => "Track your favorite TV series, follow upcoming episodes, and mark what you've watched — a free, no-clutter personal TV episode tracker.",
         'tagline' => 'Track your TV series and never miss an episode.',
@@ -259,6 +269,7 @@ $GLOBALS['I18N'] = [
         'lang_tr' => 'Türkçe', 'lang_en' => 'English',
         'theme_light' => 'Açık tema', 'theme_dark' => 'Koyu tema',
         'layout_top' => 'Üst menü düzeni', 'layout_side' => 'Yan panel düzeni',
+        'trailer' => 'Fragman', 'trailer_title' => 'Fragmanı izle',
         'data_credit' => 'Veriler:',
         'meta_description' => 'Favori dizilerini takip et, yeni bölümleri kaçırma ve izlediklerini işaretle — ücretsiz, sade bir kişisel dizi takip uygulaması.',
         'tagline' => 'Dizilerini takip et, hiçbir bölümü kaçırma.',

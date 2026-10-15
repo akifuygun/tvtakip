@@ -186,8 +186,8 @@ a:hover { color: var(--accent-hover); }
   :root[data-layout="side"] .chrome {
     display: flex;
     flex-direction: column;
-    flex: 0 0 240px;
-    width: 240px;
+    flex: 0 0 220px;
+    width: 220px;
     height: 100vh;
     position: sticky;
     top: 0;
@@ -595,6 +595,20 @@ a:hover { color: var(--accent-hover); }
   vertical-align: middle;
 }
 .imdb-link:hover { background: #ffd84d; color: #000; }
+/* Trailer badge next to the IMDB one; opens the YouTube player overlay. */
+.trailer-link {
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #e62117;
+  color: #fff;
+  padding: 0.05rem 0.4rem;
+  border: 0;
+  border-radius: 4px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.trailer-link:hover { background: #ff3b30; }
 
 /* ---------- Mobile ---------- */
 @media (max-width: 560px) {
@@ -802,3 +816,13 @@ a:hover { color: var(--accent-hover); }
   cursor: pointer;
 }
 .lightbox-dot.active { background: #fff; }
+/* Trailer player: 16:9, as large as the viewport allows. */
+.lightbox-video { width: min(100%, calc(88vh * 16 / 9), 1280px); aspect-ratio: 16 / 9; }
+.lightbox-video iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 10px 50px rgba(0, 0, 0, 0.6);
+}
