@@ -1,8 +1,15 @@
-# Force HTTPS. InfinityFree terminates SSL at its proxy and passes the
-# original scheme in X-Forwarded-Proto. Permanent redirect — verified working.
+# Force HTTPS. Redirect only when neither the server (HTTPS) nor a
+# TLS-terminating proxy (X-Forwarded-Proto) reports a secure request — checking
+# just one loops forever on hosts that set only the other.
 RewriteEngine On
+RewriteCond %{HTTPS} off
 RewriteCond %{HTTP:X-Forwarded-Proto} !https
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# The docroot is a git checkout: keep repo internals and dev-only files out of
+# reach (the CLI scripts also refuse non-CLI SAPIs on their own).
+RewriteRule ^(?:\.git|scripts|deploy)(?:/|$) - [F,L]
+RewriteRule ^(?:\.gitignore|README\.md|CLAUDE\.md|schema\.sql|config\.sample\.php|router\.php|start-dev\.bat)$ - [F,L]
 
 # Pretty URLs for the public SEO pages (mirrored by router.php for local dev).
 # Each public page also exists under /tr/ for crawlable Turkish content.
