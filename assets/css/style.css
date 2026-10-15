@@ -134,6 +134,10 @@ a:hover { color: var(--accent-hover); }
   box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.15);
 }
 .footer-controls { display: flex; align-items: center; gap: 1rem; }
+/* Provider credits: smaller, one muted color — links included. */
+.footer-data { font-size: 0.72rem; }
+.footer-data a { color: inherit; }
+.footer-data a:hover { color: inherit; text-decoration: underline; }
 .footer-flags { display: flex; align-items: center; gap: 0.5rem; }
 .flag { display: inline-flex; line-height: 0; opacity: 0.5; border-radius: 3px; }
 .flag svg { display: block; border-radius: 3px; }

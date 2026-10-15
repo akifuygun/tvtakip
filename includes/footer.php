@@ -1,10 +1,10 @@
 </main>
 <?php $footerTheme = app_theme(); ?>
 <footer class="site-footer">
-    <span class="footer-copy">❤️ by Akif 07-26 · <?= t('data_credit') ?>
+    <span class="footer-copy">❤️ by Akif 07-26 <span class="footer-data">· <?= t('data_credit') ?>
         <a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a> ·
         <a href="https://www.tvmaze.com" target="_blank" rel="noopener">TVmaze</a> ·
-        <a href="https://thetvdb.com" target="_blank" rel="noopener">TheTVDB</a></span>
+        <a href="https://thetvdb.com" target="_blank" rel="noopener">TheTVDB</a></span></span>
     <span class="footer-controls">
     <span class="footer-themes">
         <button type="button" class="theme-btn<?= $footerTheme === 'light' ? ' theme-active' : '' ?>"
