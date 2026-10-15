@@ -117,6 +117,7 @@ a:hover { color: var(--accent-hover); }
 
 .site-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -126,6 +127,9 @@ a:hover { color: var(--accent-hover); }
   padding: 0.75rem 1.25rem;
 }
 .footer-controls { display: flex; align-items: center; gap: 1rem; }
+/* Provider credits (required by TMDB, TVmaze and TheTVDB terms): own line. */
+.footer-credits { flex-basis: 100%; margin: 0; font-size: 0.72rem; line-height: 1.6; }
+.tmdb-logo { height: 0.62rem; width: auto; vertical-align: baseline; }
 .footer-flags { display: flex; align-items: center; gap: 0.5rem; }
 .flag { display: inline-flex; line-height: 0; opacity: 0.5; border-radius: 3px; }
 .flag svg { display: block; border-radius: 3px; }

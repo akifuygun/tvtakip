@@ -1,8 +1,7 @@
 </main>
 <?php $footerTheme = app_theme(); ?>
 <footer class="site-footer">
-    <span class="footer-copy">❤️ by Akif 07-26 ·
-        <?= t('tvdb_credit', '<a href="https://thetvdb.com" target="_blank" rel="noopener">TheTVDB</a>') ?></span>
+    <span class="footer-copy">❤️ by Akif 07-26</span>
     <span class="footer-controls">
     <span class="footer-themes">
         <button type="button" class="theme-btn<?= $footerTheme === 'light' ? ' theme-active' : '' ?>"
@@ -46,6 +45,14 @@
         </a>
     </span>
     </span>
+    <p class="footer-credits">
+        <?= t('data_credit') ?>
+        <a href="https://www.themoviedb.org" target="_blank" rel="noopener" title="TMDB"><img
+           class="tmdb-logo" src="/assets/icons/tmdb.svg?v=<?= ASSET_VERSION ?>" alt="TMDB" width="77" height="10"></a> ·
+        <a href="https://www.tvmaze.com" target="_blank" rel="noopener">TVmaze</a> ·
+        <a href="https://thetvdb.com" target="_blank" rel="noopener">TheTVDB</a>.
+        <?= t('tmdb_notice') ?>
+    </p>
 </footer>
 <script src="/assets/js/app.js?v=<?= ASSET_VERSION ?>"></script>
 </body>

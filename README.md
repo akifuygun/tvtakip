@@ -39,6 +39,9 @@ watched, and keep a movie watchlist.
   - *Premiere / finale badges* on the calendar and Upcoming: finales from TMDB's
     episode type, with TheTVDB marking which one is the series finale.
   - *Turkish descriptions* for Turkish pages: TMDB translations, TheTVDB as fallback.
+  - *Poster slider:* clicking a poster opens the poster plus up to 9 large backdrops
+    (TMDB, text-free first; TheTVDB backgrounds top up shows with few), loaded one
+    slide ahead as you browse.
 - **Rules:** unaired episodes can't be marked watched; untracking keeps watched
   history; show statuses are normalized to running/upcoming/ended/canceled.
 - **Movies:** a single per-user list with a watched flag (a movie is one watchable
@@ -119,3 +122,6 @@ http://localhost:8000.
 Show and movie data from [TMDB](https://www.themoviedb.org/),
 [TVmaze](https://www.tvmaze.com/) and [TheTVDB](https://thetvdb.com) (metadata
 provided by TheTVDB; please consider adding missing information or subscribing).
+This product uses TMDB and the TMDB APIs but is not endorsed, certified, or
+otherwise approved by TMDB. All three providers require attribution — the site
+footer carries it (TMDB logo + notice, TVmaze and TheTVDB links); keep it.
