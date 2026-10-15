@@ -19,8 +19,10 @@ watched, and keep a movie watchlist.
   results by IMDB id, so shows missing from either provider still appear. Search is
   **public** (shows and movies), and visiting any not-yet-cached `/series/ttNNN` or
   `/movie/ttNNN` imports it on first visit — every visitor grows the shared catalog;
-  tracking/watching stays login-only. A per-session background ping also keeps the
-  most-stale running show fresh (cron-free auto-refresh).
+  tracking/watching stays login-only.
+- **Freshness is cron-free** (the free host has no cron): every calendar visit
+  refreshes the viewer's stale tracked shows (airing ones first) and re-renders in
+  place, and a per-session background ping refreshes stale shows site-wide.
 - **Episode data** comes from TMDB, including each episode's IMDB id via its
   `external_ids` endpoint, with TVmaze as fallback for shows TMDB doesn't know
   (their episode IMDB ids stay empty and are backfilled on refresh once TMDB has them).
@@ -28,6 +30,15 @@ watched, and keep a movie watchlist.
   `episodes` cache tables — everyone after reads our DB. Episodes are identified by
   show IMDB id + season + number; episode IMDB ids are deliberately not unique
   (IMDB lists two-part episodes under one id).
+- **Three providers, combined** — each fills what the others lack:
+  - *Air times:* TVmaze's exact per-episode times; for episodes it has none for
+    (most streaming drops) the show's regular air time from
+    [TheTVDB](https://thetvdb.com) (optional API key), in the show's home timezone.
+  - *Announced episodes:* TheTVDB often lists upcoming episodes before TMDB does;
+    those are added (future only) until TMDB lists them.
+  - *Premiere / finale badges* on the calendar and Upcoming: finales from TMDB's
+    episode type, with TheTVDB marking which one is the series finale.
+  - *Turkish descriptions* for Turkish pages: TMDB translations, TheTVDB as fallback.
 - **Rules:** unaired episodes can't be marked watched; untracking keeps watched
   history; show statuses are normalized to running/upcoming/ended/canceled.
 - **Movies:** a single per-user list with a watched flag (a movie is one watchable
@@ -42,13 +53,14 @@ watched, and keep a movie watchlist.
   (shared cache) — the "no image" placeholder is admin-only. Everyone else is
   refused server-side.
 - **i18n:** all strings live in one dictionary (`includes/i18n.php`), also handed
-  to the frontend as `window.I18N`; language kept in a `lang` cookie.
+  to the frontend as `window.I18N`; language kept in a `lang` cookie, and public
+  pages are crawlable per language under a `/tr/` prefix.
 
 ## Project structure
 
 ```
-index.php          Calendar — next unwatched aired episode of each tracked show
-                   (guests get the public landing page)
+index.php          Calendar — each tracked show's next unwatched episode airing
+                   today or earlier (guests get the public landing page)
 myshows.php        Tracked shows in tabs (Running / Upcoming + Cancelled / Ended),
                    most-behind first
 mymovies.php       Movie list: on-page search to add, To watch / Watched tabs
@@ -69,7 +81,7 @@ api/track.php      POST: track/untrack by IMDB id (imports server-side if uncach
 api/episodes.php   GET cached show+episodes+watched; POST imports/refreshes server-side
 api/watch.php      POST toggle episode watched; bulk (un)watch per show or season
 api/movies.php     GET movie search; POST add/remove/watch (single endpoint)
-api/tick.php       Cron-free freshness: refreshes the most-stale running show
+api/tick.php       Cron-free freshness: refreshes stale shows (own tracked first)
 api/image.php      POST set/remove a show poster (admin only)
 includes/          db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
                    network_logos.php, header.php, footer.php
@@ -80,7 +92,8 @@ scripts/           CLI utilities: import_popular.php, import_watchlist.php,
                    backfill_images.php, backfill_airstamps.php, make_sync.php
 schema.sql         MySQL schema (users, shows, episodes, movies, user_shows,
                    watched_episodes, user_movies, remember_tokens)
-config.sample.php  Copy to config.php: DB credentials, TMDB_API_KEY, ADMIN_EMAILS
+config.sample.php  Copy to config.php: DB credentials, TMDB_API_KEY, TVDB_API_KEY
+                   (optional), ADMIN_EMAILS
 ```
 
 ## Local development
@@ -92,7 +105,17 @@ Requires XAMPP (installed at `C:\xampp`, PHP 8.2 + MariaDB). One-time setup:
    `C:\xampp\mysql\bin\mysql.exe -u root tvtakip < schema.sql`
 2. `copy config.sample.php config.php` (defaults already match XAMPP: root, no password),
    set `TMDB_API_KEY` (free key from https://www.themoviedb.org/settings/api), and add
-   your email to `ADMIN_EMAILS` if you want admin controls.
+   your email to `ADMIN_EMAILS` if you want admin controls. Optionally set
+   `TVDB_API_KEY` (https://thetvdb.com/dashboard/account/apikey — free under $50k/yr
+   revenue, attribution required and shown in the footer) for streaming air times,
+   early announced episodes, series-finale badges and extra Turkish descriptions;
+   without it the site works on TMDB + TVmaze alone.
 
 Then run `start-dev.bat` — it starts MySQL if needed and serves the site at
 http://localhost:8000.
+
+## Data sources
+
+Show and movie data from [TMDB](https://www.themoviedb.org/),
+[TVmaze](https://www.tvmaze.com/) and [TheTVDB](https://thetvdb.com) (metadata
+provided by TheTVDB; please consider adding missing information or subscribing).
