@@ -18,11 +18,11 @@ if (!is_logged_in()) {
     )->fetchAll();
 }
 if (is_logged_in()) {
-    // For each tracked show, its earliest aired-but-unwatched episode — resolved
-    // in SQL (one row per show) instead of fetching the whole aired backlog and
-    // de-duping in PHP. Oldest pending episode first.
+    // For each tracked show, its earliest unwatched episode airing today or
+    // earlier (viewer's day) — resolved in SQL (one row per show) instead of
+    // fetching the whole backlog and de-duping in PHP. Oldest pending first.
     $stmt = db()->prepare(
-        'SELECT e.id, e.imdb_id, e.season, e.number, e.name AS ep_name, e.airdate,
+        'SELECT e.id, e.imdb_id, e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp,
                 s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url, s.network
          FROM user_shows us
          JOIN shows s ON s.imdb_id = us.show_imdb_id
@@ -31,13 +31,13 @@ if (is_logged_in()) {
              LEFT JOIN watched_episodes we2 ON we2.episode_id = e2.id AND we2.user_id = us.user_id
              WHERE e2.show_imdb_id = us.show_imdb_id
                AND we2.episode_id IS NULL
-               AND e2.airdate IS NOT NULL AND ' . certainly_aired_sql('e2') . '
+               AND e2.airdate IS NOT NULL AND ' . airs_by_today_sql('e2') . '
              ORDER BY (e2.season = 0), e2.airdate, e2.season, e2.number LIMIT 1
          )
          WHERE us.user_id = ?
          ORDER BY e.airdate, e.season, e.number'
     );
-    $stmt->execute([today(), current_user_id()]);
+    $stmt->execute([today_end_utc(), today(), current_user_id()]);
     $items = $stmt->fetchAll();
 
     // Nothing left to watch? Fall back to what's coming up next — one upcoming
@@ -173,7 +173,16 @@ require __DIR__ . '/includes/header.php';
                     </a>
                     <h3><a href="<?= $showUrl ?>"><?= htmlspecialchars($ep['show_name']) ?></a></h3>
                     <span class="muted"><?= $code ?></span>
-                    <button class="button button-small cal-watch-btn" data-episode-id="<?= (int) $ep['id'] ?>"><?= t('mark_watched') ?></button>
+                    <?php if ($ep['airstamp'] !== null && $ep['airstamp'] > gmdate('Y-m-d H:i:s')): ?>
+                        <?php
+                        // Airs later today: not markable until its airstamp, so show the local time.
+                        $at = (new DateTimeImmutable($ep['airstamp'], new DateTimeZone('UTC')))
+                            ->setTimezone(new DateTimeZone(date_default_timezone_get()))->format('H:i');
+                        ?>
+                        <span class="next-ep"><?= htmlspecialchars(t('airs_on', $at)) ?></span>
+                    <?php else: ?>
+                        <button class="button button-small cal-watch-btn" data-episode-id="<?= (int) $ep['id'] ?>"><?= t('mark_watched') ?></button>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
         </div>

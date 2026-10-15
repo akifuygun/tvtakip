@@ -290,7 +290,27 @@ function aired_sql(string $alias = ''): string
 }
 
 /**
- * Strict variant for DISPLAY surfaces (calendar, progress counts): a date-only
+ * Calendar gate: does this episode air on or before TODAY in the viewer's
+ * timezone? Day-granular on purpose — an episode airing tonight is listed from
+ * the start of its local air day, not from its exact airstamp. Appends TWO
+ * positional params; callers pass today_end_utc(), then today().
+ */
+function airs_by_today_sql(string $alias = ''): string
+{
+    $p = $alias !== '' ? $alias . '.' : '';
+    return "(({$p}airstamp IS NOT NULL AND {$p}airstamp < ?)
+        OR ({$p}airstamp IS NULL AND {$p}airdate IS NOT NULL AND {$p}airdate <= ?))";
+}
+
+/** Start of tomorrow in the viewer's timezone, as a UTC datetime (airstamp format). */
+function today_end_utc(): string
+{
+    return (new DateTimeImmutable('tomorrow'))
+        ->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+}
+
+/**
+ * Strict variant for DISPLAY surfaces (progress counts): a date-only
  * episode counts as aired only once its air date is OVER in the user's
  * timezone. "Airs July 17" means at some unknown time during July 17, so
  * midnight-of-the-17th (what aired_sql's fallback allows) can be hours early —
