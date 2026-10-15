@@ -32,7 +32,7 @@ $seoJsonLd = $jsonLd ?? json_encode([
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
 ?>
 <!DOCTYPE html>
-<html lang="<?= current_lang() ?>" data-theme="<?= app_theme() ?>">
+<html lang="<?= current_lang() ?>" data-theme="<?= app_theme() ?>" data-layout="<?= app_layout() ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -73,6 +73,7 @@ $seoJsonLd = $jsonLd ?? json_encode([
     <script>window.I18N = <?= i18n_js() ?>;</script>
 </head>
 <body>
+<div class="chrome">
 <header class="site-header">
     <a class="brand" href="<?= is_logged_in() ? '/' : lang_path('/') ?>" title="<?= app_name() ?>" aria-label="<?= app_name() ?> home">
         <svg class="brand-logo" viewBox="0 0 108 48" role="img" aria-label="<?= app_name() ?>">
@@ -140,4 +141,6 @@ $seoJsonLd = $jsonLd ?? json_encode([
         <?php endif; ?>
     </nav>
 </header>
+<?php require __DIR__ . '/site_footer.php'; ?>
+</div>
 <main class="container">

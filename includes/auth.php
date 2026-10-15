@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '54';
+const ASSET_VERSION = '55';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -50,6 +50,14 @@ function request_is_https(): bool
 function app_theme(): string
 {
     return ($_COOKIE['theme'] ?? '') === 'light' ? 'light' : 'dark';
+}
+
+/** Page layout from the `layout` cookie: 'top' (header + footer bars, the
+ *  default) or 'side' (one left panel, for wide screens). Set on <html> like
+ *  the theme so the layout is right on first paint. */
+function app_layout(): string
+{
+    return ($_COOKIE['layout'] ?? '') === 'side' ? 'side' : 'top';
 }
 
 if (session_status() === PHP_SESSION_NONE) {

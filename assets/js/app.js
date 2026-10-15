@@ -1324,8 +1324,22 @@ function initTheme() {
   buttons.forEach((b) => b.addEventListener('click', () => apply(b.dataset.themeValue)));
 }
 
+// Footer top-bar / side-panel toggle, same pattern as the theme: applied
+// server-side on <html data-layout>, switched live here and kept in a cookie.
+function initLayout() {
+  const buttons = document.querySelectorAll('.layout-btn');
+  if (!buttons.length) return;
+  const apply = (layout) => {
+    document.documentElement.dataset.layout = layout;
+    document.cookie = `layout=${layout}; path=/; max-age=31536000; SameSite=Lax`;
+    buttons.forEach((b) => b.classList.toggle('layout-active', b.dataset.layoutValue === layout));
+  };
+  buttons.forEach((b) => b.addEventListener('click', () => apply(b.dataset.layoutValue)));
+}
+
 initNav();
 initTheme();
+initLayout();
 initTick();
 initPosterLightbox();
 initBrowseFilter();

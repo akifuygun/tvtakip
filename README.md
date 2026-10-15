@@ -8,6 +8,8 @@ watched, and keep a movie watchlist.
 - **Canonical ids:** IMDB ids for shows, episodes, and movies — no third-party ids in the DB
 - **Installable PWA**, mobile-friendly (hamburger nav), and **bilingual** — English
   (TVTrack) / Turkish (TVTakip), switchable via footer flags.
+- **Footer switches:** light/dark theme, and on wide screens a top-bar or
+  side-panel layout (header + footer combined into one left panel).
 
 ## How it works
 
@@ -87,7 +89,7 @@ api/movies.php     GET movie search; POST add/remove/watch (single endpoint)
 api/tick.php       Cron-free freshness: refreshes stale shows (own tracked first)
 api/image.php      POST set/remove a show poster (admin only)
 includes/          db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
-                   network_logos.php, header.php, footer.php
+                   network_logos.php, header.php (+ site_footer.php), footer.php
 assets/            css/style.css, js/app.js, icons/ (PWA + logo)
 manifest.php, sw.js   Localized PWA manifest + service worker (static-asset cache)
 sitemap.php        Dynamic sitemap (shows + movies, en + tr)

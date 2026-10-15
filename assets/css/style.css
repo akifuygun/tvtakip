@@ -115,7 +115,13 @@ a:hover { color: var(--accent-hover); }
   flex: 1;
 }
 
+/* Header + footer share one wrapper so the side layout can stack them into a
+   single left panel; in the top layout it adds no box, and the footer (which
+   comes before <main> in the markup) is ordered to the bottom. */
+.chrome { display: contents; }
+
 .site-footer {
+  order: 2;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -144,9 +150,13 @@ a:hover { color: var(--accent-hover); }
 .flag:hover { opacity: 1; }
 .flag-active { opacity: 1; outline: 2px solid var(--accent); outline-offset: 1px; }
 
-/* Theme switch — sun/moon buttons styled to match the language flags. */
-.footer-themes { display: flex; align-items: center; gap: 0.4rem; }
-.theme-btn {
+/* Theme (sun/moon) and layout (top bar / side panel) switches, styled to
+   match the language flags. The layout switch only matters on wide screens. */
+.footer-themes,
+.footer-layouts { display: flex; align-items: center; gap: 0.4rem; }
+.footer-layouts { display: none; }
+.theme-btn,
+.layout-btn {
   display: inline-flex;
   align-items: center;
   line-height: 0;
@@ -158,12 +168,59 @@ a:hover { color: var(--accent-hover); }
   color: var(--muted);
   opacity: 0.5;
 }
-.theme-btn:hover { opacity: 1; color: var(--text); }
-.theme-btn.theme-active {
+.theme-btn:hover,
+.layout-btn:hover { opacity: 1; color: var(--text); }
+.theme-btn.theme-active,
+.layout-btn.layout-active {
   opacity: 1;
   color: var(--accent);
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* ---------- Side-panel layout (wide screens only) ---------- */
+@media (min-width: 900px) {
+  .footer-layouts { display: flex; }
+
+  :root[data-layout="side"] body { flex-direction: row; align-items: flex-start; }
+  :root[data-layout="side"] .chrome {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 240px;
+    width: 240px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    overflow-y: auto;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+  }
+  :root[data-layout="side"] .site-header,
+  :root[data-layout="side"] .site-footer {
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+  :root[data-layout="side"] .site-footer { margin-top: auto; border-top: 1px solid var(--border); }
+  :root[data-layout="side"] .site-header nav { flex-direction: column; align-items: stretch; gap: 0.1rem; }
+  :root[data-layout="side"] .site-header nav > a,
+  :root[data-layout="side"] .logout-form { padding: 0.4rem 0.5rem; border-radius: 6px; }
+  :root[data-layout="side"] .site-header nav > a:hover { background: var(--bg-raised); }
+  :root[data-layout="side"] .nav-user { padding: 0 0.5rem 0.5rem; }
+  :root[data-layout="side"] .nav-search { margin: 0.4rem 0; }
+  :root[data-layout="side"] .nav-search input,
+  :root[data-layout="side"] .nav-search input:focus { width: 100%; }
+  :root[data-layout="side"] .nav-sep { display: none; }
+  :root[data-layout="side"] .logout-label { display: inline; }
+  :root[data-layout="side"] .footer-controls { flex-wrap: wrap; gap: 0.75rem; }
+  :root[data-layout="side"] .container { min-width: 0; }
 }
 
 .hero { text-align: center; padding: 3rem 1rem; }
