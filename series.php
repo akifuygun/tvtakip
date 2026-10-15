@@ -16,7 +16,7 @@ if (!valid_imdb_id($showId)) {
 }
 
 $stmt = db()->prepare(
-    'SELECT imdb_id, name, image_url, backdrop_url, status, overview, overview_tr, premiered,
+    'SELECT imdb_id, name, image_url, backdrop_url, gallery, status, overview, overview_tr, premiered,
             genres, network, rating, runtime
      FROM shows WHERE imdb_id = ?'
 );
@@ -170,7 +170,8 @@ require __DIR__ . '/includes/header.php';
     <article class="show-header">
         <?php if ($show['image_url']): ?>
             <img src="<?= htmlspecialchars($show['image_url']) ?>" alt="<?= htmlspecialchars($show['name']) ?>"
-                 class="poster-zoom" data-backdrop="<?= htmlspecialchars($show['backdrop_url'] ?? '') ?>">
+                 class="poster-zoom" data-backdrop="<?= htmlspecialchars($show['backdrop_url'] ?? '') ?>"
+                 data-gallery="<?= htmlspecialchars($show['gallery'] ?? '[]') ?>">
         <?php else: ?>
             <div class="no-poster"><?= t('no_image') ?></div>
         <?php endif; ?>

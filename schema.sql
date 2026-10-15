@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS shows (
     name VARCHAR(255) NOT NULL,
     image_url VARCHAR(500) DEFAULT NULL,
     backdrop_url VARCHAR(500) DEFAULT NULL,  -- wide hero/social image (TMDB only)
+    gallery TEXT DEFAULT NULL,  -- JSON list of backdrop URLs for the poster slider (TMDB, TheTVDB top-up)
     status VARCHAR(50) DEFAULT NULL,  -- canonical: running|ended|canceled|upcoming|unknown (normalize_show_status)
     overview TEXT DEFAULT NULL,
     overview_tr TEXT DEFAULT NULL,  -- Turkish description (TMDB, else TheTVDB) for TR pages; NULL = none
@@ -88,6 +89,7 @@ CREATE TABLE IF NOT EXISTS movies (
     name VARCHAR(255) NOT NULL,
     image_url VARCHAR(500) DEFAULT NULL,
     backdrop_url VARCHAR(500) DEFAULT NULL,
+    gallery TEXT DEFAULT NULL,        -- JSON list of backdrop URLs for the poster slider (TMDB)
     status VARCHAR(50) DEFAULT NULL,  -- canonical: released|upcoming|canceled|unknown (normalize_movie_status)
     overview TEXT DEFAULT NULL,
     overview_tr TEXT DEFAULT NULL,    -- Turkish description (TMDB) for TR pages; NULL = none

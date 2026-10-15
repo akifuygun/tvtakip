@@ -17,7 +17,7 @@ if (!valid_imdb_id($movieId)) {
 }
 
 $stmt = db()->prepare(
-    'SELECT imdb_id, name, image_url, backdrop_url, status, overview, overview_tr, released,
+    'SELECT imdb_id, name, image_url, backdrop_url, gallery, status, overview, overview_tr, released,
             genres, studio, rating, runtime
      FROM movies WHERE imdb_id = ?'
 );
@@ -112,7 +112,8 @@ require __DIR__ . '/includes/header.php';
 <article class="show-header">
     <?php if ($movie['image_url']): ?>
         <img src="<?= htmlspecialchars($movie['image_url']) ?>" alt="<?= htmlspecialchars($movie['name']) ?>"
-             class="poster-zoom" data-backdrop="<?= htmlspecialchars($movie['backdrop_url'] ?? '') ?>">
+             class="poster-zoom" data-backdrop="<?= htmlspecialchars($movie['backdrop_url'] ?? '') ?>"
+             data-gallery="<?= htmlspecialchars($movie['gallery'] ?? '[]') ?>">
     <?php else: ?>
         <div class="no-poster"><?= t('no_image') ?></div>
     <?php endif; ?>

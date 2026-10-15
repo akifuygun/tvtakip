@@ -12,12 +12,15 @@ require_login_json();
 function cache_payload(string $imdbId): array
 {
     $stmt = db()->prepare(
-        'SELECT imdb_id, name, image_url, backdrop_url, status, overview, overview_tr, premiered,
+        'SELECT imdb_id, name, image_url, backdrop_url, gallery, status, overview, overview_tr, premiered,
                 genres, network, rating, runtime, synced_at
          FROM shows WHERE imdb_id = ?'
     );
     $stmt->execute([$imdbId]);
     $show = $stmt->fetch() ?: null;
+    if ($show) {
+        $show['gallery'] = json_decode((string) $show['gallery'], true) ?: [];
+    }
 
     $stmt = db()->prepare(
         'SELECT id, imdb_id, season, number, name, airdate, airstamp FROM episodes

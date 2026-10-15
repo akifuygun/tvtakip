@@ -19,8 +19,15 @@ require_once __DIR__ . '/http.php';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w342';
 const TMDB_BACKDROP_BASE = 'https://image.tmdb.org/t/p/w780';
+const TMDB_GALLERY_BASE = 'https://image.tmdb.org/t/p/w1280';
 const TVMAZE_BASE = 'https://api.tvmaze.com';
 const TVDB_BASE = 'https://api4.thetvdb.com/v4';
+
+// Lightbox slider: up to GALLERY_MAX backdrops after the poster. TMDB's come
+// with the detail call; TheTVDB backgrounds (one extra call) only top up shows
+// with fewer than GALLERY_TVDB_BELOW.
+const GALLERY_MAX = 9;
+const GALLERY_TVDB_BELOW = 4;
 
 // TheTVDB states a show's regular air time in its home country's local time
 // (US Eastern for US shows). Countries spanning several zones map to the one
@@ -89,6 +96,19 @@ function tmdb_finale(?string $episodeType): ?string
     };
 }
 
+/** TMDB detail query: translations + English/text-free images in the same call. */
+const TMDB_DETAIL_EXTRAS = ['append_to_response' => 'translations,images', 'include_image_language' => 'en,null'];
+
+/** Backdrop URLs for the lightbox slider from a TMDB detail fetched with
+ *  TMDB_DETAIL_EXTRAS: text-free ones first, then English, best-voted first. */
+function tmdb_gallery(array $detail): array
+{
+    $backdrops = array_filter($detail['images']['backdrops'] ?? [], fn($b) => !empty($b['file_path']));
+    usort($backdrops, fn($a, $b) => [isset($a['iso_639_1']), -($a['vote_average'] ?? 0)]
+        <=> [isset($b['iso_639_1']), -($b['vote_average'] ?? 0)]);
+    return array_slice(array_map(fn($b) => TMDB_GALLERY_BASE . $b['file_path'], $backdrops), 0, GALLERY_MAX);
+}
+
 /** Turkish overview from a TMDB detail fetched with
  *  append_to_response=translations, or null. */
 function tmdb_tr_overview(array $detail): ?string
@@ -110,7 +130,7 @@ function fetch_base_from_tmdb(string $imdbId): ?array
     if (!$tv) {
         return null;
     }
-    $detail = http_get_json(tmdb_api_url('/tv/' . $tv['id'], ['append_to_response' => 'translations']));
+    $detail = http_get_json(tmdb_api_url('/tv/' . $tv['id'], TMDB_DETAIL_EXTRAS));
     if (!$detail) {
         return null;
     }
@@ -142,6 +162,7 @@ function fetch_base_from_tmdb(string $imdbId): ?array
             'status' => $detail['status'] ?? null,
             'overview' => trim((string) ($detail['overview'] ?? '')) ?: null,
             'overview_tr' => tmdb_tr_overview($detail),
+            'gallery' => tmdb_gallery($detail),
             'premiered' => valid_date($detail['first_air_date'] ?? null),
             'genres' => genres_string(array_column($detail['genres'] ?? [], 'name')),
             // ALL networks the show aired on (network-hoppers list several),
@@ -236,15 +257,16 @@ function tvdb_get(string $path): ?array
 /**
  * A show on TheTVDB: 'airs' => its regular air time as ['time' => 'HH:MM',
  * 'tz' => zone] or null, 'episodes' => its dated regular episodes as
- * [season, number, name, airdate, finale] rows, and 'overview_tr' => its Turkish
- * description or null. All empty when TheTVDB doesn't know the show (or no
+ * [season, number, name, airdate, finale] rows, 'overview_tr' => its Turkish
+ * description or null, and 'id' => its TheTVDB series id (kept in memory for
+ * follow-up calls, never stored). All empty when TheTVDB doesn't know the show (or no
  * key is configured); null when TheTVDB couldn't be asked, so callers keep
  * what's stored. A time with no air day is TheTVDB's unset
  * default, not a schedule.
  */
 function tvdb_show(string $imdbId): ?array
 {
-    $none = ['airs' => null, 'episodes' => [], 'overview_tr' => null];
+    $none = ['id' => null, 'airs' => null, 'episodes' => [], 'overview_tr' => null];
     if (!defined('TVDB_API_KEY') || TVDB_API_KEY === '') {
         return $none;
     }
@@ -293,7 +315,17 @@ function tvdb_show(string $imdbId): ?array
             'finale' => in_array($finale, ['season', 'series', 'midseason'], true) ? $finale : '',
         ];
     }
-    return ['airs' => $airs, 'episodes' => $episodes, 'overview_tr' => tvdb_tr_overview($d)];
+    return ['id' => $seriesId, 'airs' => $airs, 'episodes' => $episodes, 'overview_tr' => tvdb_tr_overview($d)];
+}
+
+/** Up to $limit TheTVDB series background URLs (text-free first, best-scored
+ *  first) for the lightbox slider; [] on failure. */
+function tvdb_backgrounds(int $seriesId, int $limit): array
+{
+    $arts = tvdb_get('/series/' . $seriesId . '/artworks?type=3')['data']['artworks'] ?? [];
+    $arts = array_filter($arts, fn($a) => !empty($a['image']) && in_array($a['language'] ?? null, [null, 'eng'], true));
+    usort($arts, fn($a, $b) => [isset($a['language']), -($a['score'] ?? 0)] <=> [isset($b['language']), -($b['score'] ?? 0)]);
+    return array_slice(array_column($arts, 'image'), 0, max(0, $limit));
 }
 
 /** Turkish overview from a TheTVDB record fetched with meta=translations, or null. */
@@ -411,6 +443,14 @@ function fetch_base_from_tvmaze(string $imdbId): ?array
     ];
 }
 
+/** Slider image list as stored JSON, or null for none (so COALESCE keeps an
+ *  earlier list when a provider returns no images). */
+function gallery_json(array $urls): ?string
+{
+    $urls = array_values(array_filter($urls, fn($u) => is_string($u) && str_starts_with($u, 'https://')));
+    return $urls ? json_encode($urls, JSON_UNESCAPED_SLASHES) : null;
+}
+
 /**
  * Canonical show upsert. COALESCE guards: a provider with less data can
  * never blank out values another already filled in. synced_at only moves
@@ -420,13 +460,14 @@ function upsert_show(PDO $pdo, array $show, bool $markSynced): void
 {
     $stmt = $pdo->prepare(
         'INSERT INTO shows
-            (imdb_id, name, image_url, backdrop_url, status, overview, overview_tr, premiered,
+            (imdb_id, name, image_url, backdrop_url, gallery, status, overview, overview_tr, premiered,
              genres, network, rating, runtime, synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
          ON DUPLICATE KEY UPDATE
              name = VALUES(name),
              image_url = COALESCE(VALUES(image_url), image_url),
              backdrop_url = COALESCE(VALUES(backdrop_url), backdrop_url),
+             gallery = COALESCE(VALUES(gallery), gallery),
              status = COALESCE(VALUES(status), status),
              overview = COALESCE(VALUES(overview), overview),
              overview_tr = COALESCE(VALUES(overview_tr), overview_tr),
@@ -442,6 +483,7 @@ function upsert_show(PDO $pdo, array $show, bool $markSynced): void
         mb_substr(trim((string) ($show['name'] ?? '')) ?: $show['imdb_id'], 0, 255),
         mb_substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null,
         mb_substr((string) ($show['backdrop_url'] ?? ''), 0, 500) ?: null,
+        gallery_json($show['gallery'] ?? []),
         normalize_show_status($show['status'] ?? null),
         $show['overview'] ?? null,
         $show['overview_tr'] ?? null,
@@ -603,6 +645,13 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
         array_push($payload['episodes'], ...tvdb_upcoming_episodes($payload['episodes'], $tvdb['episodes']));
         // Turkish description: TMDB's when it has one, else TheTVDB's.
         $payload['show']['overview_tr'] ??= $tvdb['overview_tr'];
+        // Slider images: top up a thin TMDB gallery with TheTVDB backgrounds.
+        $gallery = $payload['show']['gallery'] ?? [];
+        if ($tvdb['id'] && count($gallery) < GALLERY_TVDB_BELOW) {
+            $payload['show']['gallery'] = array_values(array_unique(
+                array_merge($gallery, tvdb_backgrounds($tvdb['id'], GALLERY_MAX - count($gallery)))
+            ));
+        }
     }
 
     // TMDB has no air times — enrich its episodes with TVmaze's UTC airstamps
@@ -710,7 +759,7 @@ function fetch_movie_from_tmdb(string $imdbId): ?array
     if (!$movie) {
         return null;
     }
-    $detail = http_get_json(tmdb_api_url('/movie/' . $movie['id'], ['append_to_response' => 'translations']));
+    $detail = http_get_json(tmdb_api_url('/movie/' . $movie['id'], TMDB_DETAIL_EXTRAS));
     if (!$detail) {
         return null;
     }
@@ -722,6 +771,7 @@ function fetch_movie_from_tmdb(string $imdbId): ?array
         'status' => $detail['status'] ?? null,
         'overview' => trim((string) ($detail['overview'] ?? '')) ?: null,
         'overview_tr' => tmdb_tr_overview($detail),
+        'gallery' => tmdb_gallery($detail),
         'released' => valid_date($detail['release_date'] ?? null),
         'genres' => genres_string(array_column($detail['genres'] ?? [], 'name')),
         'studio' => trim((string) ($detail['production_companies'][0]['name'] ?? '')) ?: null,
@@ -735,13 +785,14 @@ function upsert_movie(PDO $pdo, array $movie, bool $markSynced): void
 {
     $stmt = $pdo->prepare(
         'INSERT INTO movies
-            (imdb_id, name, image_url, backdrop_url, status, overview, overview_tr, released,
+            (imdb_id, name, image_url, backdrop_url, gallery, status, overview, overview_tr, released,
              genres, studio, rating, runtime, synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
          ON DUPLICATE KEY UPDATE
              name = VALUES(name),
              image_url = COALESCE(VALUES(image_url), image_url),
              backdrop_url = COALESCE(VALUES(backdrop_url), backdrop_url),
+             gallery = COALESCE(VALUES(gallery), gallery),
              status = COALESCE(VALUES(status), status),
              overview = COALESCE(VALUES(overview), overview),
              overview_tr = COALESCE(VALUES(overview_tr), overview_tr),
@@ -757,6 +808,7 @@ function upsert_movie(PDO $pdo, array $movie, bool $markSynced): void
         mb_substr(trim((string) ($movie['name'] ?? '')) ?: $movie['imdb_id'], 0, 255),
         mb_substr((string) ($movie['image_url'] ?? ''), 0, 500) ?: null,
         mb_substr((string) ($movie['backdrop_url'] ?? ''), 0, 500) ?: null,
+        gallery_json($movie['gallery'] ?? []),
         normalize_movie_status($movie['status'] ?? null),
         $movie['overview'] ?? null,
         $movie['overview_tr'] ?? null,

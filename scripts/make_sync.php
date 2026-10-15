@@ -20,7 +20,7 @@ fwrite($out, "SET NAMES utf8mb4;\n");
 
 // Shows
 $rows = $pdo->query(
-    'SELECT imdb_id, name, image_url, backdrop_url, status, overview, overview_tr, premiered,
+    'SELECT imdb_id, name, image_url, backdrop_url, gallery, status, overview, overview_tr, premiered,
             genres, network, rating, runtime, synced_at
      FROM shows ORDER BY imdb_id'
 )->fetchAll();
@@ -28,17 +28,18 @@ foreach (array_chunk($rows, 100) as $chunk) {
     $values = [];
     foreach ($chunk as $r) {
         $values[] = '(' . implode(',', [
-            $q($r['imdb_id']), $q($r['name']), $q($r['image_url']), $q($r['backdrop_url']),
+            $q($r['imdb_id']), $q($r['name']), $q($r['image_url']), $q($r['backdrop_url']), $q($r['gallery']),
             $q($r['status']), $q($r['overview']), $q($r['overview_tr']), $q($r['premiered']), $q($r['genres']),
             $q($r['network']), $q($r['rating']), $q($r['runtime']), $q($r['synced_at']),
         ]) . ')';
     }
     fwrite($out,
-        'INSERT INTO shows (imdb_id,name,image_url,backdrop_url,status,overview,overview_tr,premiered,genres,network,rating,runtime,synced_at) VALUES '
+        'INSERT INTO shows (imdb_id,name,image_url,backdrop_url,gallery,status,overview,overview_tr,premiered,genres,network,rating,runtime,synced_at) VALUES '
         . implode(',', $values)
         . ' ON DUPLICATE KEY UPDATE name=VALUES(name),'
         . ' image_url=COALESCE(VALUES(image_url),image_url),'
         . ' backdrop_url=COALESCE(VALUES(backdrop_url),backdrop_url),'
+        . ' gallery=COALESCE(VALUES(gallery),gallery),'
         . ' status=COALESCE(VALUES(status),status),'
         . ' overview=COALESCE(VALUES(overview),overview),'
         . ' overview_tr=COALESCE(VALUES(overview_tr),overview_tr),'
@@ -54,7 +55,7 @@ echo count($rows) . " shows\n";
 // Movies (shared cache only — user_movies is per-user data, never synced).
 try {
     $rows = $pdo->query(
-        'SELECT imdb_id, name, image_url, backdrop_url, status, overview, overview_tr, released,
+        'SELECT imdb_id, name, image_url, backdrop_url, gallery, status, overview, overview_tr, released,
                 genres, studio, rating, runtime, synced_at
          FROM movies ORDER BY imdb_id'
     )->fetchAll();
@@ -62,17 +63,18 @@ try {
         $values = [];
         foreach ($chunk as $r) {
             $values[] = '(' . implode(',', [
-                $q($r['imdb_id']), $q($r['name']), $q($r['image_url']), $q($r['backdrop_url']),
+                $q($r['imdb_id']), $q($r['name']), $q($r['image_url']), $q($r['backdrop_url']), $q($r['gallery']),
                 $q($r['status']), $q($r['overview']), $q($r['overview_tr']), $q($r['released']), $q($r['genres']),
                 $q($r['studio']), $q($r['rating']), $q($r['runtime']), $q($r['synced_at']),
             ]) . ')';
         }
         fwrite($out,
-            'INSERT INTO movies (imdb_id,name,image_url,backdrop_url,status,overview,overview_tr,released,genres,studio,rating,runtime,synced_at) VALUES '
+            'INSERT INTO movies (imdb_id,name,image_url,backdrop_url,gallery,status,overview,overview_tr,released,genres,studio,rating,runtime,synced_at) VALUES '
             . implode(',', $values)
             . ' ON DUPLICATE KEY UPDATE name=VALUES(name),'
             . ' image_url=COALESCE(VALUES(image_url),image_url),'
             . ' backdrop_url=COALESCE(VALUES(backdrop_url),backdrop_url),'
+            . ' gallery=COALESCE(VALUES(gallery),gallery),'
             . ' status=COALESCE(VALUES(status),status),'
             . ' overview=COALESCE(VALUES(overview),overview),'
             . ' overview_tr=COALESCE(VALUES(overview_tr),overview_tr),'

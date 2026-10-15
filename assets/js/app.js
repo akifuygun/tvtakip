@@ -152,18 +152,24 @@ function addImagePlaceholder(showId) {
 
 // Poster for the show-detail header: an <img> (with an admin remove overlay),
 // or a clickable "add image" box.
-function posterEl(showId, imageUrl, backdropUrl = null) {
+function posterEl(showId, imageUrl, backdropUrl = null, gallery = []) {
   if (!imageUrl) {
     // Only admins can set posters; others just see a plain placeholder.
     return IS_ADMIN ? addImagePlaceholder(showId) : el('div', { class: 'no-poster', text: t('no_image') });
   }
   const img = el('img', { src: imageUrl, alt: '', class: 'poster-zoom' });
-  const images = [largePoster(imageUrl), backdropUrl].filter(Boolean);
-  img.addEventListener('click', () => openLightbox(images, 0));
+  img.addEventListener('click', () => openLightbox(lightboxImages(imageUrl, backdropUrl, gallery), 0));
   if (!IS_ADMIN) return img;
   const wrap = el('div', { class: 'poster-wrap' }, [img]);
-  wrap.append(makeRemoveButton(showId, () => wrap.replaceWith(posterEl(showId, null, backdropUrl))));
+  wrap.append(makeRemoveButton(showId, () => wrap.replaceWith(posterEl(showId, null, backdropUrl, gallery))));
   return wrap;
+}
+
+// Slider images: the poster, then the stored gallery (or just the backdrop
+// for rows imported before galleries existed).
+function lightboxImages(posterUrl, backdropUrl, gallery) {
+  const rest = Array.isArray(gallery) && gallery.length ? gallery : [backdropUrl];
+  return [...new Set([largePoster(posterUrl), ...rest].filter(Boolean))];
 }
 
 function imdbLink(imdbId) {
@@ -182,15 +188,17 @@ function largePoster(url) {
   return url ? url.replace('/t/p/w342/', '/t/p/w780/') : url;
 }
 
-// Full-screen image viewer with a horizontal slider (poster -> backdrop).
+// Full-screen image viewer with a horizontal slider (poster -> backdrops).
 // images: array of URLs; opens at startIndex. Single image = no slider chrome.
+// Only the current slide and its neighbours load, so a long gallery stays light.
 function openLightbox(images, startIndex = 0) {
   images = (images || []).filter(Boolean);
   if (!images.length) return;
   let idx = Math.min(Math.max(startIndex, 0), images.length - 1);
 
+  const imgs = images.map(() => el('img', { alt: '' }));
   const track = el('div', { class: 'lightbox-track' },
-    images.map((src) => el('div', { class: 'lightbox-slide' }, [el('img', { src, alt: '' })])));
+    imgs.map((img) => el('div', { class: 'lightbox-slide' }, [img])));
   const viewport = el('div', { class: 'lightbox-viewport' }, [track]);
   const overlay = el('div', { class: 'lightbox', role: 'dialog', 'aria-modal': 'true' }, [viewport]);
 
@@ -198,6 +206,10 @@ function openLightbox(images, startIndex = 0) {
   const update = () => {
     track.style.transform = `translateX(${-idx * 100}%)`;
     if (dots) [...dots.children].forEach((d, i) => d.classList.toggle('active', i === idx));
+    for (const i of [idx - 1, idx, idx + 1]) {
+      const n = (i + images.length) % images.length;
+      if (!imgs[n].getAttribute('src')) imgs[n].src = images[n];
+    }
   };
   const go = (n) => { idx = (n + images.length) % images.length; update(); };
 
@@ -255,7 +267,9 @@ function initPosterLightbox() {
   document.querySelectorAll('img.poster-zoom').forEach((img) => {
     if (img.dataset.lbBound) return;
     img.dataset.lbBound = '1';
-    const images = [largePoster(img.getAttribute('src')), img.dataset.backdrop].filter(Boolean);
+    let gallery = [];
+    try { gallery = JSON.parse(img.dataset.gallery || '[]'); } catch { /* keep the backdrop fallback */ }
+    const images = lightboxImages(img.getAttribute('src'), img.dataset.backdrop, gallery);
     img.addEventListener('click', () => openLightbox(images, 0));
   });
 }
@@ -961,7 +975,7 @@ async function initShowDetail() {
     trackBtn,
   );
 
-  root.append(el('div', { class: 'show-header' }, [posterEl(showId, show.image_url, show.backdrop_url), info]));
+  root.append(el('div', { class: 'show-header' }, [posterEl(showId, show.image_url, show.backdrop_url, show.gallery), info]));
 
   // Episodes grouped by season
   const seasons = new Map();
