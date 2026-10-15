@@ -10,5 +10,9 @@ define('DB_PASS', '');
 // TMDB API key (v3) — https://www.themoviedb.org/settings/api
 define('TMDB_API_KEY', '');
 
+// TheTVDB API key (v4) — https://thetvdb.com/dashboard/account/apikey
+// Fills air times TVmaze lacks (streaming drops). Leave empty to skip TheTVDB.
+define('TVDB_API_KEY', '');
+
 // Comma-separated emails that get admin controls (e.g. removing posters).
 define('ADMIN_EMAILS', '');

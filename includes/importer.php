@@ -1,7 +1,7 @@
 <?php
 // Server-side show importer — THE one place that fetches provider data
-// (TMDB first for per-episode IMDB ids, TVmaze fallback) and writes the
-// shared shows/episodes cache. Clients only ever send an IMDB id; provider
+// (TMDB first for per-episode IMDB ids, TVmaze fallback; air times from
+// TVmaze, then TheTVDB) and writes the shared shows/episodes cache. Clients only ever send an IMDB id; provider
 // data never transits the browser, and the TMDB key never leaves the server.
 //
 // Import happens in two cheap phases so it survives shared-hosting limits
@@ -20,6 +20,26 @@ const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w342';
 const TMDB_BACKDROP_BASE = 'https://image.tmdb.org/t/p/w780';
 const TVMAZE_BASE = 'https://api.tvmaze.com';
+const TVDB_BASE = 'https://api4.thetvdb.com/v4';
+
+// TheTVDB states a show's regular air time in its home country's local time
+// (US Eastern for US shows). Countries spanning several zones map to the one
+// their TV schedules follow; shows from unlisted countries get no time.
+const TVDB_COUNTRY_TZ = [
+    'usa' => 'America/New_York', 'can' => 'America/Toronto', 'mex' => 'America/Mexico_City',
+    'bra' => 'America/Sao_Paulo', 'arg' => 'America/Argentina/Buenos_Aires', 'col' => 'America/Bogota',
+    'gbr' => 'Europe/London', 'irl' => 'Europe/Dublin', 'prt' => 'Europe/Lisbon',
+    'esp' => 'Europe/Madrid', 'fra' => 'Europe/Paris', 'bel' => 'Europe/Brussels',
+    'nld' => 'Europe/Amsterdam', 'deu' => 'Europe/Berlin', 'che' => 'Europe/Zurich',
+    'aut' => 'Europe/Vienna', 'ita' => 'Europe/Rome', 'dnk' => 'Europe/Copenhagen',
+    'nor' => 'Europe/Oslo', 'swe' => 'Europe/Stockholm', 'fin' => 'Europe/Helsinki',
+    'isl' => 'Atlantic/Reykjavik', 'pol' => 'Europe/Warsaw', 'cze' => 'Europe/Prague',
+    'grc' => 'Europe/Athens', 'tur' => 'Europe/Istanbul', 'rus' => 'Europe/Moscow',
+    'isr' => 'Asia/Jerusalem', 'ind' => 'Asia/Kolkata', 'tha' => 'Asia/Bangkok',
+    'chn' => 'Asia/Shanghai', 'hkg' => 'Asia/Hong_Kong', 'twn' => 'Asia/Taipei',
+    'kor' => 'Asia/Seoul', 'jpn' => 'Asia/Tokyo', 'phl' => 'Asia/Manila',
+    'aus' => 'Australia/Sydney', 'nzl' => 'Pacific/Auckland', 'zaf' => 'Africa/Johannesburg',
+];
 
 // Episode IMDB ids fetched per import/refresh. Kept small so a single web
 // request stays under shared-hosting execution limits when curl_multi is
@@ -144,6 +164,93 @@ function tvmaze_airstamps(string $imdbId): array
         }
     }
     return $map;
+}
+
+/**
+ * TheTVDB bearer token (valid a month), kept in memory per request and in a
+ * temp file across requests. $fresh forces a new login (stale token).
+ */
+function tvdb_token(bool $fresh = false): ?string
+{
+    static $token = null;
+    $file = sys_get_temp_dir() . '/tvtrack_tvdb_' . md5(TVDB_API_KEY);
+    if (!$fresh) {
+        if ($token === null && @filemtime($file) > time() - 25 * 86400) {
+            $token = @file_get_contents($file) ?: null;
+        }
+        if ($token !== null) {
+            return $token;
+        }
+    }
+    $token = http_post_json(TVDB_BASE . '/login', ['apikey' => TVDB_API_KEY])['data']['token'] ?? null;
+    if ($token !== null) {
+        @file_put_contents($file, $token);
+    }
+    return $token;
+}
+
+/** Decoded TheTVDB response (its `data` may be null = not found), or null
+ *  when the request failed. A failure retries once with a fresh login. */
+function tvdb_get(string $path): ?array
+{
+    for ($attempt = 0; $attempt < 2; $attempt++) {
+        $token = tvdb_token($attempt > 0);
+        if ($token === null) {
+            return null;
+        }
+        $res = http_get_json(TVDB_BASE . $path, 2, ['Authorization: Bearer ' . $token]);
+        if ($res !== null) {
+            return $res;
+        }
+    }
+    return null;
+}
+
+/**
+ * The show's regular air time from TheTVDB, as ['time' => 'HH:MM', 'tz' =>
+ * zone]. [] when TheTVDB has no usable schedule for it (or no key is
+ * configured); null when TheTVDB couldn't be asked, so callers keep what's
+ * stored. A time with no air day is TheTVDB's unset default, not a schedule.
+ */
+function tvdb_air_time(string $imdbId): ?array
+{
+    if (!defined('TVDB_API_KEY') || TVDB_API_KEY === '') {
+        return [];
+    }
+    $found = tvdb_get('/search/remoteid/' . rawurlencode($imdbId));
+    if ($found === null) {
+        return null;
+    }
+    $seriesId = null;
+    foreach ($found['data'] ?? [] as $hit) {
+        if (isset($hit['series']['id'])) {
+            $seriesId = (int) $hit['series']['id'];
+            break;
+        }
+    }
+    if (!$seriesId) {
+        return [];
+    }
+    $series = tvdb_get('/series/' . $seriesId . '/extended?short=true');
+    if ($series === null) {
+        return null;
+    }
+    $d = $series['data'] ?? [];
+    $time = (string) ($d['airsTime'] ?? '');
+    $country = strtolower((string) (($d['originalCountry'] ?? '') ?: ($d['originalNetwork']['country'] ?? '')));
+    if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $time)
+        || !array_filter($d['airsDays'] ?? [])
+        || !isset(TVDB_COUNTRY_TZ[$country])) {
+        return [];
+    }
+    return ['time' => $time, 'tz' => TVDB_COUNTRY_TZ[$country]];
+}
+
+/** UTC DATETIME of an episode's air date at the show's local air time. */
+function tvdb_stamp(string $airdate, array $airs): string
+{
+    return (new DateTimeImmutable($airdate . ' ' . $airs['time'], new DateTimeZone($airs['tz'])))
+        ->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
 }
 
 /** Base show + episodes from TVmaze (no episode IMDB ids there). */
@@ -354,29 +461,41 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
 
     // TMDB has no air times — enrich its episodes with TVmaze's UTC airstamps
     // so aired-gating can be exact (the TVmaze path already carries them).
-    // $timeless: [season, number] of episodes TVmaze lists WITHOUT an air time,
-    // whose stored stamp (e.g. an old placeholder) must be cleared — the
-    // upsert's COALESCE would keep it.
-    $timeless = [];
+    // $listed: "season-number" of every episode TVmaze lists, timed or not.
+    $listed = [];
     if ($payload['source'] === 'tmdb') {
         $stamps = tvmaze_airstamps($imdbId);
-        if ($stamps) {
-            foreach ($payload['episodes'] as &$ep) {
-                $key = $ep['season'] . '-' . $ep['number'];
-                $ep['airstamp'] = $stamps[$key] ?? null;
-                if (array_key_exists($key, $stamps) && $stamps[$key] === null) {
-                    $timeless[] = [$ep['season'], $ep['number']];
-                }
+        foreach ($payload['episodes'] as &$ep) {
+            $key = $ep['season'] . '-' . $ep['number'];
+            $ep['airstamp'] = $stamps[$key] ?? null;
+            if (array_key_exists($key, $stamps)) {
+                $listed[$key] = true;
             }
-            unset($ep);
         }
+        unset($ep);
     } else {
         foreach ($payload['episodes'] as $ep) {
-            if ($ep['airstamp'] === null) {
-                $timeless[] = [$ep['season'], $ep['number']];
-            }
+            $listed[$ep['season'] . '-' . $ep['number']] = true;
         }
     }
+
+    // Episodes TVmaze has no time for (mostly streaming drops) get the show's
+    // regular air time from TheTVDB. $timeless: [season, number] of listed
+    // episodes still without a time, whose stored stamp (e.g. an old
+    // placeholder) must be cleared — the upsert's COALESCE would keep it.
+    // Skipped when TheTVDB was unreachable: the stored stamp may be its own.
+    $tvdb = tvdb_air_time($imdbId);
+    $timeless = [];
+    foreach ($payload['episodes'] as &$ep) {
+        if (($ep['airstamp'] ?? null) === null && $tvdb && $ep['airdate']) {
+            $ep['airstamp'] = tvdb_stamp($ep['airdate'], $tvdb);
+        }
+        if (($ep['airstamp'] ?? null) === null && $tvdb !== null
+            && isset($listed[$ep['season'] . '-' . $ep['number']])) {
+            $timeless[] = [$ep['season'], $ep['number']];
+        }
+    }
+    unset($ep);
 
     // Combine providers for the poster: whoever has one wins.
     if (empty($payload['show']['image_url'])) {

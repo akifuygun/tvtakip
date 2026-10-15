@@ -1,11 +1,11 @@
 <?php
-// Shared HTTP helpers for provider requests (TMDB, TVmaze).
+// Shared HTTP helpers for provider requests (TMDB, TVmaze, TheTVDB).
 // One place for retry/redirect/timeout policy — used by the web importer
 // and the CLI scripts alike.
 
 /** GET a JSON document. Retries transient failures, follows redirects
  *  (TVmaze /lookup answers with a 301). Returns null on failure. */
-function http_get_json(string $url, int $retries = 3): ?array
+function http_get_json(string $url, int $retries = 3, array $headers = []): ?array
 {
     for ($try = 0; $try < $retries; $try++) {
         $ch = curl_init($url);
@@ -13,6 +13,7 @@ function http_get_json(string $url, int $retries = 3): ?array
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 20,
             CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTPHEADER => $headers,
         ]);
         $body = curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -23,12 +24,30 @@ function http_get_json(string $url, int $retries = 3): ?array
                 return $data;
             }
         }
-        if ($code === 404) {
+        if ($code === 404 || $code === 401) {
             return null; // definitive, don't retry
         }
         usleep($code === 429 ? 1500000 : 400000);
     }
     return null;
+}
+
+/** POST a JSON body, decode a JSON 200 answer. One attempt; null on failure. */
+function http_post_json(string $url, array $payload): ?array
+{
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+    ]);
+    $body = curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+    $data = ($body !== false && $code === 200) ? json_decode($body, true) : null;
+    return is_array($data) ? $data : null;
 }
 
 /** Concurrent GETs, order-preserving; null for any URL that failed.
