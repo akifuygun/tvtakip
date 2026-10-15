@@ -34,6 +34,9 @@ foreach ($shows as $show) {
     $set = 0;
     $pdo->beginTransaction();
     foreach ($stamps as $key => $stamp) {
+        if ($stamp === null) {
+            continue; // TVmaze has no air time for it
+        }
         [$season, $number] = explode('-', $key, 2);
         $upd->execute([$stamp, $show['imdb_id'], (int) $season, (int) $number]);
         $set += $upd->rowCount();

@@ -116,9 +116,20 @@ function utc_stamp(?string $iso): ?string
 }
 
 /**
- * Exact air times from TVmaze, keyed "season-number" (UTC DATETIME strings).
- * TMDB has no air times, so this is the only source; empty map when the show
- * isn't on TVmaze.
+ * A TVmaze episode's exact UTC air time, or null when TVmaze has none. An
+ * empty `airtime` means the time is unknown, yet TVmaze still fills airstamp
+ * with a placeholder (noon in the network's timezone) — never store that as
+ * an exact release time.
+ */
+function tvmaze_stamp(array $ep): ?string
+{
+    return trim((string) ($ep['airtime'] ?? '')) !== '' ? utc_stamp($ep['airstamp'] ?? null) : null;
+}
+
+/**
+ * Exact air times from TVmaze, keyed "season-number" (UTC DATETIME strings,
+ * null for episodes TVmaze lists without an air time). TMDB has no air times,
+ * so this is the only source; empty map when the show isn't on TVmaze.
  */
 function tvmaze_airstamps(string $imdbId): array
 {
@@ -128,9 +139,8 @@ function tvmaze_airstamps(string $imdbId): array
     }
     $map = [];
     foreach (http_get_json(TVMAZE_BASE . '/shows/' . $show['id'] . '/episodes') ?? [] as $ep) {
-        $stamp = utc_stamp($ep['airstamp'] ?? null);
-        if ($stamp !== null && isset($ep['season'], $ep['number'])) {
-            $map[$ep['season'] . '-' . $ep['number']] = $stamp;
+        if (isset($ep['season'], $ep['number'])) {
+            $map[$ep['season'] . '-' . $ep['number']] = tvmaze_stamp($ep);
         }
     }
     return $map;
@@ -151,7 +161,7 @@ function fetch_base_from_tvmaze(string $imdbId): ?array
             'number' => max(0, (int) ($ep['number'] ?? 0)),
             'name' => trim((string) ($ep['name'] ?? '')),
             'airdate' => valid_date($ep['airdate'] ?? null),
-            'airstamp' => utc_stamp($ep['airstamp'] ?? null),
+            'airstamp' => tvmaze_stamp($ep),
         ];
     }
     return [
@@ -250,6 +260,26 @@ function upsert_episodes(PDO $pdo, string $showImdbId, array $episodes): int
     return $count;
 }
 
+/** Null the airstamp of the given [season, number] episodes of one show. */
+function clear_airstamps(PDO $pdo, string $showImdbId, array $episodes): void
+{
+    foreach (array_chunk($episodes, 200) as $chunk) {
+        $pairs = [];
+        $params = [$showImdbId];
+        foreach ($chunk as [$season, $number]) {
+            $pairs[] = '(?, ?)';
+            $params[] = max(0, (int) $season);
+            $params[] = max(0, (int) $number);
+        }
+        $stmt = $pdo->prepare(
+            'UPDATE episodes SET airstamp = NULL
+             WHERE show_imdb_id = ? AND airstamp IS NOT NULL
+               AND (season, number) IN (' . implode(', ', $pairs) . ')'
+        );
+        $stmt->execute($params);
+    }
+}
+
 /**
  * Fetch episode IMDB ids from TMDB for up to $limit episodes that don't have
  * one yet, and update them in place. Returns how many were filled. Its own
@@ -324,13 +354,27 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
 
     // TMDB has no air times — enrich its episodes with TVmaze's UTC airstamps
     // so aired-gating can be exact (the TVmaze path already carries them).
+    // $timeless: [season, number] of episodes TVmaze lists WITHOUT an air time,
+    // whose stored stamp (e.g. an old placeholder) must be cleared — the
+    // upsert's COALESCE would keep it.
+    $timeless = [];
     if ($payload['source'] === 'tmdb') {
         $stamps = tvmaze_airstamps($imdbId);
         if ($stamps) {
             foreach ($payload['episodes'] as &$ep) {
-                $ep['airstamp'] = $stamps[$ep['season'] . '-' . $ep['number']] ?? null;
+                $key = $ep['season'] . '-' . $ep['number'];
+                $ep['airstamp'] = $stamps[$key] ?? null;
+                if (array_key_exists($key, $stamps) && $stamps[$key] === null) {
+                    $timeless[] = [$ep['season'], $ep['number']];
+                }
             }
             unset($ep);
+        }
+    } else {
+        foreach ($payload['episodes'] as $ep) {
+            if ($ep['airstamp'] === null) {
+                $timeless[] = [$ep['season'], $ep['number']];
+            }
         }
     }
 
@@ -353,6 +397,7 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
     try {
         upsert_show($pdo, $payload['show'], true);
         $count = upsert_episodes($pdo, $imdbId, $payload['episodes']);
+        clear_airstamps($pdo, $imdbId, $timeless);
         if ($prune && $payload['episodes']) {
             // Drop rows the provider no longer lists, keyed by the episode
             // identity (season, number). Guarded by non-empty payload.
