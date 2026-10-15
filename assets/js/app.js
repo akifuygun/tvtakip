@@ -783,6 +783,27 @@ function initMyShows() {
   wireTabs(root);
 }
 
+// Upcoming: List / Calendar View tabs. The chosen view is remembered in a
+// cookie (upcoming.php opens on it); ?month= forces the calendar on load, so
+// the URL keeps it only while the calendar shows a month other than this one.
+function initUpcoming() {
+  const root = document.getElementById('upcoming-tabs');
+  if (!root) return;
+  wireTabs(root);
+  const cal = root.querySelector('[data-panel="calendar"]');
+  root.querySelectorAll('.filter-tab').forEach((tab) => tab.addEventListener('click', () => {
+    const view = tab.dataset.tab;
+    document.cookie = `upcoming_view=${view}; path=/; max-age=31536000; SameSite=Lax`;
+    const url = new URL(location.href);
+    if (view === 'calendar' && cal.dataset.month !== cal.dataset.thisMonth) {
+      url.searchParams.set('month', cal.dataset.month);
+    } else {
+      url.searchParams.delete('month');
+    }
+    history.replaceState(null, '', url);
+  }));
+}
+
 // Calendar "Movies to watch" section: mark watched removes the card in place,
 // and the whole section goes with the last card.
 function initCalendarMovies() {
@@ -1407,6 +1428,7 @@ initPubMovies();
 initMovieDetail();
 initDashboard();
 initMyShows();
+initUpcoming();
 initCalendar();
 initCalendarMovies();
 initShowDetail();
