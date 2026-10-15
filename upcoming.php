@@ -204,7 +204,6 @@ require __DIR__ . '/includes/header.php';
     </div>
 
     <div class="filter-panel<?= $view === 'calendar' ? '' : ' hidden' ?>" data-panel="calendar" data-month="<?= $calMonth ?>" data-this-month="<?= $thisMonth ?>">
-        <p class="muted"><?= $mine ? t('cal_sub_mine') : t('cal_sub') ?></p>
         <div class="cal-nav">
             <?php if ($calMonth > $monthMin): ?>
                 <a class="cal-nav-btn" href="<?= htmlspecialchars($monthUrl($prevMonth)) ?>" title="<?= t('cal_prev_month') ?>" aria-label="<?= t('cal_prev_month') ?>">‹</a>

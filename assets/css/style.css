@@ -570,7 +570,14 @@ a:hover { color: var(--accent-hover); }
 .episode-list-plain li { background: transparent; }
 
 /* Upcoming: month calendar view (Monday-first grid; an agenda list on phones) */
-.cal-nav { display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0 0.75rem; }
+.cal-nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.75rem;
+}
 .cal-nav h2 { margin: 0; font-size: 1.15rem; min-width: 10rem; text-align: center; }
 .cal-nav-btn {
   display: inline-flex;
@@ -587,7 +594,7 @@ a:hover { color: var(--accent-hover); }
 }
 .cal-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
 .cal-nav-btn.disabled { opacity: 0.35; pointer-events: none; }
-.cal-nav-today { margin-left: auto; }
+.cal-nav-today { position: absolute; right: 0; }
 .cal-month {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -645,6 +652,7 @@ a:hover { color: var(--accent-hover); }
   .cal-day.cal-today { box-shadow: none; border-color: var(--accent); }
   .cal-dow { display: inline; }
   .cal-ep { font-size: 0.85rem; }
+  .cal-nav-today { position: static; }
 }
 
 .next-ep { font-size: 0.78rem; color: var(--warning); }
