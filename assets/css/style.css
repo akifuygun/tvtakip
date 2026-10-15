@@ -411,6 +411,7 @@ a:hover { color: var(--accent-hover); }
   border-radius: 999px;
   color: var(--muted);
 }
+a.genre-chip:hover { color: var(--accent); border-color: var(--accent); }
 
 /* Premiere / finale badges (calendar cards, upcoming list) */
 .ep-badge {

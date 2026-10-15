@@ -2,6 +2,7 @@
 // PUBLIC, server-rendered show page (no login) — the site's indexable content.
 // Pretty URL /series/ttNNNNNNN rewrites here (.htaccess / router.php).
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/network_logos.php';
 
 // The pretty-URL path id always wins: Apache's QSA rewrite appends any
 // visitor-supplied ?id= after the path's id (PHP would keep the last one),
@@ -183,15 +184,17 @@ require __DIR__ . '/includes/header.php';
                     <button type="button" class="trailer-link" data-trailer="<?= htmlspecialchars($trailer) ?>"
                             title="<?= t('trailer_title') ?>">▶ <?= t('trailer') ?></button>
                 <?php endif; ?></h1>
-            <p class="muted"><?= htmlspecialchars(implode(' · ', array_filter([
+            <?php $browseLink = fn (string $facet, string $value, string $label) =>
+                '<a href="' . htmlspecialchars(browse_filter_url($facet, $value)) . '">' . htmlspecialchars($label) . '</a>'; ?>
+            <p class="muted"><?= implode(' · ', array_filter([
                 $show['rating'] ? '⭐ ' . number_format((float) $show['rating'], 1) : null,
                 $show['premiered'] ? substr($show['premiered'], 0, 4) : null,
-                status_label($show['status']) ?: null,
-                $show['network'] ?: null,
-                $show['runtime'] ? t('runtime_min', (int) $show['runtime']) : null,
-            ]))) ?></p>
+                status_label($show['status']) ? $browseLink('status', $show['status'], status_label($show['status'])) : null,
+                implode(', ', array_map(fn ($n) => $browseLink('network', $n, $n), network_names($show['network']))) ?: null,
+                $show['runtime'] ? htmlspecialchars(t('runtime_min', (int) $show['runtime'])) : null,
+            ])) ?></p>
             <?php if ($genreList): ?>
-                <p class="genres"><?php foreach ($genreList as $g): ?><span class="genre-chip"><?= htmlspecialchars($g) ?></span><?php endforeach; ?></p>
+                <p class="genres"><?php foreach ($genreList as $g): ?><a class="genre-chip" href="<?= htmlspecialchars(browse_filter_url('genre', $g)) ?>"><?= htmlspecialchars($g) ?></a><?php endforeach; ?></p>
             <?php endif; ?>
             <?php if ($show['overview']): ?>
                 <p class="show-summary"><?= htmlspecialchars($show['overview']) ?></p>

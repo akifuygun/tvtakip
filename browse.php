@@ -81,7 +81,42 @@ if ($genreCounts) {
 if ($statuses) {
     $facets[] = 'status';
 }
-$activeFacet = $facets[0] ?? '';
+
+// ?network= / ?genre= / ?status= (the show page's links) preselect that chip
+// and open its tab. A network is matched to its brand group; one outside every
+// group gets a one-off chip of its own (first, so it's in view).
+$netPick = is_string($_GET['network'] ?? null) ? trim($_GET['network']) : '';
+$netPicked = false;
+if ($netPick !== '') {
+    foreach ($networks as $i => $net) {
+        if ($net['label'] === $netPick || in_array($netPick, $net['members'], true)) {
+            $networks[$i]['selected'] = $netPicked = true;
+            break;
+        }
+    }
+    $adhocCount = $netPicked ? 0 : count(array_filter(
+        $shows,
+        fn ($s) => in_array($netPick, network_names($s['network']), true)
+    ));
+    if ($adhocCount) {
+        array_unshift($networks, ['label' => $netPick, 'logo' => network_logo($netPick), 'members' => [$netPick],
+            'n' => $adhocCount, 'selected' => true, 'adhoc' => true]);
+        $netPicked = true;
+        if (!in_array('network', $facets, true)) {
+            array_unshift($facets, 'network');
+        }
+    }
+}
+$genrePick = canonical_genre(is_string($_GET['genre'] ?? null) ? trim($_GET['genre']) : '');
+$genrePick = isset($genreCounts[$genrePick]) ? $genrePick : null;
+$statusPick = in_array($_GET['status'] ?? null, $statuses, true) ? $_GET['status'] : null;
+
+$activeFacet = match (true) {
+    $netPicked => 'network',
+    $genrePick !== null => 'genre',
+    $statusPick !== null => 'status',
+    default => $facets[0] ?? '',
+};
 
 $pageTitle = t('pub_browse_title');
 $canonicalUrl = seo_base() . lang_path('/browse');
@@ -115,9 +150,9 @@ require __DIR__ . '/includes/header.php';
     <?php if ($networks): ?>
         <div class="filter-panel<?= $activeFacet === 'network' ? '' : ' hidden' ?>" data-panel="network">
             <div id="network-filter" class="net-filter" aria-label="<?= t('filter_by_network') ?>">
-                <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
+                <button type="button" class="net-chip net-all<?= $netPicked ? '' : ' selected' ?>"><?= t('all_networks') ?></button>
                 <?php foreach ($networks as $net): ?>
-                    <button type="button" class="net-chip"
+                    <button type="button" class="net-chip<?= empty($net['selected']) ? '' : ' selected' ?>"<?= empty($net['adhoc']) ? '' : ' data-adhoc="1"' ?>
                             data-networks="<?= htmlspecialchars(json_encode($net['members'])) ?>"
                             title="<?= htmlspecialchars($net['label']) ?> (<?= (int) $net['n'] ?>)"
                             aria-label="<?= htmlspecialchars($net['label']) ?>">
@@ -139,9 +174,9 @@ require __DIR__ . '/includes/header.php';
     <?php if ($genreCounts): ?>
         <div class="filter-panel<?= $activeFacet === 'genre' ? '' : ' hidden' ?>" data-panel="genre">
             <div id="genre-filter" class="net-filter" aria-label="<?= t('flt_genre') ?>">
-                <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
+                <button type="button" class="net-chip net-all<?= $genrePick === null ? ' selected' : '' ?>"><?= t('all_networks') ?></button>
                 <?php foreach ($genreCounts as $g => $gn): ?>
-                    <button type="button" class="net-chip net-text" data-genre="<?= htmlspecialchars($g) ?>"
+                    <button type="button" class="net-chip net-text<?= $g === $genrePick ? ' selected' : '' ?>" data-genre="<?= htmlspecialchars($g) ?>"
                             title="<?= htmlspecialchars($g) ?> (<?= (int) $gn ?>)"><?= htmlspecialchars($g) ?></button>
                 <?php endforeach; ?>
             </div>
@@ -151,9 +186,9 @@ require __DIR__ . '/includes/header.php';
     <?php if ($statuses): ?>
         <div class="filter-panel<?= $activeFacet === 'status' ? '' : ' hidden' ?>" data-panel="status">
             <div id="status-filter" class="net-filter" aria-label="<?= t('flt_status') ?>">
-                <button type="button" class="net-chip net-all selected"><?= t('all_networks') ?></button>
+                <button type="button" class="net-chip net-all<?= $statusPick === null ? ' selected' : '' ?>"><?= t('all_networks') ?></button>
                 <?php foreach ($statuses as $st): ?>
-                    <button type="button" class="net-chip net-text" data-status="<?= htmlspecialchars($st) ?>"
+                    <button type="button" class="net-chip net-text<?= $st === $statusPick ? ' selected' : '' ?>" data-status="<?= htmlspecialchars($st) ?>"
                             title="<?= htmlspecialchars(status_label($st)) ?> (<?= (int) $statusCounts[$st] ?>)"><?= htmlspecialchars(status_label($st)) ?></button>
                 <?php endforeach; ?>
             </div>

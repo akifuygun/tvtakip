@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '59';
+const ASSET_VERSION = '60';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -268,6 +268,12 @@ function series_url(string $imdbId, ?string $lang = null): string
 function movie_url(string $imdbId, ?string $lang = null): string
 {
     return lang_path('/movie/' . $imdbId, $lang);
+}
+
+/** Browse page with one filter chip preselected (facet: network|genre|status). */
+function browse_filter_url(string $facet, string $value): string
+{
+    return lang_path('/browse') . '?' . $facet . '=' . rawurlencode($value);
 }
 
 /**

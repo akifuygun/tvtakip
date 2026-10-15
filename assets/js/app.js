@@ -41,6 +41,11 @@ function movieUrl(imdbId) {
   return (I18N.lang === 'tr' ? '/tr' : '') + `/movie/${imdbId}`;
 }
 
+// Mirrors PHP browse_filter_url(): browse with one network/genre/status chip preselected.
+function browseUrl(facet, value) {
+  return (I18N.lang === 'tr' ? '/tr' : '') + `/browse?${facet}=${encodeURIComponent(value)}`;
+}
+
 // Wire a .filter-tabs / .filter-panel group inside `scope`: clicking a tab
 // activates it and shows only its panel. Shared by browse, My Shows, My Movies.
 function wireTabs(scope) {
@@ -1024,23 +1029,25 @@ async function initShowDetail() {
     },
   });
 
-  const metaText = [
+  // Status and networks link to browse with that filter preselected.
+  const networks = (show.network || '').split(',').map((n) => n.trim()).filter(Boolean);
+  const metaParts = [
     show.rating ? '⭐ ' + Number(show.rating).toFixed(1) : null,
     show.premiered?.slice(0, 4),
-    STATUS_LABELS[show.status],
-    show.network || null,
+    STATUS_LABELS[show.status] ? [el('a', { href: browseUrl('status', show.status), text: STATUS_LABELS[show.status] })] : null,
+    networks.length ? networks.flatMap((n, i) => [...(i ? [', '] : []), el('a', { href: browseUrl('network', n), text: n })]) : null,
     show.runtime ? t('runtime_min', show.runtime) : null,
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean);
 
   const trailerKey = pickTrailer(show.trailer);
   const info = el('div', { class: 'show-info' }, [
     el('h1', {}, [show.name + ' ', imdbLink(showId), ...(trailerKey ? [' ', trailerButton(trailerKey)] : [])]),
-    el('p', { class: 'muted', text: metaText }),
+    el('p', { class: 'muted' }, metaParts.flatMap((p, i) => [...(i ? [' · '] : []), ...[p].flat()])),
   ]);
 
   const genres = (show.genres || '').split(',').map((g) => g.trim()).filter(Boolean);
   if (genres.length) {
-    info.append(el('p', { class: 'genres' }, genres.map((g) => el('span', { class: 'genre-chip', text: g }))));
+    info.append(el('p', { class: 'genres' }, genres.map((g) => el('a', { class: 'genre-chip', href: browseUrl('genre', g), text: g }))));
   }
 
   const progress = buildProgress();
@@ -1277,9 +1284,12 @@ function initBrowseFilter() {
     let set;
     try { set = new Set(JSON.parse(chip.dataset.networks)); } catch { set = new Set(); }
     memberOf.set(chip, set);
-    set.forEach((m) => groupedUnion.add(m));
+    // A one-off chip (?network= outside every group) mustn't shrink Others.
+    if (!chip.dataset.adhoc) set.forEach((m) => groupedUnion.add(m));
   });
-  const selNet = new Set();
+  // Chips the server preselected (?network= / ?genre= / ?status= links).
+  const preselected = (chips) => chips.filter((c) => c.classList.contains('selected'));
+  const selNet = new Set(preselected(netChips));
   const matchesNet = (c) => {
     if (!selNet.size) return true;
     for (const chip of selNet) {
@@ -1364,6 +1374,7 @@ function initBrowseFilter() {
   const wireValueFacet = (bar, attr, sel) => {
     if (!bar) return;
     const chips = [...bar.querySelectorAll(`.net-chip[data-${attr}]`)];
+    preselected(chips).forEach((chip) => sel.add(chip.getAttribute(`data-${attr}`)));
     chips.forEach((chip) => chip.addEventListener('click', () => {
       const v = chip.getAttribute(`data-${attr}`);
       sel.has(v) ? sel.delete(v) : sel.add(v);
@@ -1383,7 +1394,13 @@ function initBrowseFilter() {
   wireTabs(document.querySelector('.filters') || document);
 
   if (moreBtn) moreBtn.addEventListener('click', () => { limit += BATCH; apply(); });
-  apply(); // apply the initial display cap
+  apply(); // apply the initial display cap (and any preselected chip)
+
+  // The chip bars scroll; bring a preselected chip into view (bar only, not the page).
+  document.querySelectorAll('.net-filter .net-chip.selected:not(.net-all)').forEach((chip) => {
+    const bar = chip.closest('.net-filter');
+    bar.scrollTop += chip.getBoundingClientRect().top - bar.getBoundingClientRect().top - 4;
+  });
 }
 
 // Footer sun/moon toggle. The theme is applied server-side on <html data-theme>
