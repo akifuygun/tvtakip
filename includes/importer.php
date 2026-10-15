@@ -77,6 +77,19 @@ function clean_runtime(mixed $value): ?int
     return $n > 0 ? min($n, 65535) : null;
 }
 
+/** Turkish overview from a TMDB detail fetched with
+ *  append_to_response=translations, or null. */
+function tmdb_tr_overview(array $detail): ?string
+{
+    foreach ($detail['translations']['translations'] ?? [] as $t) {
+        $text = trim((string) ($t['data']['overview'] ?? ''));
+        if (($t['iso_639_1'] ?? '') === 'tr' && $text !== '') {
+            return $text;
+        }
+    }
+    return null;
+}
+
 /** Base show + episodes (no per-episode IMDB ids) from TMDB, or null. */
 function fetch_base_from_tmdb(string $imdbId): ?array
 {
@@ -85,7 +98,7 @@ function fetch_base_from_tmdb(string $imdbId): ?array
     if (!$tv) {
         return null;
     }
-    $detail = http_get_json(tmdb_api_url('/tv/' . $tv['id']));
+    $detail = http_get_json(tmdb_api_url('/tv/' . $tv['id'], ['append_to_response' => 'translations']));
     if (!$detail) {
         return null;
     }
@@ -115,6 +128,7 @@ function fetch_base_from_tmdb(string $imdbId): ?array
             'backdrop_url' => !empty($detail['backdrop_path']) ? TMDB_BACKDROP_BASE . $detail['backdrop_path'] : null,
             'status' => $detail['status'] ?? null,
             'overview' => trim((string) ($detail['overview'] ?? '')) ?: null,
+            'overview_tr' => tmdb_tr_overview($detail),
             'premiered' => valid_date($detail['first_air_date'] ?? null),
             'genres' => genres_string(array_column($detail['genres'] ?? [], 'name')),
             // ALL networks the show aired on (network-hoppers list several),
@@ -208,15 +222,16 @@ function tvdb_get(string $path): ?array
 
 /**
  * A show on TheTVDB: 'airs' => its regular air time as ['time' => 'HH:MM',
- * 'tz' => zone] or null, and 'episodes' => its dated regular episodes as
- * [season, number, name, airdate] rows. Both empty when TheTVDB doesn't know
- * the show (or no key is configured); null when TheTVDB couldn't be asked, so
- * callers keep what's stored. A time with no air day is TheTVDB's unset
+ * 'tz' => zone] or null, 'episodes' => its dated regular episodes as
+ * [season, number, name, airdate] rows, and 'overview_tr' => its Turkish
+ * description or null. All empty when TheTVDB doesn't know the show (or no
+ * key is configured); null when TheTVDB couldn't be asked, so callers keep
+ * what's stored. A time with no air day is TheTVDB's unset
  * default, not a schedule.
  */
 function tvdb_show(string $imdbId): ?array
 {
-    $none = ['airs' => null, 'episodes' => []];
+    $none = ['airs' => null, 'episodes' => [], 'overview_tr' => null];
     if (!defined('TVDB_API_KEY') || TVDB_API_KEY === '') {
         return $none;
     }
@@ -234,7 +249,7 @@ function tvdb_show(string $imdbId): ?array
     if (!$seriesId) {
         return $none;
     }
-    $series = tvdb_get('/series/' . $seriesId . '/extended?meta=episodes&short=true');
+    $series = tvdb_get('/series/' . $seriesId . '/extended?meta=episodes,translations&short=true');
     if ($series === null) {
         return null;
     }
@@ -263,7 +278,19 @@ function tvdb_show(string $imdbId): ?array
             'airdate' => $airdate,
         ];
     }
-    return ['airs' => $airs, 'episodes' => $episodes];
+    return ['airs' => $airs, 'episodes' => $episodes, 'overview_tr' => tvdb_tr_overview($d)];
+}
+
+/** Turkish overview from a TheTVDB record fetched with meta=translations, or null. */
+function tvdb_tr_overview(array $record): ?string
+{
+    foreach ($record['translations']['overviewTranslations'] ?? [] as $t) {
+        $text = trim((string) ($t['overview'] ?? ''));
+        if (($t['language'] ?? '') === 'tur' && $text !== '') {
+            return $text;
+        }
+    }
+    return null;
 }
 
 /**
@@ -332,6 +359,7 @@ function fetch_base_from_tvmaze(string $imdbId): ?array
             'backdrop_url' => null, // TVmaze has no wide/backdrop image
             'status' => $show['status'] ?? null,
             'overview' => trim(strip_tags((string) ($show['summary'] ?? ''))) ?: null,
+            'overview_tr' => null, // TVmaze has no translations
             'premiered' => valid_date($show['premiered'] ?? null),
             'genres' => genres_string($show['genres'] ?? []),
             'network' => trim((string) ($show['network']['name'] ?? $show['webChannel']['name'] ?? '')) ?: null,
@@ -352,15 +380,16 @@ function upsert_show(PDO $pdo, array $show, bool $markSynced): void
 {
     $stmt = $pdo->prepare(
         'INSERT INTO shows
-            (imdb_id, name, image_url, backdrop_url, status, overview, premiered,
+            (imdb_id, name, image_url, backdrop_url, status, overview, overview_tr, premiered,
              genres, network, rating, runtime, synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
          ON DUPLICATE KEY UPDATE
              name = VALUES(name),
              image_url = COALESCE(VALUES(image_url), image_url),
              backdrop_url = COALESCE(VALUES(backdrop_url), backdrop_url),
              status = COALESCE(VALUES(status), status),
              overview = COALESCE(VALUES(overview), overview),
+             overview_tr = COALESCE(VALUES(overview_tr), overview_tr),
              premiered = COALESCE(VALUES(premiered), premiered),
              genres = COALESCE(VALUES(genres), genres),
              network = COALESCE(VALUES(network), network),
@@ -375,6 +404,7 @@ function upsert_show(PDO $pdo, array $show, bool $markSynced): void
         mb_substr((string) ($show['backdrop_url'] ?? ''), 0, 500) ?: null,
         normalize_show_status($show['status'] ?? null),
         $show['overview'] ?? null,
+        $show['overview_tr'] ?? null,
         valid_date($show['premiered'] ?? null),
         $show['genres'] ?? null,
         mb_substr((string) ($show['network'] ?? ''), 0, 255) ?: null,
@@ -526,6 +556,8 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
     $tvdb = tvdb_show($imdbId);
     if ($tvdb) {
         array_push($payload['episodes'], ...tvdb_upcoming_episodes($payload['episodes'], $tvdb['episodes']));
+        // Turkish description: TMDB's when it has one, else TheTVDB's.
+        $payload['show']['overview_tr'] ??= $tvdb['overview_tr'];
     }
 
     // TMDB has no air times — enrich its episodes with TVmaze's UTC airstamps
@@ -633,7 +665,7 @@ function fetch_movie_from_tmdb(string $imdbId): ?array
     if (!$movie) {
         return null;
     }
-    $detail = http_get_json(tmdb_api_url('/movie/' . $movie['id']));
+    $detail = http_get_json(tmdb_api_url('/movie/' . $movie['id'], ['append_to_response' => 'translations']));
     if (!$detail) {
         return null;
     }
@@ -644,6 +676,7 @@ function fetch_movie_from_tmdb(string $imdbId): ?array
         'backdrop_url' => !empty($detail['backdrop_path']) ? TMDB_BACKDROP_BASE . $detail['backdrop_path'] : null,
         'status' => $detail['status'] ?? null,
         'overview' => trim((string) ($detail['overview'] ?? '')) ?: null,
+        'overview_tr' => tmdb_tr_overview($detail),
         'released' => valid_date($detail['release_date'] ?? null),
         'genres' => genres_string(array_column($detail['genres'] ?? [], 'name')),
         'studio' => trim((string) ($detail['production_companies'][0]['name'] ?? '')) ?: null,
@@ -657,15 +690,16 @@ function upsert_movie(PDO $pdo, array $movie, bool $markSynced): void
 {
     $stmt = $pdo->prepare(
         'INSERT INTO movies
-            (imdb_id, name, image_url, backdrop_url, status, overview, released,
+            (imdb_id, name, image_url, backdrop_url, status, overview, overview_tr, released,
              genres, studio, rating, runtime, synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
          ON DUPLICATE KEY UPDATE
              name = VALUES(name),
              image_url = COALESCE(VALUES(image_url), image_url),
              backdrop_url = COALESCE(VALUES(backdrop_url), backdrop_url),
              status = COALESCE(VALUES(status), status),
              overview = COALESCE(VALUES(overview), overview),
+             overview_tr = COALESCE(VALUES(overview_tr), overview_tr),
              released = COALESCE(VALUES(released), released),
              genres = COALESCE(VALUES(genres), genres),
              studio = COALESCE(VALUES(studio), studio),
@@ -680,6 +714,7 @@ function upsert_movie(PDO $pdo, array $movie, bool $markSynced): void
         mb_substr((string) ($movie['backdrop_url'] ?? ''), 0, 500) ?: null,
         normalize_movie_status($movie['status'] ?? null),
         $movie['overview'] ?? null,
+        $movie['overview_tr'] ?? null,
         valid_date($movie['released'] ?? null),
         $movie['genres'] ?? null,
         mb_substr((string) ($movie['studio'] ?? ''), 0, 120) ?: null,

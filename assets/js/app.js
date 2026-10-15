@@ -957,7 +957,7 @@ async function initShowDetail() {
 
   if (nextUp) info.append(buildCountdown(nextUp));
   info.append(
-    el('p', { class: 'show-summary', text: show.overview ?? '' }),
+    el('p', { class: 'show-summary', text: (I18N.lang === 'tr' && show.overview_tr) || show.overview || '' }),
     trackBtn,
   );
 

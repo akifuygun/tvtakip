@@ -16,7 +16,7 @@ if (!valid_imdb_id($showId)) {
 }
 
 $stmt = db()->prepare(
-    'SELECT imdb_id, name, image_url, backdrop_url, status, overview, premiered,
+    'SELECT imdb_id, name, image_url, backdrop_url, status, overview, overview_tr, premiered,
             genres, network, rating, runtime
      FROM shows WHERE imdb_id = ?'
 );
@@ -74,6 +74,7 @@ if (!$show) {
         exit;
     }
 }
+$show['overview'] = localized_overview($show);
 
 $stmt = db()->prepare(
     'SELECT imdb_id, season, number, name, airdate FROM episodes

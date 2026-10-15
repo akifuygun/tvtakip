@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS shows (
     backdrop_url VARCHAR(500) DEFAULT NULL,  -- wide hero/social image (TMDB only)
     status VARCHAR(50) DEFAULT NULL,  -- canonical: running|ended|canceled|upcoming|unknown (normalize_show_status)
     overview TEXT DEFAULT NULL,
+    overview_tr TEXT DEFAULT NULL,  -- Turkish description (TMDB, else TheTVDB) for TR pages; NULL = none
     premiered DATE DEFAULT NULL,
     genres VARCHAR(255) DEFAULT NULL,  -- comma-separated, from provider payloads
     network VARCHAR(255) DEFAULT NULL,  -- ALL networks the show aired on, comma-separated
@@ -88,6 +89,7 @@ CREATE TABLE IF NOT EXISTS movies (
     backdrop_url VARCHAR(500) DEFAULT NULL,
     status VARCHAR(50) DEFAULT NULL,  -- canonical: released|upcoming|canceled|unknown (normalize_movie_status)
     overview TEXT DEFAULT NULL,
+    overview_tr TEXT DEFAULT NULL,    -- Turkish description (TMDB) for TR pages; NULL = none
     released DATE DEFAULT NULL,       -- TMDB release_date
     genres VARCHAR(255) DEFAULT NULL,
     studio VARCHAR(120) DEFAULT NULL, -- production_companies[0].name

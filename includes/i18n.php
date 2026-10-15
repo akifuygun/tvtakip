@@ -74,6 +74,13 @@ function lang_url(string $lang): string
     return strtok($_SERVER['REQUEST_URI'], '?') . '?' . http_build_query($q);
 }
 
+/** A show/movie row's description in the page language: its Turkish
+ *  `overview_tr` on TR pages when there is one, the English `overview` otherwise. */
+function localized_overview(array $row): ?string
+{
+    return current_lang() === 'tr' && !empty($row['overview_tr']) ? $row['overview_tr'] : ($row['overview'] ?? null);
+}
+
 /** Locale-formatted date for public pages (TR: 15.07.2026, EN: Jul 15, 2026). */
 function format_date(?string $ymd): string
 {

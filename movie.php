@@ -17,7 +17,7 @@ if (!valid_imdb_id($movieId)) {
 }
 
 $stmt = db()->prepare(
-    'SELECT imdb_id, name, image_url, backdrop_url, status, overview, released,
+    'SELECT imdb_id, name, image_url, backdrop_url, status, overview, overview_tr, released,
             genres, studio, rating, runtime
      FROM movies WHERE imdb_id = ?'
 );
@@ -52,6 +52,7 @@ if (!$movie) {
     require __DIR__ . '/includes/footer.php';
     exit;
 }
+$movie['overview'] = localized_overview($movie);
 
 $pageTitle = $movie['name'];
 $canonicalUrl = seo_base() . movie_url($movieId);
