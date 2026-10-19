@@ -48,6 +48,18 @@ const TVDB_COUNTRY_TZ = [
     'aus' => 'Australia/Sydney', 'nzl' => 'Pacific/Auckland', 'zaf' => 'Africa/Johannesburg',
 ];
 
+// MANUALLY CURATED shows whose regular episodes follow TheTVDB's numbering
+// instead of the base provider's, because the base one is wrong for them.
+// Never detected automatically: across the catalog TheTVDB numbers hundreds
+// of shows differently (daily shows by year, anime, spin-offs filed as later
+// seasons) where TMDB's numbering is the right one.
+const TVDB_EPISODE_SOURCE = [
+    'tt13667230', // Konuşanlar: TMDB skips the 2025–26 Disney+ season and calls 2026–27 season 6
+    'tt0983983',  // Shaun the Sheep: TMDB skips the 2020 season and calls the 2025 one season 6
+    'tt14094206', // Marvel Studios Assembled: TMDB stops after 6 of its 23 episodes
+    'tt3494560',  // La Familia del Barrio: TMDB has mostly undated "Episode N" placeholders
+];
+
 // Episode IMDB ids fetched per import/refresh. Kept small so a single web
 // request stays under shared-hosting execution limits when curl_multi is
 // unavailable (fetches run sequentially). CLI passes a large value.
@@ -411,12 +423,13 @@ function tvdb_merge_finales(array &$episodes, array $tvdbEpisodes): void
 }
 
 /**
- * Episodes TheTVDB announces that the base provider doesn't list yet. Only
- * future ones that continue the base's last season (higher numbers, not
- * dated before its last episode) or open the next season (dated after it);
- * anything else risks duplicating an episode the base numbers differently.
+ * Episodes TheTVDB lists that the base provider doesn't list yet: only ones
+ * that continue the base's last season (higher numbers, not dated before its
+ * last episode) or open the next season (dated after it); anything else risks
+ * duplicating an episode the base numbers differently. The importer adds the
+ * upcoming ones and only keeps the aired ones it already has.
  */
-function tvdb_upcoming_episodes(array $base, array $tvdbEpisodes): array
+function tvdb_continuations(array $base, array $tvdbEpisodes): array
 {
     $regular = array_filter($base, fn($ep) => $ep['season'] >= 1);
     $lastSeason = $regular ? max(array_column($regular, 'season')) : 0;
@@ -435,12 +448,35 @@ function tvdb_upcoming_episodes(array $base, array $tvdbEpisodes): array
     foreach ($tvdbEpisodes as $ep) {
         $continues = $ep['season'] === $lastSeason && $ep['number'] > $lastNumber && $ep['airdate'] >= $lastDate;
         $opensNext = $ep['season'] === $lastSeason + 1 && $ep['airdate'] > $lastDate;
-        if (($continues || $opensNext) && $ep['airdate'] >= today()
-            && !isset($have[$ep['season'] . '-' . $ep['number']])) {
+        if (($continues || $opensNext) && !isset($have[$ep['season'] . '-' . $ep['number']])) {
             $added[] = ['imdb_id' => null] + $ep;
         }
     }
     return $added;
+}
+
+/** Whether two dates (or a UTC stamp's date) are within a day of each other. */
+function within_a_day(?string $a, ?string $b): bool
+{
+    return $a !== null && $b !== null
+        && abs(strtotime(substr($a, 0, 10)) - strtotime(substr($b, 0, 10))) <= 86400;
+}
+
+/** [season, number] of the regular episodes the base provider and TheTVDB
+ *  number alike: same numbers, air dates within a day of each other. */
+function same_numbering(array $base, array $tvdbEpisodes): array
+{
+    $dates = [];
+    foreach ($base as $ep) {
+        $dates[$ep['season'] . '-' . $ep['number']] = $ep['airdate'];
+    }
+    $same = [];
+    foreach ($tvdbEpisodes as $ep) {
+        if (within_a_day($dates[$ep['season'] . '-' . $ep['number']] ?? null, $ep['airdate'])) {
+            $same[] = [$ep['season'], $ep['number']];
+        }
+    }
+    return $same;
 }
 
 /** UTC DATETIME of an episode's air date at the show's local air time. */
@@ -616,22 +652,53 @@ function clear_airstamps(PDO $pdo, string $showImdbId, array $episodes): void
     }
 }
 
+/** SQL condition "(season, number) IN (...)" for [season, number] pairs, and
+ *  its params; "FALSE" for none. */
+function episode_pairs_sql(array $pairs): array
+{
+    if (!$pairs) {
+        return ['FALSE', []];
+    }
+    $params = [];
+    foreach ($pairs as [$season, $number]) {
+        $params[] = max(0, (int) $season);
+        $params[] = max(0, (int) $number);
+    }
+    return ['(season, number) IN (' . implode(', ', array_fill(0, count($pairs), '(?, ?)')) . ')', $params];
+}
+
+/** Null the IMDB ids of a show's regular episodes other than $keep
+ *  ([season, number] pairs) — ids TMDB gave an episode it numbers differently. */
+function clear_episode_imdb_ids(PDO $pdo, string $showImdbId, array $keep): void
+{
+    [$keepSql, $params] = episode_pairs_sql($keep);
+    $stmt = $pdo->prepare(
+        "UPDATE episodes SET imdb_id = NULL
+         WHERE show_imdb_id = ? AND season >= 1 AND imdb_id IS NOT NULL AND NOT $keepSql"
+    );
+    $stmt->execute([$showImdbId, ...$params]);
+}
+
 /**
  * Fetch episode IMDB ids from TMDB for up to $limit episodes that don't have
  * one yet, and update them in place. Returns how many were filled. Its own
  * short DB write window (db_live) so a dropped idle connection can't kill it.
+ * $only: [season, number] of the regular episodes TMDB numbers the same way
+ * (specials always qualify); null = all.
  */
-function backfill_episode_imdb_ids(PDO $pdo, string $imdbId, int $limit): int
+function backfill_episode_imdb_ids(PDO $pdo, string $imdbId, int $limit, ?array $only = null): int
 {
     if ($limit < 1) {
         return 0;
     }
     $lim = (int) min($limit, 2000);
+    [$onlySql, $onlyParams] = $only === null ? ['TRUE', []] : episode_pairs_sql($only);
     $stmt = $pdo->prepare(
         "SELECT season, number FROM episodes
-         WHERE show_imdb_id = ? AND imdb_id IS NULL ORDER BY season, number LIMIT $lim"
+         WHERE show_imdb_id = ? AND imdb_id IS NULL AND (season = 0 OR $onlySql)
+         ORDER BY season, number LIMIT $lim"
     );
-    $stmt->execute([$imdbId]);
+    $stmt->execute([$imdbId, ...$onlyParams]);
     $rows = $stmt->fetchAll();
     if (!$rows) {
         return 0;
@@ -674,10 +741,10 @@ function backfill_episode_imdb_ids(PDO $pdo, string $imdbId, int $limit): int
  *
  * $backfillLimit: episode ids to fetch this call (CLI passes a large value to
  * complete in one run; the web default keeps each request short).
- * $prune: also DELETE episodes the provider no longer lists (renumbered or
+ * $prune: also DELETE episodes the providers no longer list (renumbered or
  * removed) — only the manual "Refresh" uses this, so a transient provider gap
- * during auto-refresh can never mass-delete; watched rows of pruned ghosts go
- * with them via the FK cascade (they refer to episodes that no longer exist).
+ * during auto-refresh can never mass-delete. Watched episodes are never
+ * pruned (the FK cascade would take the watched history with them).
  */
 function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BATCH, bool $prune = false): int
 {
@@ -696,13 +763,37 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
         }
     }
 
-    // TheTVDB often lists announced episodes before TMDB/TVmaze do — add those
-    // (the base provider's data replaces them once it lists them). null when
-    // TheTVDB was unreachable.
+    // null when TheTVDB was unreachable.
     $tvdb = tvdb_show($imdbId);
+
+    // Curated shows (TVDB_EPISODE_SOURCE) take their regular episodes from
+    // TheTVDB; specials stay the base provider's. Without TheTVDB's list their
+    // stored episodes are left alone — the base numbering is the wrong one.
+    // $sameNumbering: episodes both number alike, the only ones whose TMDB
+    // episode ids fit.
+    $tvdbSource = in_array($imdbId, TVDB_EPISODE_SOURCE, true);
+    $sameNumbering = null;
+    if ($tvdbSource) {
+        if (!($tvdb['episodes'] ?? [])) {
+            return 0;
+        }
+        $sameNumbering = same_numbering($payload['episodes'], $tvdb['episodes']);
+        $payload['episodes'] = [
+            ...array_filter($payload['episodes'], fn($ep) => $ep['season'] < 1),
+            ...array_map(fn($ep) => ['imdb_id' => null] + $ep, $tvdb['episodes']),
+        ];
+        $listed = []; // TVmaze's listing follows the base numbering
+    }
+
+    // TheTVDB often lists announced episodes before TMDB/TVmaze do — add the
+    // upcoming ones (the base provider's data replaces them once it lists
+    // them). Aired ones are only kept, in $continuations, so a Refresh never
+    // prunes an episode that was added while it was upcoming.
+    $continuations = [];
     if ($tvdb) {
         tvdb_merge_finales($payload['episodes'], $tvdb['episodes']);
-        array_push($payload['episodes'], ...tvdb_upcoming_episodes($payload['episodes'], $tvdb['episodes']));
+        $continuations = tvdb_continuations($payload['episodes'], $tvdb['episodes']);
+        array_push($payload['episodes'], ...array_filter($continuations, fn($ep) => $ep['airdate'] >= today()));
         // Turkish description: TMDB's when it has one, else TheTVDB's.
         $payload['show']['overview_tr'] ??= $tvdb['overview_tr'];
         // Trailers: TMDB's per language, TheTVDB's for languages TMDB lacks.
@@ -718,10 +809,15 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
 
     // TMDB has no air times — enrich its episodes with TVmaze's UTC airstamps
     // so aired-gating can be exact (the TVmaze path already carries them).
-    if ($payload['source'] === 'tmdb') {
+    // TheTVDB-numbered episodes only take a time TVmaze gives the same episode.
+    if ($payload['source'] === 'tmdb' || $tvdbSource) {
         $stamps = tvmaze_airstamps($imdbId);
         foreach ($payload['episodes'] as &$ep) {
             $key = $ep['season'] . '-' . $ep['number'];
+            if ($tvdbSource && $ep['season'] >= 1 && !within_a_day($stamps[$key] ?? null, $ep['airdate'])) {
+                $ep['airstamp'] = null;
+                continue;
+            }
             $ep['airstamp'] = $stamps[$key] ?? null;
             if (array_key_exists($key, $stamps)) {
                 $listed[$key] = true;
@@ -768,25 +864,23 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
         upsert_show($pdo, $payload['show'], true);
         $count = upsert_episodes($pdo, $imdbId, $payload['episodes']);
         clear_airstamps($pdo, $imdbId, $timeless);
+        if ($sameNumbering !== null) {
+            clear_episode_imdb_ids($pdo, $imdbId, $sameNumbering);
+        }
         if ($payload['episodes'] && ($prune || $tvdb !== null)) {
-            // Drop rows the providers no longer list, keyed by the episode
-            // identity (season, number). Guarded by non-empty payload. The
-            // manual Refresh ($prune) drops all of them; every other import
-            // only never-aired, unwatched ones (e.g. a TheTVDB announcement
-            // the base provider later numbered differently) — and not when
+            // Drop unwatched rows the providers no longer list, keyed by the
+            // episode identity (season, number). Guarded by non-empty payload.
+            // The manual Refresh ($prune) drops all of them; every other
+            // import only never-aired ones (e.g. a TheTVDB announcement the
+            // base provider later numbered differently) — and not when
             // TheTVDB was unreachable, as its additions are missing then.
-            $pairs = [];
-            $params = [$imdbId];
-            foreach ($payload['episodes'] as $ep) {
-                $pairs[] = '(?, ?)';
-                $params[] = max(0, (int) ($ep['season'] ?? 0));
-                $params[] = max(0, (int) ($ep['number'] ?? 0));
-            }
-            $sql = 'DELETE FROM episodes WHERE show_imdb_id = ?
-                    AND (season, number) NOT IN (' . implode(', ', $pairs) . ')';
+            $keep = array_map(fn($ep) => [$ep['season'], $ep['number']], [...$payload['episodes'], ...$continuations]);
+            [$keepSql, $params] = episode_pairs_sql($keep);
+            $sql = "DELETE FROM episodes WHERE show_imdb_id = ? AND NOT $keepSql
+                    AND NOT EXISTS (SELECT 1 FROM watched_episodes w WHERE w.episode_id = episodes.id)";
+            $params = [$imdbId, ...$params];
             if (!$prune) {
-                $sql .= ' AND airdate > ? AND (airstamp IS NULL OR airstamp > UTC_TIMESTAMP())
-                          AND NOT EXISTS (SELECT 1 FROM watched_episodes w WHERE w.episode_id = episodes.id)';
+                $sql .= ' AND airdate > ? AND (airstamp IS NULL OR airstamp > UTC_TIMESTAMP())';
                 $params[] = today();
             }
             $stmt = $pdo->prepare($sql);
@@ -801,7 +895,7 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
     // Phase 2: best-effort id backfill — the show is already usable, so a
     // failure here (timeout, provider hiccup) must not fail the import.
     try {
-        backfill_episode_imdb_ids($pdo, $imdbId, $backfillLimit);
+        backfill_episode_imdb_ids($pdo, $imdbId, $backfillLimit, $sameNumbering);
     } catch (Throwable $e) {
         // ignore; a later refresh will backfill
     }

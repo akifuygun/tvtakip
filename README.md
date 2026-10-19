@@ -37,7 +37,9 @@ watched, and keep a movie watchlist.
     (most streaming drops) the show's regular air time from
     [TheTVDB](https://thetvdb.com) (optional API key), in the show's home timezone.
   - *Announced episodes:* TheTVDB often lists upcoming episodes before TMDB does;
-    those are added (future only) until TMDB lists them.
+    those are added until TMDB lists them, and kept after they air.
+  - *Episode numbering:* a few curated shows whose TMDB numbering is wrong (e.g. a
+    skipped season) take their regular episodes from TheTVDB instead.
   - *Premiere / finale badges* on the calendar and Upcoming: finales from TMDB's
     episode type, with TheTVDB marking which one is the series finale.
   - *Turkish descriptions* for Turkish pages: TMDB translations, TheTVDB as fallback.
