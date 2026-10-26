@@ -1173,8 +1173,12 @@ async function initShowDetail() {
       seasonBtn.textContent = seasonFullyWatched() ? t('mark_season_unwatched') : t('mark_season_watched');
     };
     updateSeasonBtn();
+    // A season with nothing aired yet (announced, undated) has nothing to mark.
     epContainer.append(el('details', { class: 'season', ...(season === newestSeason ? { open: '' } : {}) }, [
-      el('summary', {}, [`${title} ${eps.length === 1 ? t('episodes_count_one') : t('episodes_count', eps.length)}`, seasonBtn]),
+      el('summary', {}, [
+        `${title} ${eps.length === 1 ? t('episodes_count_one') : t('episodes_count', eps.length)}`,
+        ...(seasonToggles.length ? [seasonBtn] : []),
+      ]),
       list,
     ]));
   }
@@ -1213,9 +1217,12 @@ async function initShowDetail() {
   // "Mark All Watched" only renders while something is actually markable: it
   // hides once every aired episode is watched (or none has aired) and comes
   // back the moment any unwatch happens — every watch-state change above runs
-  // through setWatched, which calls this.
+  // through setWatched, which calls this. "Mark All Unwatched" likewise only
+  // while something is watched (incl. episodes whose air date moved ahead).
+  const watchedUnaired = episodes.some((ep) => watched.has(ep.id) && !epHasAired(ep));
   updateMarkAll = () => {
     markAllBtn.style.display = allToggles.some((tog) => !tog.watched()) ? '' : 'none';
+    unmarkAllBtn.style.display = watchedUnaired || allToggles.some((tog) => tog.watched()) ? '' : 'none';
   };
   updateMarkAll();
 
