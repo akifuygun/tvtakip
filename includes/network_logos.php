@@ -33,10 +33,10 @@ function network_groups(): array
     ];
 }
 
-/** Exact network-name -> self-hosted logo path; null when we have no image. */
-function network_logo(string $name): ?string
+/** Exact network-name -> self-hosted logo path. */
+function network_logos(): array
 {
-    static $map = [
+    return [
         'Netflix' => '/assets/networks/netflix.png',
         'Disney+' => '/assets/networks/disney-plus.png',
         'Prime Video' => '/assets/networks/prime-video.png',
@@ -77,22 +77,71 @@ function network_logo(string $name): ?string
         'Fuji TV' => '/assets/networks/fuji-tv.png',
         'Nippon TV' => '/assets/networks/nippon-tv.png',
     ];
+}
+
+/** Self-hosted logo path for an exact network name; null when we have no image. */
+function network_logo(string $name): ?string
+{
+    static $map = null;
+    $map ??= network_logos();
     return $map[$name] ?? null;
 }
 
-/** Split a comma-separated network list ("FOX, Netflix") into trimmed names. */
-function network_names(?string $list): array
+/** Logo of a network itself, else of its brand group's first member. */
+function network_logo_or_group(string $name): ?string
 {
-    return array_values(array_filter(array_map('trim', explode(',', (string) $list))));
+    if ($logo = network_logo($name)) {
+        return $logo;
+    }
+    foreach (network_groups() as [$label, $members]) {
+        if (in_array($name, $members, true) && ($logo = network_logo($members[0]))) {
+            return $logo;
+        }
+    }
+    return null;
+}
+
+/**
+ * Split a comma-separated network list ("FOX, Netflix") into trimmed names.
+ * A show's admin-set primary network (shows.primary_network) goes first.
+ */
+function network_names(?string $list, ?string $primary = null): array
+{
+    $names = array_map('trim', explode(',', (string) $list));
+    array_unshift($names, trim((string) $primary));
+    return array_values(array_unique(array_filter($names)));
+}
+
+/**
+ * Exact spelling of an admin-typed network name: a known one (logo map, brand
+ * groups, the show's own networks) matched ignoring case, spaces and the
+ * Turkish dotted/dotless i — so "gain" saves as "GAİN" and gets its logo.
+ */
+function canonical_network_name(string $name, array $showNetworks = []): string
+{
+    $fold = fn (string $s) => mb_strtolower(preg_replace('/\s+/u', '', strtr($s, ['İ' => 'i', 'ı' => 'i'])));
+    $known = array_merge(array_keys(network_logos()), array_merge(...array_column(network_groups(), 1)), $showNetworks);
+    foreach ($known as $k) {
+        if ($fold($k) === $fold($name)) {
+            return $k;
+        }
+    }
+    return $name;
 }
 
 /**
  * Badge for a show's (possibly multi-valued) network list: [name, logo] of the
  * first listed network with its own logo, else the first whose brand group has
- * one (e.g. "HBO Max" -> HBO's logo). Null when nothing matches.
+ * one (e.g. "HBO Max" -> HBO's logo). Null when nothing matches. An admin-set
+ * primary network decides alone: its logo, or no badge rather than another
+ * network's.
  */
-function network_badge_info(?string $list): ?array
+function network_badge_info(?string $list, ?string $primary = null): ?array
 {
+    $primary = trim((string) $primary);
+    if ($primary !== '') {
+        return ($logo = network_logo_or_group($primary)) ? [$primary, $logo] : null;
+    }
     $names = network_names($list);
     foreach ($names as $n) {
         if ($logo = network_logo($n)) {
@@ -100,10 +149,8 @@ function network_badge_info(?string $list): ?array
         }
     }
     foreach ($names as $n) {
-        foreach (network_groups() as [$label, $members]) {
-            if (in_array($n, $members, true) && ($logo = network_logo($members[0]))) {
-                return [$n, $logo];
-            }
+        if ($logo = network_logo_or_group($n)) {
+            return [$n, $logo];
         }
     }
     return null;

@@ -13,7 +13,7 @@ function cache_payload(string $imdbId): array
 {
     $stmt = db()->prepare(
         'SELECT imdb_id, name, image_url, backdrop_url, gallery, trailer, status, overview, overview_tr, premiered,
-                genres, network, rating, runtime, synced_at
+                genres, network, primary_network, rating, runtime, synced_at
          FROM shows WHERE imdb_id = ?'
     );
     $stmt->execute([$imdbId]);

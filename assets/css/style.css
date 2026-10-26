@@ -682,6 +682,16 @@ a.genre-chip:hover { color: var(--accent); border-color: var(--accent); }
   vertical-align: middle;
 }
 .imdb-link:hover { background: #ffd84d; color: #000; }
+/* Admin ✎ after a show's networks: sets its primary network. */
+.net-edit {
+  font: inherit;
+  background: none;
+  border: 0;
+  padding: 0 0.15rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.net-edit:hover { color: var(--accent); }
 /* Trailer badge next to the IMDB one; opens the YouTube player overlay. */
 .trailer-link {
   font: inherit;

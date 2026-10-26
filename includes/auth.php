@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '60';
+const ASSET_VERSION = '61';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -385,11 +385,11 @@ function genre_list(?string $genres): array
 
 /** Network logo badge overlaid on a card poster; '' when none of the show's
  *  networks (comma-separated list) has a self-hosted logo, directly or via
- *  its brand group (network_logos.php). */
-function network_badge_html(?string $network): string
+ *  its brand group (network_logos.php). An admin-set primary network wins. */
+function network_badge_html(?string $network, ?string $primary = null): string
 {
     require_once __DIR__ . '/network_logos.php';
-    $badge = network_badge_info($network);
+    $badge = network_badge_info($network, $primary);
     return $badge
         ? '<img class="net-badge" src="' . htmlspecialchars($badge[1]) . '" alt="' . htmlspecialchars($badge[0]) . '" loading="lazy">'
         : '';
@@ -410,10 +410,12 @@ function show_card_html(array $show, string $href): string
         ? '<span class="card-rating">⭐ ' . number_format((float) $show['rating'], 1) . '</span>'
         : '';
     $meta = ($badge || $rating) ? '<div class="card-meta">' . $rating . $badge . '</div>' : '';
-    $data = ' data-network="' . htmlspecialchars($show['network'] ?? '') . '"'
+    require_once __DIR__ . '/network_logos.php';
+    $primary = $show['primary_network'] ?? null;
+    $data = ' data-network="' . htmlspecialchars(implode(', ', network_names($show['network'] ?? null, $primary))) . '"'
         . ' data-genres="' . htmlspecialchars(implode(', ', genre_list($show['genres'] ?? null))) . '"'
         . ' data-status="' . htmlspecialchars($show['status'] ?? '') . '"';
-    return '<div class="show-card"' . $data . '>' . network_badge_html($show['network'] ?? null)
+    return '<div class="show-card"' . $data . '>' . network_badge_html($show['network'] ?? null, $primary)
         . '<a href="' . htmlspecialchars($href) . '">'
         . $img . '<h3>' . $name . '</h3></a>' . $meta . '</div>';
 }

@@ -18,7 +18,7 @@ if (!valid_imdb_id($showId)) {
 
 $stmt = db()->prepare(
     'SELECT imdb_id, name, image_url, backdrop_url, gallery, trailer, status, overview, overview_tr, premiered,
-            genres, network, rating, runtime
+            genres, network, primary_network, rating, runtime
      FROM shows WHERE imdb_id = ?'
 );
 $stmt->execute([$showId]);
@@ -190,7 +190,7 @@ require __DIR__ . '/includes/header.php';
                 $show['rating'] ? '⭐ ' . number_format((float) $show['rating'], 1) : null,
                 $show['premiered'] ? substr($show['premiered'], 0, 4) : null,
                 status_label($show['status']) ? $browseLink('status', $show['status'], status_label($show['status'])) : null,
-                implode(', ', array_map(fn ($n) => $browseLink('network', $n, $n), network_names($show['network']))) ?: null,
+                implode(', ', array_map(fn ($n) => $browseLink('network', $n, $n), network_names($show['network'], $show['primary_network']))) ?: null,
                 $show['runtime'] ? htmlspecialchars(t('runtime_min', (int) $show['runtime'])) : null,
             ])) ?></p>
             <?php if ($genreList): ?>

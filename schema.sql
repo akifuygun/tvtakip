@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS shows (
     premiered DATE DEFAULT NULL,
     genres VARCHAR(255) DEFAULT NULL,  -- comma-separated, from provider payloads
     network VARCHAR(255) DEFAULT NULL,  -- ALL networks the show aired on, comma-separated
+    primary_network VARCHAR(100) DEFAULT NULL,  -- admin-set main network (e.g. the Turkish distributor); imports never touch it
     rating DECIMAL(3,1) DEFAULT NULL,  -- provider average (0-10)
     runtime SMALLINT UNSIGNED DEFAULT NULL,  -- typical episode length, minutes
     synced_at TIMESTAMP NULL DEFAULT NULL,  -- set when a full episode import completed

@@ -22,7 +22,7 @@ $mine = is_logged_in();
 function upcoming_by_date(string $from, string $to, bool $mine): array
 {
     $sql = 'SELECT e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp, e.finale,
-                   s.imdb_id, s.name AS show_name, s.network, s.rating,
+                   s.imdb_id, s.name AS show_name, s.network, s.primary_network, s.rating,
                    (SELECT COUNT(*) FROM user_shows t WHERE t.show_imdb_id = s.imdb_id) AS trackers
             FROM episodes e JOIN shows s ON s.imdb_id = e.show_imdb_id ';
     $params = [
@@ -120,7 +120,7 @@ function calendar_entry_html(array $g): string
 
     $html = '<li class="cal-ep" title="' . htmlspecialchars($title) . '">';
     $html .= '<a href="' . htmlspecialchars(series_url($first['imdb_id'])) . '">';
-    if ($b = network_badge_info($first['network'])) {
+    if ($b = network_badge_info($first['network'], $first['primary_network'])) {
         $html .= '<img class="net-inline" src="' . htmlspecialchars($b[1]) . '" alt="' . htmlspecialchars($b[0]) . '" loading="lazy">';
     }
     $html .= htmlspecialchars($first['show_name']) . '</a>';
@@ -188,7 +188,7 @@ require __DIR__ . '/includes/header.php';
                 <ul class="episode-list episode-list-plain">
                     <?php foreach ($rows as $ep): ?>
                         <li><span class="ep-title">
-                            <?php if ($b = network_badge_info($ep['network'])): ?>
+                            <?php if ($b = network_badge_info($ep['network'], $ep['primary_network'])): ?>
                                 <img class="net-inline" src="<?= htmlspecialchars($b[1]) ?>" alt="<?= htmlspecialchars($b[0]) ?>" loading="lazy">
                             <?php endif; ?>
                             <a class="cal-show" href="<?= htmlspecialchars(series_url($ep['imdb_id'])) ?>"><?= htmlspecialchars($ep['show_name']) ?></a>

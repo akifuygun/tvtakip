@@ -6,7 +6,7 @@ require_once __DIR__ . '/includes/network_logos.php';
 
 // Running first, then upcoming, then finished (canceled/ended); alphabetical within.
 $shows = db()->query(
-    "SELECT imdb_id, name, image_url, status, rating, network, genres FROM shows
+    "SELECT imdb_id, name, image_url, status, rating, network, primary_network, genres FROM shows
      ORDER BY CASE status
          WHEN 'running' THEN 1
          WHEN 'upcoming' THEN 2
@@ -32,7 +32,7 @@ $groupCounts = array_fill(0, count($NETWORK_GROUPS), 0);
 $othersCount = 0;
 foreach ($shows as $s) {
     $gids = [];
-    foreach (network_names($s['network']) as $n) {
+    foreach (network_names($s['network'], $s['primary_network']) as $n) {
         foreach ($memberToGroups[$n] ?? [] as $gi) {
             $gids[$gi] = true;
         }
@@ -96,7 +96,7 @@ if ($netPick !== '') {
     }
     $adhocCount = $netPicked ? 0 : count(array_filter(
         $shows,
-        fn ($s) => in_array($netPick, network_names($s['network']), true)
+        fn ($s) => in_array($netPick, network_names($s['network'], $s['primary_network']), true)
     ));
     if ($adhocCount) {
         array_unshift($networks, ['label' => $netPick, 'logo' => network_logo($netPick), 'members' => [$netPick],

@@ -145,6 +145,28 @@ function makeRemoveButton(showId, onRemoved) {
   return rm;
 }
 
+// Admin-only ✎ next to a show's networks: set (or clear, when emptied) the
+// primary network that drives the poster badge, then reload the page.
+function primaryNetworkButton(showId, current) {
+  return el('button', {
+    type: 'button',
+    class: 'net-edit',
+    title: t('primary_network_title'),
+    text: '✎',
+    onclick: async () => {
+      const value = prompt(t('primary_network_prompt'), current || '');
+      if (value === null) return;
+      try {
+        const res = await apiPost('/api/network.php', { imdb_id: showId, network: value.trim() });
+        if (res.primary_network && !res.has_logo) alert(t('primary_network_no_logo', res.primary_network));
+        location.reload();
+      } catch (err) {
+        alert(err.message);
+      }
+    },
+  });
+}
+
 // A clickable "No image / Click to add" placeholder box.
 function addImagePlaceholder(showId) {
   const ph = el('button', { type: 'button', class: 'no-poster no-poster-edit', title: t('add_image_title') }, [
@@ -1029,13 +1051,17 @@ async function initShowDetail() {
     },
   });
 
-  // Status and networks link to browse with that filter preselected.
-  const networks = (show.network || '').split(',').map((n) => n.trim()).filter(Boolean);
+  // Status and networks link to browse with that filter preselected. The
+  // admin-set primary network (e.g. the Turkish distributor) is listed first.
+  const networks = [...new Set([show.primary_network, ...(show.network || '').split(',')]
+    .map((n) => (n || '').trim()).filter(Boolean))];
+  const networkLinks = networks.flatMap((n, i) => [...(i ? [', '] : []), el('a', { href: browseUrl('network', n), text: n })]);
+  if (IS_ADMIN) networkLinks.push(' ', primaryNetworkButton(showId, show.primary_network));
   const metaParts = [
     show.rating ? '⭐ ' + Number(show.rating).toFixed(1) : null,
     show.premiered?.slice(0, 4),
     STATUS_LABELS[show.status] ? [el('a', { href: browseUrl('status', show.status), text: STATUS_LABELS[show.status] })] : null,
-    networks.length ? networks.flatMap((n, i) => [...(i ? [', '] : []), el('a', { href: browseUrl('network', n), text: n })]) : null,
+    networkLinks.length ? networkLinks : null,
     show.runtime ? t('runtime_min', show.runtime) : null,
   ].filter(Boolean);
 
