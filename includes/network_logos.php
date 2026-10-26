@@ -29,6 +29,7 @@ function network_groups(): array
         ['tabii', ['tabii']],
         ['GAİN', ['GAİN']],
         ['Exxen', ['Exxen']],
+        ['TOD', ['TOD', 'beIN Connect']],
         ['YouTube', ['YouTube', 'YouTube Premium']],
     ];
 }
@@ -54,6 +55,7 @@ function network_logos(): array
         'tabii' => '/assets/networks/tabii.png',
         'GAİN' => '/assets/networks/gain.png',
         'Exxen' => '/assets/networks/exxen.png',
+        'TOD' => '/assets/networks/tod.png',
         'YouTube' => '/assets/networks/youtube.png',
         // Group members with their own channel branding (badge shows the
         // channel's logo; the direct match wins over the group fallback):
