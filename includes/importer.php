@@ -60,6 +60,12 @@ const TVDB_EPISODE_SOURCE = [
     'tt3494560',  // La Familia del Barrio: TMDB has mostly undated "Episode N" placeholders
 ];
 
+// A time-less TVmaze date up to this many days before the base provider's is
+// a streaming release ahead of the TV broadcast (e.g. Paramount+ on Friday,
+// Showtime on Sunday). Kept tight: further apart, TVmaze's date is more often
+// just wrong (TMDB and TheTVDB agreeing on another weekday).
+const EARLY_RELEASE_DAYS = 2;
+
 // Episode IMDB ids fetched per import/refresh. Kept small so a single web
 // request stays under shared-hosting execution limits when curl_multi is
 // unavailable (fetches run sequentially). CLI passes a large value.
@@ -245,9 +251,11 @@ function tvmaze_stamp(array $ep): ?string
  * Exact air times from TVmaze, keyed "season-number" (UTC DATETIME strings,
  * null for episodes TVmaze lists without an air time). TMDB has no air times,
  * so this is the only source; empty map when the show isn't on TVmaze.
+ * $dates receives TVmaze's air dates under the same keys.
  */
-function tvmaze_airstamps(string $imdbId): array
+function tvmaze_airstamps(string $imdbId, ?array &$dates = null): array
 {
+    $dates = [];
     $show = http_get_json(TVMAZE_BASE . '/lookup/shows?imdb=' . urlencode($imdbId));
     if (!$show || !isset($show['id'])) {
         return [];
@@ -256,9 +264,20 @@ function tvmaze_airstamps(string $imdbId): array
     foreach (http_get_json(TVMAZE_BASE . '/shows/' . $show['id'] . '/episodes') ?? [] as $ep) {
         if (isset($ep['season'], $ep['number'])) {
             $map[$ep['season'] . '-' . $ep['number']] = tvmaze_stamp($ep);
+            $dates[$ep['season'] . '-' . $ep['number']] = valid_date($ep['airdate'] ?? null);
         }
     }
     return $map;
+}
+
+/** Whether $early is 1..EARLY_RELEASE_DAYS days before $date. */
+function early_release(?string $early, ?string $date): bool
+{
+    if ($early === null || $date === null) {
+        return false;
+    }
+    $days = (strtotime("$date UTC") - strtotime("$early UTC")) / 86400;
+    return $days >= 1 && $days <= EARLY_RELEASE_DAYS;
 }
 
 /**
@@ -810,8 +829,11 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
     // TMDB has no air times — enrich its episodes with TVmaze's UTC airstamps
     // so aired-gating can be exact (the TVmaze path already carries them).
     // TheTVDB-numbered episodes only take a time TVmaze gives the same episode.
+    // A time-less TVmaze date shortly before the base one is an early streaming
+    // release: the episode takes that date, and stays date-only ($early).
+    $early = [];
     if ($payload['source'] === 'tmdb' || $tvdbSource) {
-        $stamps = tvmaze_airstamps($imdbId);
+        $stamps = tvmaze_airstamps($imdbId, $dates);
         foreach ($payload['episodes'] as &$ep) {
             $key = $ep['season'] . '-' . $ep['number'];
             if ($tvdbSource && $ep['season'] >= 1 && !within_a_day($stamps[$key] ?? null, $ep['airdate'])) {
@@ -822,23 +844,30 @@ function import_show(PDO $pdo, string $imdbId, int $backfillLimit = BACKFILL_BAT
             if (array_key_exists($key, $stamps)) {
                 $listed[$key] = true;
             }
+            if (!$tvdbSource && $ep['airstamp'] === null && early_release($dates[$key] ?? null, $ep['airdate'])) {
+                $ep['airdate'] = $dates[$key];
+                $early[$key] = true;
+            }
         }
         unset($ep);
     }
 
     // Episodes TVmaze has no time for (mostly streaming drops) get the show's
-    // regular air time from TheTVDB. $timeless: [season, number] of listed
+    // regular air time from TheTVDB — except early releases: that time is the
+    // later broadcast's. $timeless: [season, number] of listed
     // episodes still without a time, whose stored stamp (e.g. an old
     // placeholder) must be cleared — the upsert's COALESCE would keep it.
-    // Skipped when TheTVDB was unreachable: the stored stamp may be its own.
+    // Skipped when TheTVDB was unreachable: the stored stamp may be its own
+    // (never for early releases, whose stored stamp is the broadcast's).
     $airs = $tvdb['airs'] ?? null;
     $timeless = [];
     foreach ($payload['episodes'] as &$ep) {
-        if (($ep['airstamp'] ?? null) === null && $airs && $ep['airdate']) {
+        $key = $ep['season'] . '-' . $ep['number'];
+        if (($ep['airstamp'] ?? null) === null && $airs && $ep['airdate'] && !isset($early[$key])) {
             $ep['airstamp'] = tvdb_stamp($ep['airdate'], $airs);
         }
-        if (($ep['airstamp'] ?? null) === null && $tvdb !== null
-            && isset($listed[$ep['season'] . '-' . $ep['number']])) {
+        if (($ep['airstamp'] ?? null) === null && ($tvdb !== null || isset($early[$key]))
+            && isset($listed[$key])) {
             $timeless[] = [$ep['season'], $ep['number']];
         }
     }
