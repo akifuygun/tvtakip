@@ -209,6 +209,11 @@ function imdbLink(imdbId) {
   });
 }
 
+// Admin-only per-episode "Watch" badge; the API sends watch_url only to admins.
+function watchLink(url) {
+  return el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', class: 'watch-link', text: `▶ ${t('watch')}` });
+}
+
 // Sharper poster for the lightbox: TMDB posters are stored at w342, so bump to
 // w780 for the enlarged view. Non-TMDB URLs (TVmaze) are returned unchanged.
 function largePoster(url) {
@@ -1145,6 +1150,7 @@ async function initShowDetail() {
       const title = el('span', { class: 'ep-title' }, [
         `${code} ${ep.name ?? ''}${aired} `,
         ...(ep.imdb_id ? [imdbLink(ep.imdb_id)] : []),
+        ...(hasAired && ep.watch_url ? [' ', watchLink(ep.watch_url)] : []),
       ]);
       li.append(title, toggleBtn);
       list.append(li);

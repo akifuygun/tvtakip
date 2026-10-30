@@ -706,6 +706,18 @@ a.genre-chip:hover { color: var(--accent); border-color: var(--accent); }
   cursor: pointer;
 }
 .trailer-link:hover { background: #ff3b30; }
+/* Admin-only per-episode "Watch" badge (config WATCH_URL). */
+.watch-link {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--accent);
+  color: #fff;
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.watch-link:hover { background: var(--accent-hover); color: #fff; }
+.show-card > .watch-link { align-self: flex-start; }
 
 /* ---------- Mobile ---------- */
 @media (max-width: 560px) {

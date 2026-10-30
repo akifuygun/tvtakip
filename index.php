@@ -181,6 +181,9 @@ require __DIR__ . '/includes/header.php';
                         ?>
                         <span class="next-ep"><?= htmlspecialchars(t('airs_on', $at)) ?></span>
                     <?php else: ?>
+                        <?php if ($watch = watch_url($ep['show_name'], (int) $ep['season'], (int) $ep['number'])): ?>
+                            <a class="watch-link" href="<?= htmlspecialchars($watch) ?>" target="_blank" rel="noopener noreferrer">▶ <?= t('watch') ?></a>
+                        <?php endif; ?>
                         <button class="button button-small cal-watch-btn" data-episode-id="<?= (int) $ep['id'] ?>"><?= t('mark_watched') ?></button>
                     <?php endif; ?>
                 </div>

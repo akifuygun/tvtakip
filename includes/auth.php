@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '62';
+const ASSET_VERSION = '63';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -344,6 +344,32 @@ function certainly_aired_sql(string $alias = ''): string
 function episode_code(int $season, int $number): string
 {
     return sprintf('S%02dE%02d', $season, $number);
+}
+
+/** URL slug of a title: lowercase ASCII (Turkish letters and common accents
+ *  folded), apostrophes dropped, anything else non-alphanumeric → one hyphen. */
+function name_slug(string $name): string
+{
+    $s = mb_strtolower(strtr($name, ['İ' => 'i']));
+    $s = strtr($s, [
+        'ı' => 'i', 'ş' => 's', 'ğ' => 'g', 'ü' => 'u', 'ö' => 'o', 'ç' => 'c',
+        'á' => 'a', 'à' => 'a', 'â' => 'a', 'ä' => 'a', 'ã' => 'a', 'å' => 'a',
+        'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e', 'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+        'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ø' => 'o', 'ú' => 'u', 'ù' => 'u', 'û' => 'u',
+        'ñ' => 'n',
+    ]);
+    $s = preg_replace("/['’]/u", '', $s);
+    return trim(preg_replace('/[^a-z0-9]+/', '-', $s), '-');
+}
+
+/** Admin-only "Watch" link for a regular episode, built from config's
+ *  WATCH_URL template ({slug}, {season}, {episode}); null for everyone else. */
+function watch_url(string $showName, int $season, int $number): ?string
+{
+    if ($season < 1 || !defined('WATCH_URL') || WATCH_URL === '' || !is_admin()) {
+        return null;
+    }
+    return strtr(WATCH_URL, ['{slug}' => name_slug($showName), '{season}' => $season, '{episode}' => $number]);
 }
 
 /** Premiere/finale badge for an episode ('' for regular ones and specials).

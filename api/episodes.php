@@ -1,7 +1,7 @@
 <?php
 // Shared show/episode cache, keyed by IMDB ids.
 // GET  ?show_id=ttNNNNNNN
-//      -> {show, episodes: [{id, imdb_id, season, number, name, airdate}], watched: [...], today}
+//      -> {show, episodes: [{id, imdb_id, season, number, name, airdate, watch_url?}], watched: [...], today}
 // POST {show_id: "ttNNNNNNN"}
 //      -> imports/refreshes the show SERVER-SIDE from TMDB/TVmaze, then
 //         returns the same payload as GET. No provider data is accepted
@@ -29,6 +29,13 @@ function cache_payload(string $imdbId): array
     );
     $stmt->execute([$imdbId]);
     $episodes = $stmt->fetchAll();
+    // Admin-only "Watch" links (config WATCH_URL); nobody else gets the key.
+    foreach ($episodes as &$ep) {
+        if ($show && ($url = watch_url($show['name'], (int) $ep['season'], (int) $ep['number']))) {
+            $ep['watch_url'] = $url;
+        }
+    }
+    unset($ep);
 
     $stmt = db()->prepare(
         'SELECT we.episode_id FROM watched_episodes we
