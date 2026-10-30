@@ -1,4 +1,5 @@
 config.php
+includes/watch_base.php*
 deploy/
 .vscode/
 .claude/

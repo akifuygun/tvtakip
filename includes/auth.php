@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '64';
+const ASSET_VERSION = '65';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -369,6 +369,23 @@ function watch_enabled(): bool
     return defined('WATCH_URL') && WATCH_URL !== '' && is_admin();
 }
 
+// The admin-set origin of the Watch links (the footer ❤ → api/watch_base.php),
+// for when the site moves domains. A generated `return '…';` file, not in git.
+const WATCH_BASE_FILE = __DIR__ . '/watch_base.php';
+
+/** "scheme://host/" a URL starts with, or ''. */
+function url_origin(string $url): string
+{
+    return preg_match('#^https?://[^/]+/#i', $url, $m) ? $m[0] : '';
+}
+
+/** The Watch links' origin: the admin-set one, else WATCH_URL's own. */
+function watch_base(): string
+{
+    $saved = is_file(WATCH_BASE_FILE) ? include WATCH_BASE_FILE : null;
+    return is_string($saved) && url_origin($saved) === $saved ? $saved : url_origin(WATCH_URL);
+}
+
 /**
  * A show's slug for the Watch link: the admin-set watch_slug, else its title
  * (Turkish productions by their original one) with the start year added when
@@ -395,15 +412,19 @@ function watch_slug(array $show): string
 
 /** Admin-only "Watch" link for a regular episode from config's WATCH_URL
  *  template ({slug}, {season}, {episode}) — WATCH_URL_FINALE, when set, for
- *  Turkish productions' season/series finales; null for everyone else. */
+ *  Turkish productions' season/series finales — on watch_base()'s origin;
+ *  null for everyone else. */
 function watch_url(array $show, int $season, int $number, ?string $finale): ?string
 {
     if ($season < 1 || !watch_enabled()) {
         return null;
     }
+    static $base = null;
+    $base ??= watch_base();
     $template = in_array($finale, ['season', 'series'], true) && ($show['original_language'] ?? null) === 'tr'
         && defined('WATCH_URL_FINALE') && WATCH_URL_FINALE !== '' ? WATCH_URL_FINALE : WATCH_URL;
-    return strtr($template, ['{slug}' => watch_slug($show), '{season}' => $season, '{episode}' => $number]);
+    $url = strtr($template, ['{slug}' => watch_slug($show), '{season}' => $season, '{episode}' => $number]);
+    return $base . substr($url, strlen(url_origin($url)));
 }
 
 /** Premiere/finale badge for an episode ('' for regular ones and specials).

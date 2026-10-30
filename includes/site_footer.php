@@ -6,7 +6,8 @@ $footerTheme = app_theme();
 $footerLayout = app_layout();
 ?>
 <footer class="site-footer">
-    <span class="footer-copy">❤️ by Akif 07-26 <span class="footer-data"><span class="footer-sep">·</span> <?= t('data_credit') ?>
+    <span class="footer-copy"><?php if (watch_enabled()): ?><button type="button" id="watch-base-btn" class="footer-heart"
+        data-base="<?= htmlspecialchars(watch_base()) ?>" title="<?= t('watch_base_title') ?>">❤️</button><?php else: ?>❤️<?php endif; ?> by Akif 07-26 <span class="footer-data"><span class="footer-sep">·</span> <?= t('data_credit') ?>
         <a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a> ·
         <a href="https://www.tvmaze.com" target="_blank" rel="noopener">TVmaze</a> ·
         <a href="https://thetvdb.com" target="_blank" rel="noopener">TheTVDB</a></span></span>

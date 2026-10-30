@@ -1467,6 +1467,23 @@ function initBrowseFilter() {
   });
 }
 
+// Admin-only: the footer ❤ sets the Watch links' domain, for when the site
+// moves; the page reloads so its links use the new one.
+function initWatchBase() {
+  const btn = document.getElementById('watch-base-btn');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const value = prompt(t('watch_base_prompt'), btn.dataset.base);
+    if (value === null) return;
+    try {
+      await apiPost('/api/watch_base.php', { base: value.trim() });
+      location.reload();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+}
+
 // Footer sun/moon toggle. The theme is applied server-side on <html data-theme>
 // (no flash); here we switch it live and remember the choice in a cookie.
 function initTheme() {
@@ -1496,6 +1513,7 @@ function initLayout() {
 }
 
 initNav();
+initWatchBase();
 initTheme();
 initLayout();
 initTick();
