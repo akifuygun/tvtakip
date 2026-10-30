@@ -20,3 +20,5 @@ define('ADMIN_EMAILS', '');
 // Optional, admins only: per-episode "Watch" link template. {slug} = show name
 // slug, {season} / {episode} = numbers. Leave empty for no button.
 define('WATCH_URL', '');   // e.g. https://example.com/{slug}-{season}-sezon-{episode}-bolum-izle/
+// Optional: the same for Turkish productions' season/series finales; empty = WATCH_URL.
+define('WATCH_URL_FINALE', '');

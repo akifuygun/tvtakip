@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS shows (
     imdb_id VARCHAR(12) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    original_name VARCHAR(255) DEFAULT NULL,  -- original-language title (TMDB); Turkish productions' Watch link slug
+    original_language VARCHAR(8) DEFAULT NULL,  -- ISO 639-1 (TMDB), e.g. 'tr'; NULL = unknown
     image_url VARCHAR(500) DEFAULT NULL,
     backdrop_url VARCHAR(500) DEFAULT NULL,  -- wide hero/social image (TMDB only)
     gallery TEXT DEFAULT NULL,  -- JSON list of backdrop URLs for the poster slider (TMDB, TheTVDB top-up)
@@ -30,6 +32,7 @@ CREATE TABLE IF NOT EXISTS shows (
     genres VARCHAR(255) DEFAULT NULL,  -- comma-separated, from provider payloads
     network VARCHAR(255) DEFAULT NULL,  -- ALL networks the show aired on, comma-separated
     primary_network VARCHAR(100) DEFAULT NULL,  -- admin-set main network (e.g. the Turkish distributor); imports never touch it
+    watch_slug VARCHAR(255) DEFAULT NULL,  -- admin-set show slug for the Watch links (config WATCH_URL); imports never touch it
     rating DECIMAL(3,1) DEFAULT NULL,  -- provider average (0-10)
     runtime SMALLINT UNSIGNED DEFAULT NULL,  -- typical episode length, minutes
     synced_at TIMESTAMP NULL DEFAULT NULL,  -- set when a full episode import completed

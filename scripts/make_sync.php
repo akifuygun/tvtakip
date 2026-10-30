@@ -20,23 +20,26 @@ fwrite($out, "SET NAMES utf8mb4;\n");
 
 // Shows
 $rows = $pdo->query(
-    'SELECT imdb_id, name, image_url, backdrop_url, gallery, trailer, status, overview, overview_tr, premiered,
-            genres, network, rating, runtime, synced_at
+    'SELECT imdb_id, name, original_name, original_language, image_url, backdrop_url, gallery, trailer, status, overview,
+            overview_tr, premiered, genres, network, rating, runtime, synced_at
      FROM shows ORDER BY imdb_id'
 )->fetchAll();
 foreach (array_chunk($rows, 100) as $chunk) {
     $values = [];
     foreach ($chunk as $r) {
         $values[] = '(' . implode(',', [
-            $q($r['imdb_id']), $q($r['name']), $q($r['image_url']), $q($r['backdrop_url']), $q($r['gallery']), $q($r['trailer']),
+            $q($r['imdb_id']), $q($r['name']), $q($r['original_name']), $q($r['original_language']),
+            $q($r['image_url']), $q($r['backdrop_url']), $q($r['gallery']), $q($r['trailer']),
             $q($r['status']), $q($r['overview']), $q($r['overview_tr']), $q($r['premiered']), $q($r['genres']),
             $q($r['network']), $q($r['rating']), $q($r['runtime']), $q($r['synced_at']),
         ]) . ')';
     }
     fwrite($out,
-        'INSERT INTO shows (imdb_id,name,image_url,backdrop_url,gallery,trailer,status,overview,overview_tr,premiered,genres,network,rating,runtime,synced_at) VALUES '
+        'INSERT INTO shows (imdb_id,name,original_name,original_language,image_url,backdrop_url,gallery,trailer,status,overview,overview_tr,premiered,genres,network,rating,runtime,synced_at) VALUES '
         . implode(',', $values)
         . ' ON DUPLICATE KEY UPDATE name=VALUES(name),'
+        . ' original_name=COALESCE(VALUES(original_name),original_name),'
+        . ' original_language=COALESCE(VALUES(original_language),original_language),'
         . ' image_url=COALESCE(VALUES(image_url),image_url),'
         . ' backdrop_url=COALESCE(VALUES(backdrop_url),backdrop_url),'
         . ' gallery=COALESCE(VALUES(gallery),gallery),'

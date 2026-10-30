@@ -214,6 +214,27 @@ function watchLink(url) {
   return el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', class: 'watch-link', text: `▶ ${t('watch')}` });
 }
 
+// Admin-only ✎ next to the title: set (or clear, when emptied) the show slug
+// the Watch links use, for shows the site lists under another title.
+function watchSlugButton(showId, current) {
+  return el('button', {
+    type: 'button',
+    class: 'watch-link',
+    title: t('watch_slug_title'),
+    text: `✎ ${t('watch')}`,
+    onclick: async () => {
+      const value = prompt(t('watch_slug_prompt'), current);
+      if (value === null) return;
+      try {
+        await apiPost('/api/watch_slug.php', { imdb_id: showId, slug: value.trim() });
+        location.reload();
+      } catch (err) {
+        alert(err.message);
+      }
+    },
+  });
+}
+
 // Sharper poster for the lightbox: TMDB posters are stored at w342, so bump to
 // w780 for the enlarged view. Non-TMDB URLs (TVmaze) are returned unchanged.
 function largePoster(url) {
@@ -1072,7 +1093,11 @@ async function initShowDetail() {
 
   const trailerKey = pickTrailer(show.trailer);
   const info = el('div', { class: 'show-info' }, [
-    el('h1', {}, [show.name + ' ', imdbLink(showId), ...(trailerKey ? [' ', trailerButton(trailerKey)] : [])]),
+    el('h1', {}, [
+      show.name + ' ', imdbLink(showId),
+      ...(trailerKey ? [' ', trailerButton(trailerKey)] : []),
+      ...(show.watch_slug ? [' ', watchSlugButton(showId, show.watch_slug)] : []),
+    ]),
     el('p', { class: 'muted' }, metaParts.flatMap((p, i) => [...(i ? [' · '] : []), ...[p].flat()])),
   ]);
 

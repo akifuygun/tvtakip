@@ -23,7 +23,8 @@ if (is_logged_in()) {
     // fetching the whole backlog and de-duping in PHP. Oldest pending first.
     $stmt = db()->prepare(
         'SELECT e.id, e.imdb_id, e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp, e.finale,
-                s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url, s.network, s.primary_network
+                s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url, s.network, s.primary_network,
+                s.original_name, s.original_language, s.premiered, s.watch_slug
          FROM user_shows us
          JOIN shows s ON s.imdb_id = us.show_imdb_id
          JOIN episodes e ON e.id = (
@@ -161,9 +162,15 @@ require __DIR__ . '/includes/header.php';
                 <?php
                 $showUrl = htmlspecialchars(series_url($ep['show_imdb_id']));
                 $code = episode_code((int) $ep['season'], (int) $ep['number']);
+                // Admin-only Watch link, only once the episode is markable (not airing later today).
+                $watch = $ep['airstamp'] !== null && $ep['airstamp'] > gmdate('Y-m-d H:i:s') ? null
+                    : watch_url(['name' => $ep['show_name']] + $ep, (int) $ep['season'], (int) $ep['number'], $ep['finale']);
                 ?>
                 <div class="show-card">
                     <?= network_badge_html($ep['network'], $ep['primary_network']) ?>
+                    <?php if ($watch): ?>
+                        <a class="watch-link" href="<?= htmlspecialchars($watch) ?>" target="_blank" rel="noopener noreferrer">▶ <?= t('watch') ?></a>
+                    <?php endif; ?>
                     <a href="<?= $showUrl ?>">
                         <?php if ($ep['image_url']): ?>
                             <img src="<?= htmlspecialchars($ep['image_url']) ?>" alt="">
@@ -181,9 +188,6 @@ require __DIR__ . '/includes/header.php';
                         ?>
                         <span class="next-ep"><?= htmlspecialchars(t('airs_on', $at)) ?></span>
                     <?php else: ?>
-                        <?php if ($watch = watch_url($ep['show_name'], (int) $ep['season'], (int) $ep['number'])): ?>
-                            <a class="watch-link" href="<?= htmlspecialchars($watch) ?>" target="_blank" rel="noopener noreferrer">▶ <?= t('watch') ?></a>
-                        <?php endif; ?>
                         <button class="button button-small cal-watch-btn" data-episode-id="<?= (int) $ep['id'] ?>"><?= t('mark_watched') ?></button>
                     <?php endif; ?>
                 </div>

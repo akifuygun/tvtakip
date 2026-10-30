@@ -706,18 +706,32 @@ a.genre-chip:hover { color: var(--accent); border-color: var(--accent); }
   cursor: pointer;
 }
 .trailer-link:hover { background: #ff3b30; }
-/* Admin-only per-episode "Watch" badge (config WATCH_URL). */
+/* Admin-only per-episode "Watch" badge (config WATCH_URL), and the show's
+   slug ✎ next to the title. */
 .watch-link {
+  font: inherit;
   font-size: 0.72rem;
   font-weight: 700;
   background: var(--accent);
   color: #fff;
   padding: 0.05rem 0.4rem;
+  border: 0;
   border-radius: 4px;
   vertical-align: middle;
+  cursor: pointer;
 }
 .watch-link:hover { background: var(--accent-hover); color: #fff; }
-.show-card > .watch-link { align-self: flex-start; }
+/* Calendar cards: on the poster's top-left, opposite the network badge. */
+.show-card > .watch-link {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 1;
+  height: 19px;
+  line-height: 19px;
+  padding: 0 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
 
 /* ---------- Mobile ---------- */
 @media (max-width: 560px) {

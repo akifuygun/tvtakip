@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '63';
+const ASSET_VERSION = '64';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -347,10 +347,11 @@ function episode_code(int $season, int $number): string
 }
 
 /** URL slug of a title: lowercase ASCII (Turkish letters and common accents
- *  folded), apostrophes dropped, anything else non-alphanumeric → one hyphen. */
+ *  folded), "&" as "and", apostrophes dropped, anything else non-alphanumeric
+ *  → one hyphen. */
 function name_slug(string $name): string
 {
-    $s = mb_strtolower(strtr($name, ['İ' => 'i']));
+    $s = mb_strtolower(strtr($name, ['İ' => 'i', '&' => ' and ']));
     $s = strtr($s, [
         'ı' => 'i', 'ş' => 's', 'ğ' => 'g', 'ü' => 'u', 'ö' => 'o', 'ç' => 'c',
         'á' => 'a', 'à' => 'a', 'â' => 'a', 'ä' => 'a', 'ã' => 'a', 'å' => 'a',
@@ -362,14 +363,47 @@ function name_slug(string $name): string
     return trim(preg_replace('/[^a-z0-9]+/', '-', $s), '-');
 }
 
-/** Admin-only "Watch" link for a regular episode, built from config's
- *  WATCH_URL template ({slug}, {season}, {episode}); null for everyone else. */
-function watch_url(string $showName, int $season, int $number): ?string
+/** Whether this viewer gets Watch links: admins, with config WATCH_URL set. */
+function watch_enabled(): bool
 {
-    if ($season < 1 || !defined('WATCH_URL') || WATCH_URL === '' || !is_admin()) {
+    return defined('WATCH_URL') && WATCH_URL !== '' && is_admin();
+}
+
+/**
+ * A show's slug for the Watch link: the admin-set watch_slug, else its title
+ * (Turkish productions by their original one) with the start year added when
+ * an older cached show has the same name (remakes, revivals). $show needs
+ * name, original_name, original_language, premiered and watch_slug.
+ */
+function watch_slug(array $show): string
+{
+    if (($show['watch_slug'] ?? '') !== '') {
+        return $show['watch_slug'];
+    }
+    static $firstPremiered = null; // name => earliest premiere, for names several shows share
+    $firstPremiered ??= db()->query(
+        'SELECT name, MIN(premiered) FROM shows GROUP BY name HAVING COUNT(*) > 1'
+    )->fetchAll(PDO::FETCH_KEY_PAIR);
+    $turkish = ($show['original_language'] ?? null) === 'tr' && ($show['original_name'] ?? '') !== '';
+    $slug = name_slug($turkish ? $show['original_name'] : $show['name']);
+    $premiered = (string) ($show['premiered'] ?? '');
+    if ($premiered !== '' && $premiered > ($firstPremiered[$show['name']] ?? $premiered)) {
+        $slug .= '-' . substr($premiered, 0, 4);
+    }
+    return $slug;
+}
+
+/** Admin-only "Watch" link for a regular episode from config's WATCH_URL
+ *  template ({slug}, {season}, {episode}) — WATCH_URL_FINALE, when set, for
+ *  Turkish productions' season/series finales; null for everyone else. */
+function watch_url(array $show, int $season, int $number, ?string $finale): ?string
+{
+    if ($season < 1 || !watch_enabled()) {
         return null;
     }
-    return strtr(WATCH_URL, ['{slug}' => name_slug($showName), '{season}' => $season, '{episode}' => $number]);
+    $template = in_array($finale, ['season', 'series'], true) && ($show['original_language'] ?? null) === 'tr'
+        && defined('WATCH_URL_FINALE') && WATCH_URL_FINALE !== '' ? WATCH_URL_FINALE : WATCH_URL;
+    return strtr($template, ['{slug}' => watch_slug($show), '{season}' => $season, '{episode}' => $number]);
 }
 
 /** Premiere/finale badge for an episode ('' for regular ones and specials).

@@ -209,6 +209,9 @@ function fetch_base_from_tmdb(string $imdbId): ?array
         'show' => [
             'imdb_id' => $imdbId,
             'name' => $detail['name'] ?? $imdbId,
+            'original_name' => trim((string) ($detail['original_name'] ?? '')) ?: null,
+            'original_language' => preg_match('/^[a-z]{2}$/', (string) ($detail['original_language'] ?? ''))
+                ? $detail['original_language'] : null,
             'image_url' => !empty($detail['poster_path']) ? TMDB_IMG_BASE . $detail['poster_path'] : null,
             'backdrop_url' => !empty($detail['backdrop_path']) ? TMDB_BACKDROP_BASE . $detail['backdrop_path'] : null,
             'status' => $detail['status'] ?? null,
@@ -573,11 +576,13 @@ function upsert_show(PDO $pdo, array $show, bool $markSynced): void
 {
     $stmt = $pdo->prepare(
         'INSERT INTO shows
-            (imdb_id, name, image_url, backdrop_url, gallery, trailer, status, overview, overview_tr, premiered,
-             genres, network, rating, runtime, synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
+            (imdb_id, name, original_name, original_language, image_url, backdrop_url, gallery, trailer, status,
+             overview, overview_tr, premiered, genres, network, rating, runtime, synced_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))
          ON DUPLICATE KEY UPDATE
              name = VALUES(name),
+             original_name = COALESCE(VALUES(original_name), original_name),
+             original_language = COALESCE(VALUES(original_language), original_language),
              image_url = COALESCE(VALUES(image_url), image_url),
              backdrop_url = COALESCE(VALUES(backdrop_url), backdrop_url),
              gallery = COALESCE(VALUES(gallery), gallery),
@@ -595,6 +600,8 @@ function upsert_show(PDO $pdo, array $show, bool $markSynced): void
     $stmt->execute([
         $show['imdb_id'],
         mb_substr(trim((string) ($show['name'] ?? '')) ?: $show['imdb_id'], 0, 255),
+        mb_substr((string) ($show['original_name'] ?? ''), 0, 255) ?: null,
+        $show['original_language'] ?? null,
         mb_substr((string) ($show['image_url'] ?? ''), 0, 500) ?: null,
         mb_substr((string) ($show['backdrop_url'] ?? ''), 0, 500) ?: null,
         gallery_json($show['gallery'] ?? []),
