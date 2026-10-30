@@ -209,29 +209,39 @@ function imdbLink(imdbId) {
   });
 }
 
-// Admin-only per-episode "Watch" badge; the API sends watch_url only to admins.
-function watchLink(url) {
-  return el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', class: 'watch-link', text: `▶ ${t('watch')}` });
+// Admin-only per-episode Watch badge, one per site; the API sends `watch` only to admins.
+function watchLink({ site, url }) {
+  return el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', class: 'watch-link', text: `▶ ${site}` });
 }
 
-// Admin-only ✎ next to the title: set (or clear, when emptied) the show slug
-// the Watch links use, for shows the site lists under another title.
+// Admin-only: ask for one value per Watch site in turn (prefilled with
+// `current[site]`; Cancel skips that site), save each changed one with
+// save(site, value), then reload so the links use them.
+async function promptWatchSites(current, promptKey, save) {
+  let changed = false;
+  for (const [site, value] of Object.entries(current)) {
+    const next = prompt(t(promptKey, site), value);
+    if (next === null || next.trim() === value) continue;
+    try {
+      await save(site, next.trim());
+      changed = true;
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+  if (changed) location.reload();
+}
+
+// Admin-only ✎ next to the title: set (or clear, when emptied) each site's
+// show slug, for shows a site lists under another title.
 function watchSlugButton(showId, current) {
   return el('button', {
     type: 'button',
     class: 'watch-link',
     title: t('watch_slug_title'),
     text: `✎ ${t('watch')}`,
-    onclick: async () => {
-      const value = prompt(t('watch_slug_prompt'), current);
-      if (value === null) return;
-      try {
-        await apiPost('/api/watch_slug.php', { imdb_id: showId, slug: value.trim() });
-        location.reload();
-      } catch (err) {
-        alert(err.message);
-      }
-    },
+    onclick: () => promptWatchSites(current, 'watch_slug_prompt',
+      (site, slug) => apiPost('/api/watch_slug.php', { imdb_id: showId, site, slug })),
   });
 }
 
@@ -1096,7 +1106,7 @@ async function initShowDetail() {
     el('h1', {}, [
       show.name + ' ', imdbLink(showId),
       ...(trailerKey ? [' ', trailerButton(trailerKey)] : []),
-      ...(show.watch_slug ? [' ', watchSlugButton(showId, show.watch_slug)] : []),
+      ...(show.watch_slugs ? [' ', watchSlugButton(showId, show.watch_slugs)] : []),
     ]),
     el('p', { class: 'muted' }, metaParts.flatMap((p, i) => [...(i ? [' · '] : []), ...[p].flat()])),
   ]);
@@ -1175,7 +1185,7 @@ async function initShowDetail() {
       const title = el('span', { class: 'ep-title' }, [
         `${code} ${ep.name ?? ''}${aired} `,
         ...(ep.imdb_id ? [imdbLink(ep.imdb_id)] : []),
-        ...(hasAired && ep.watch_url ? [' ', watchLink(ep.watch_url)] : []),
+        ...(hasAired && ep.watch ? ep.watch.flatMap((w) => [' ', watchLink(w)]) : []),
       ]);
       li.append(title, toggleBtn);
       list.append(li);
@@ -1467,21 +1477,12 @@ function initBrowseFilter() {
   });
 }
 
-// Admin-only: the footer ❤ sets the Watch links' domain, for when the site
-// moves; the page reloads so its links use the new one.
+// Admin-only: the footer ❤ sets each Watch site's domain, for when one moves.
 function initWatchBase() {
   const btn = document.getElementById('watch-base-btn');
   if (!btn) return;
-  btn.addEventListener('click', async () => {
-    const value = prompt(t('watch_base_prompt'), btn.dataset.base);
-    if (value === null) return;
-    try {
-      await apiPost('/api/watch_base.php', { base: value.trim() });
-      location.reload();
-    } catch (err) {
-      alert(err.message);
-    }
-  });
+  btn.addEventListener('click', () => promptWatchSites(JSON.parse(btn.dataset.bases), 'watch_base_prompt',
+    (site, base) => apiPost('/api/watch_base.php', { site, base })));
 }
 
 // Footer sun/moon toggle. The theme is applied server-side on <html data-theme>

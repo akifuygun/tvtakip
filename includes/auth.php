@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '65';
+const ASSET_VERSION = '66';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -347,11 +347,11 @@ function episode_code(int $season, int $number): string
 }
 
 /** URL slug of a title: lowercase ASCII (Turkish letters and common accents
- *  folded), "&" as "and", apostrophes dropped, anything else non-alphanumeric
- *  → one hyphen. */
-function name_slug(string $name): string
+ *  folded), "&" spelled "and" ($and) or dropped, apostrophes dropped, anything
+ *  else non-alphanumeric → one hyphen. */
+function name_slug(string $name, bool $and = true): string
 {
-    $s = mb_strtolower(strtr($name, ['İ' => 'i', '&' => ' and ']));
+    $s = mb_strtolower(strtr($name, ['İ' => 'i', '&' => $and ? ' and ' : ' ']));
     $s = strtr($s, [
         'ı' => 'i', 'ş' => 's', 'ğ' => 'g', 'ü' => 'u', 'ö' => 'o', 'ç' => 'c',
         'á' => 'a', 'à' => 'a', 'â' => 'a', 'ä' => 'a', 'ã' => 'a', 'å' => 'a',
@@ -363,14 +363,22 @@ function name_slug(string $name): string
     return trim(preg_replace('/[^a-z0-9]+/', '-', $s), '-');
 }
 
-/** Whether this viewer gets Watch links: admins, with config WATCH_URL set. */
-function watch_enabled(): bool
+/** The Watch sites from config WATCH_SITES: label => [url, finale?, and?, remake?]
+ *  (see config.sample.php), in badge order. */
+function watch_sites(): array
 {
-    return defined('WATCH_URL') && WATCH_URL !== '' && is_admin();
+    return defined('WATCH_SITES') && is_array(WATCH_SITES) ? WATCH_SITES : [];
 }
 
-// The admin-set origin of the Watch links (the footer ❤ → api/watch_base.php),
-// for when the site moves domains. A generated `return '…';` file, not in git.
+/** Whether this viewer gets Watch links: admins, with WATCH_SITES configured. */
+function watch_enabled(): bool
+{
+    return watch_sites() && is_admin();
+}
+
+// The admin-set origins of the Watch sites (the footer ❤ → api/watch_base.php),
+// for when a site moves domains. A generated `return [label => origin];` file,
+// not in git.
 const WATCH_BASE_FILE = __DIR__ . '/watch_base.php';
 
 /** "scheme://host/" a URL starts with, or ''. */
@@ -379,52 +387,116 @@ function url_origin(string $url): string
     return preg_match('#^https?://[^/]+/#i', $url, $m) ? $m[0] : '';
 }
 
-/** The Watch links' origin: the admin-set one, else WATCH_URL's own. */
-function watch_base(): string
+/** Each Watch site's origin, label => "scheme://host/": the admin-set one,
+ *  else its URL template's. */
+function watch_bases(): array
 {
     $saved = is_file(WATCH_BASE_FILE) ? include WATCH_BASE_FILE : null;
-    return is_string($saved) && url_origin($saved) === $saved ? $saved : url_origin(WATCH_URL);
+    $bases = [];
+    foreach (watch_sites() as $site => $cfg) {
+        $base = is_array($saved) ? (string) ($saved[$site] ?? '') : '';
+        $bases[$site] = $base !== '' && url_origin($base) === $base ? $base : url_origin($cfg['url']);
+    }
+    return $bases;
+}
+
+/** The admin-set slugs in shows.watch_slug: JSON {label: slug}; a plain slug
+ *  (the older format) counts for every site. */
+function watch_slug_overrides(?string $stored): array
+{
+    if ($stored === null || $stored === '') {
+        return [];
+    }
+    $json = json_decode($stored, true);
+    return is_array($json) ? $json : array_fill_keys(array_keys(watch_sites()), $stored);
+}
+
+/** The earliest cached show with the same name that premiered before this one
+ *  (remakes, revivals), or null. $show needs name and premiered. */
+function older_namesake(array $show): ?string
+{
+    static $groups = null; // name => [imdb_id => premiered], for names several shows share
+    if ($groups === null) {
+        $groups = [];
+        $rows = db()->query(
+            'SELECT s.name, s.imdb_id, s.premiered FROM shows s
+             JOIN (SELECT name FROM shows GROUP BY name HAVING COUNT(*) > 1) d ON d.name = s.name'
+        );
+        foreach ($rows as $r) {
+            $groups[$r['name']][$r['imdb_id']] = (string) $r['premiered'];
+        }
+    }
+    $older = null;
+    $olderDate = (string) ($show['premiered'] ?? '');
+    foreach ($olderDate !== '' ? $groups[$show['name']] ?? [] : [] as $imdbId => $date) {
+        if ($date !== '' && $date < $olderDate) {
+            [$older, $olderDate] = [$imdbId, $date];
+        }
+    }
+    return $older;
+}
+
+/** Whether a cached show has episode SxE. */
+function show_has_episode(string $imdbId, int $season, int $number): bool
+{
+    static $codes = []; // imdb_id => set of "season-number"
+    if (!isset($codes[$imdbId])) {
+        $stmt = db()->prepare("SELECT CONCAT(season, '-', number) FROM episodes WHERE show_imdb_id = ?");
+        $stmt->execute([$imdbId]);
+        $codes[$imdbId] = array_flip($stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+    return isset($codes[$imdbId]["$season-$number"]);
 }
 
 /**
- * A show's slug for the Watch link: the admin-set watch_slug, else its title
- * (Turkish productions by their original one) with the start year added when
- * an older cached show has the same name (remakes, revivals). $show needs
- * name, original_name, original_language, premiered and watch_slug.
+ * A show's slug on one Watch site: the admin-set one, else its title (Turkish
+ * productions by their original one); with remake "year", the start year is
+ * added when an older cached show has the same name. $show needs name,
+ * original_name, original_language, premiered and watch_slug.
  */
-function watch_slug(array $show): string
+function watch_slug(array $show, string $site): string
 {
-    if (($show['watch_slug'] ?? '') !== '') {
-        return $show['watch_slug'];
+    $override = (string) (watch_slug_overrides($show['watch_slug'] ?? null)[$site] ?? '');
+    if ($override !== '') {
+        return $override;
     }
-    static $firstPremiered = null; // name => earliest premiere, for names several shows share
-    $firstPremiered ??= db()->query(
-        'SELECT name, MIN(premiered) FROM shows GROUP BY name HAVING COUNT(*) > 1'
-    )->fetchAll(PDO::FETCH_KEY_PAIR);
+    $cfg = watch_sites()[$site] ?? [];
     $turkish = ($show['original_language'] ?? null) === 'tr' && ($show['original_name'] ?? '') !== '';
-    $slug = name_slug($turkish ? $show['original_name'] : $show['name']);
-    $premiered = (string) ($show['premiered'] ?? '');
-    if ($premiered !== '' && $premiered > ($firstPremiered[$show['name']] ?? $premiered)) {
-        $slug .= '-' . substr($premiered, 0, 4);
+    $slug = name_slug($turkish ? $show['original_name'] : $show['name'], $cfg['and'] ?? true);
+    if (($cfg['remake'] ?? '') === 'year' && older_namesake($show)) {
+        $slug .= '-' . substr((string) $show['premiered'], 0, 4);
     }
     return $slug;
 }
 
-/** Admin-only "Watch" link for a regular episode from config's WATCH_URL
- *  template ({slug}, {season}, {episode}) — WATCH_URL_FINALE, when set, for
- *  Turkish productions' season/series finales — on watch_base()'s origin;
- *  null for everyone else. */
-function watch_url(array $show, int $season, int $number, ?string $finale): ?string
+/**
+ * Admin-only Watch links for a regular episode, one per site in badge order:
+ * [['site' => label, 'url' => url], …]; [] for everyone else. Each site's
+ * template ({slug}, {season}, {episode}) — its finale one, when set, for
+ * Turkish productions' season/series finales — on the site's current origin.
+ * With remake "clash", a derived slug whose older namesake has the same
+ * episode gets "-2" at the end, as the site's own duplicate-address suffix.
+ */
+function watch_links(array $show, int $season, int $number, ?string $finale): array
 {
     if ($season < 1 || !watch_enabled()) {
-        return null;
+        return [];
     }
-    static $base = null;
-    $base ??= watch_base();
-    $template = in_array($finale, ['season', 'series'], true) && ($show['original_language'] ?? null) === 'tr'
-        && defined('WATCH_URL_FINALE') && WATCH_URL_FINALE !== '' ? WATCH_URL_FINALE : WATCH_URL;
-    $url = strtr($template, ['{slug}' => watch_slug($show), '{season}' => $season, '{episode}' => $number]);
-    return $base . substr($url, strlen(url_origin($url)));
+    static $bases = null;
+    $bases ??= watch_bases();
+    $turkishFinale = in_array($finale, ['season', 'series'], true) && ($show['original_language'] ?? null) === 'tr';
+    $overrides = watch_slug_overrides($show['watch_slug'] ?? null);
+    $links = [];
+    foreach (watch_sites() as $site => $cfg) {
+        $template = $turkishFinale && ($cfg['finale'] ?? '') !== '' ? $cfg['finale'] : $cfg['url'];
+        $url = strtr($template, ['{slug}' => watch_slug($show, $site), '{season}' => $season, '{episode}' => $number]);
+        if (($cfg['remake'] ?? '') === 'clash' && ($overrides[$site] ?? '') === ''
+            && ($older = older_namesake($show)) && show_has_episode($older, $season, $number)) {
+            $url = preg_replace('#/?$#', '-2$0', $url, 1);
+        }
+        $links[] = ['site' => $site, 'url' => $bases[$site] . substr($url, strlen(url_origin($url)))];
+    }
+    return $links;
 }
 
 /** Premiere/finale badge for an episode ('' for regular ones and specials).

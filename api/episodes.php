@@ -1,7 +1,7 @@
 <?php
 // Shared show/episode cache, keyed by IMDB ids.
 // GET  ?show_id=ttNNNNNNN
-//      -> {show, episodes: [{id, imdb_id, season, number, name, airdate, airstamp, finale, watch_url?}], watched: [...], today}
+//      -> {show, episodes: [{id, imdb_id, season, number, name, airdate, airstamp, finale, watch?}], watched: [...], today}
 // POST {show_id: "ttNNNNNNN"}
 //      -> imports/refreshes the show SERVER-SIDE from TMDB/TVmaze, then
 //         returns the same payload as GET. No provider data is accepted
@@ -29,19 +29,21 @@ function cache_payload(string $imdbId): array
     );
     $stmt->execute([$imdbId]);
     $episodes = $stmt->fetchAll();
-    // Admin-only Watch links (config WATCH_URL): a link per episode, and the
-    // show's effective slug for its ✎. Nobody else gets either.
+    // Admin-only Watch links (config WATCH_SITES): each episode's links, and
+    // the show's effective slug per site for its ✎. Nobody else gets either.
     if ($show && watch_enabled()) {
         foreach ($episodes as &$ep) {
-            if ($url = watch_url($show, (int) $ep['season'], (int) $ep['number'], $ep['finale'])) {
-                $ep['watch_url'] = $url;
+            if ($links = watch_links($show, (int) $ep['season'], (int) $ep['number'], $ep['finale'])) {
+                $ep['watch'] = $links;
             }
         }
         unset($ep);
-        $show['watch_slug'] = watch_slug($show);
-    } elseif ($show) {
-        unset($show['watch_slug']);
+        $show['watch_slugs'] = [];
+        foreach (array_keys(watch_sites()) as $site) {
+            $show['watch_slugs'][$site] = watch_slug($show, $site);
+        }
     }
+    unset($show['watch_slug']);
 
     $stmt = db()->prepare(
         'SELECT we.episode_id FROM watched_episodes we

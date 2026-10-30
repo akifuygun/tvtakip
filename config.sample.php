@@ -17,8 +17,18 @@ define('TVDB_API_KEY', '');
 // Comma-separated emails that get admin controls (e.g. removing posters).
 define('ADMIN_EMAILS', '');
 
-// Optional, admins only: per-episode "Watch" link template. {slug} = show name
-// slug, {season} / {episode} = numbers. Leave empty for no button.
-define('WATCH_URL', '');   // e.g. https://example.com/{slug}-{season}-sezon-{episode}-bolum-izle/
-// Optional: the same for Turkish productions' season/series finales; empty = WATCH_URL.
-define('WATCH_URL_FINALE', '');
+// Optional, admins only: per-episode "Watch" badges, one per site, in this
+// order; the key is the badge label. Empty array = no badges.
+//   url    — episode link template: {slug} = show slug, {season} / {episode} = numbers
+//   finale — optional: the same for Turkish productions' season/series finales
+//   and    — "&" in titles spelled "and" (true, default) or dropped (false)
+//   remake — a show sharing its name with an older cached one:
+//            'year'  = slug + "-YYYY" (its start year)
+//            'clash' = URL + "-2" where the older one has the same episode
+define('WATCH_SITES', [
+    // 'EX' => [
+    //     'url' => 'https://example.com/{slug}-{season}x{episode}',
+    //     'and' => false,
+    //     'remake' => 'clash',
+    // ],
+]);

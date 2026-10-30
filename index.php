@@ -162,14 +162,18 @@ require __DIR__ . '/includes/header.php';
                 <?php
                 $showUrl = htmlspecialchars(series_url($ep['show_imdb_id']));
                 $code = episode_code((int) $ep['season'], (int) $ep['number']);
-                // Admin-only Watch link, only once the episode is markable (not airing later today).
-                $watch = $ep['airstamp'] !== null && $ep['airstamp'] > gmdate('Y-m-d H:i:s') ? null
-                    : watch_url(['name' => $ep['show_name']] + $ep, (int) $ep['season'], (int) $ep['number'], $ep['finale']);
+                // Admin-only Watch links, only once the episode is markable (not airing later today).
+                $watch = $ep['airstamp'] !== null && $ep['airstamp'] > gmdate('Y-m-d H:i:s') ? []
+                    : watch_links(['name' => $ep['show_name']] + $ep, (int) $ep['season'], (int) $ep['number'], $ep['finale']);
                 ?>
                 <div class="show-card">
                     <?= network_badge_html($ep['network'], $ep['primary_network']) ?>
                     <?php if ($watch): ?>
-                        <a class="watch-link" href="<?= htmlspecialchars($watch) ?>" target="_blank" rel="noopener noreferrer">▶ <?= t('watch') ?></a>
+                        <div class="watch-links">
+                            <?php foreach ($watch as $w): ?>
+                                <a class="watch-link" href="<?= htmlspecialchars($w['url']) ?>" target="_blank" rel="noopener noreferrer">▶ <?= htmlspecialchars($w['site']) ?></a>
+                            <?php endforeach; ?>
+                        </div>
                     <?php endif; ?>
                     <a href="<?= $showUrl ?>">
                         <?php if ($ep['image_url']): ?>
