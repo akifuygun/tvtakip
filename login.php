@@ -1,8 +1,11 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 
+// The TV view sends visitors here with ?next=tv to come back to it.
+$next = ($_GET['next'] ?? '') === 'tv' ? '/tv' : 'index.php';
+
 if (is_logged_in()) {
-    header('Location: index.php');
+    header('Location: ' . $next);
     exit;
 }
 
@@ -23,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($_POST['remember'])) {
                 remember_user((int) $user['id']);
             }
-            header('Location: index.php');
+            header('Location: ' . $next);
             exit;
         }
         $errors[] = t('invalid_login');

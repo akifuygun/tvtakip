@@ -20,6 +20,8 @@ RewriteRule ^(?:tr/)?browse/?$ browse.php [L,QSA]
 RewriteRule ^(?:tr/)?upcoming/?$ upcoming.php [L,QSA]
 RewriteRule ^tr/?$ index.php [L,QSA]
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
+# The calendar's TV view (login-gated, so no /tr/ variant).
+RewriteRule ^tv/?$ tv.php [L,QSA]
 
 # Compress text responses. <IfModule> so it harmlessly no-ops if mod_deflate
 # is unavailable. (The host may already gzip HTML at its proxy — verify in a

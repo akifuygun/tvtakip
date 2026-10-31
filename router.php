@@ -47,5 +47,9 @@ if ($path === '/sitemap.xml') {
     require __DIR__ . '/sitemap.php';
     return true;
 }
+if (preg_match('#^/tv/?$#', $path)) {
+    require __DIR__ . '/tv.php';
+    return true;
+}
 
 return false; // serve the requested file/script as-is
