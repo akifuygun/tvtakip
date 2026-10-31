@@ -12,6 +12,19 @@ if (!is_logged_in()) {
     exit;
 }
 
+// Tiles or list: switched by the header buttons, remembered by the browser.
+if (isset($_GET['view'])) {
+    setcookie('tv_view', $_GET['view'] === 'list' ? 'list' : 'tiles', [
+        'expires' => time() + 31536000,
+        'path' => '/',
+        'samesite' => 'Lax',
+        'secure' => request_is_https(),
+    ]);
+    header('Location: /tv');
+    exit;
+}
+$view = ($_COOKIE['tv_view'] ?? '') === 'list' ? 'list' : 'tiles';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // The markable gate of api/watch.php: an episode airing later today isn't.
     $ok = verify_csrf($_POST['csrf_token'] ?? null);
@@ -45,6 +58,27 @@ function tv_local(string $airstamp, string $format): string
     return (new DateTimeImmutable($airstamp, new DateTimeZone('UTC')))
         ->setTimezone(new DateTimeZone(date_default_timezone_get()))->format($format);
 }
+
+/** The episode's air day in the viewer's timezone (Y-m-d). */
+function tv_airday(array $ep): string
+{
+    return $ep['airstamp'] ? tv_local($ep['airstamp'], 'Y-m-d') : $ep['airdate'];
+}
+
+/** Show name and episode code; the episode title and (with $withDay) its air
+ *  day too, which only the list view has room to show. */
+function tv_info(array $ep, bool $withDay): string
+{
+    $sub = array_filter([
+        htmlspecialchars((string) $ep['ep_name']),
+        $withDay ? '📅 ' . htmlspecialchars(format_date(tv_airday($ep))) : '',
+    ]);
+    return '<div class="tv-info"><h2>' . htmlspecialchars($ep['show_name']) . '</h2>'
+        . '<p class="tv-ep">' . episode_code((int) $ep['season'], (int) $ep['number']) . ' '
+        . episode_badge_html((int) $ep['season'], (int) $ep['number'], $ep['finale']) . '</p>'
+        . ($sub ? '<p class="tv-sub">' . implode(' · ', $sub) . '</p>' : '')
+        . '</div>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?= current_lang() ?>">
@@ -57,10 +91,14 @@ function tv_local(string $airstamp, string $format): string
     <link rel="stylesheet" href="/assets/css/tv.css?v=<?= ASSET_VERSION ?>">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
 </head>
-<body>
+<body class="tv-<?= $view ?>">
 <header class="tv-head">
     <h1>📅 <?= t('calendar_title') ?></h1>
     <span class="tv-date"><?= htmlspecialchars(format_date(today())) ?></span>
+    <nav class="tv-views">
+        <a class="tv-btn<?= $view === 'tiles' ? ' tv-btn-on' : '' ?>" href="/tv?view=tiles"><?= t('tv_tiles') ?></a>
+        <a class="tv-btn<?= $view === 'list' ? ' tv-btn-on' : '' ?>" href="/tv?view=list"><?= t('tv_list') ?></a>
+    </nav>
     <a class="tv-btn" href="/"><?= t('tv_full_site') ?></a>
 </header>
 <main class="tv-main">
@@ -79,8 +117,7 @@ function tv_local(string $airstamp, string $format): string
                 ?>
                 <div class="tv-card">
                     <?= tv_poster($ep) ?>
-                    <h2><?= htmlspecialchars($ep['show_name']) ?></h2>
-                    <p class="tv-ep"><?= episode_code((int) $ep['season'], (int) $ep['number']) ?> <?= episode_badge_html((int) $ep['season'], (int) $ep['number'], $ep['finale']) ?></p>
+                    <?= tv_info($ep, true) ?>
                     <?php if ($later): ?>
                         <p class="tv-when"><?= htmlspecialchars(t('airs_on', tv_local($ep['airstamp'], 'H:i'))) ?></p>
                     <?php else: ?>
@@ -112,9 +149,8 @@ function tv_local(string $airstamp, string $format): string
                 <?php foreach ($upcoming as $ep): ?>
                     <div class="tv-card">
                         <?= tv_poster($ep) ?>
-                        <h2><?= htmlspecialchars($ep['show_name']) ?></h2>
-                        <p class="tv-ep"><?= episode_code((int) $ep['season'], (int) $ep['number']) ?> <?= episode_badge_html((int) $ep['season'], (int) $ep['number'], $ep['finale']) ?></p>
-                        <p class="tv-when">📅 <?= htmlspecialchars(format_date($ep['airstamp'] ? tv_local($ep['airstamp'], 'Y-m-d') : $ep['airdate'])) ?></p>
+                        <?= tv_info($ep, false) ?>
+                        <p class="tv-when">📅 <?= htmlspecialchars(format_date(tv_airday($ep))) ?></p>
                     </div>
                 <?php endforeach; ?>
             </div>
