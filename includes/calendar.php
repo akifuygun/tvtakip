@@ -3,10 +3,15 @@
 // so both always list the same episodes.
 require_once __DIR__ . '/auth.php';
 
+// Leading sort key: shows that have ended or were canceled go after the ones
+// still on air (a show with no status counts as on air).
+const CALENDAR_FINISHED_LAST = "COALESCE(s.status IN ('ended', 'canceled'), 0)";
+
 /**
  * For each tracked show, its earliest unwatched episode airing today or
  * earlier (viewer's day) — resolved in SQL (one row per show) instead of
- * fetching the whole backlog and de-duping in PHP. Oldest pending first.
+ * fetching the whole backlog and de-duping in PHP. Oldest pending first,
+ * finished shows last.
  */
 function calendar_episodes(int $userId): array
 {
@@ -25,7 +30,7 @@ function calendar_episodes(int $userId): array
              ORDER BY (e2.season = 0), e2.airdate, e2.season, e2.number LIMIT 1
          )
          WHERE us.user_id = ?
-         ORDER BY e.airdate, e.season, e.number'
+         ORDER BY ' . CALENDAR_FINISHED_LAST . ', e.airdate, e.season, e.number'
     );
     $stmt->execute([today_end_utc(), today(), $userId]);
     return $stmt->fetchAll();
@@ -33,7 +38,8 @@ function calendar_episodes(int $userId): array
 
 /**
  * Caught-up fallback: one upcoming (not-yet-aired) episode per tracked show,
- * soonest first — so the calendar is useful instead of just "all caught up".
+ * soonest first, finished shows last — so the calendar is useful instead of
+ * just "all caught up".
  */
 function calendar_upcoming(int $userId): array
 {
@@ -50,7 +56,7 @@ function calendar_upcoming(int $userId): array
              ORDER BY (e2.season = 0), COALESCE(e2.airstamp, CONCAT(e2.airdate, ' 00:00:00')) ASC, e2.season ASC, e2.number ASC LIMIT 1
          )
          WHERE us.user_id = ?
-         ORDER BY COALESCE(e.airstamp, CONCAT(e.airdate, ' 00:00:00')) ASC, e.season ASC, e.number ASC
+         ORDER BY " . CALENDAR_FINISHED_LAST . ", COALESCE(e.airstamp, CONCAT(e.airdate, ' 00:00:00')) ASC, e.season ASC, e.number ASC
          LIMIT 12"
     );
     $stmt->execute([today(), $userId]);
