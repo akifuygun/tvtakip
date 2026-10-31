@@ -80,13 +80,15 @@ function tv_info(array $ep, bool $withDay): string
         . '</div>';
 }
 
-/** The ▶ badge of one Watch link. A site set to tv 'alert' in WATCH_SITES gets
- *  data-alert: tv.js then shows the URL instead of opening it. */
-function tv_watch_link(array $link): string
+/** The ▶ badge of one Watch link. A site set to tv 'video' in WATCH_SITES gets
+ *  data-video (the site) + data-episode: tv.js then shows the URL of the video
+ *  behind the page (api/watch_video.php) instead of opening the page. */
+function tv_watch_link(array $link, int $episodeId): string
 {
-    $alert = (watch_sites()[$link['site']]['tv'] ?? 'open') === 'alert';
+    $video = (watch_sites()[$link['site']]['tv'] ?? 'open') === 'video';
     return '<a class="tv-btn tv-btn-play" href="' . htmlspecialchars($link['url']) . '" target="_blank" rel="noopener noreferrer"'
-        . ($alert ? ' data-alert' : '') . '>▶ ' . htmlspecialchars($link['site']) . '</a>';
+        . ($video ? ' data-video="' . htmlspecialchars($link['site']) . '" data-episode="' . $episodeId . '"' : '')
+        . '>▶ ' . htmlspecialchars($link['site']) . '</a>';
 }
 ?>
 <!DOCTYPE html>
@@ -100,7 +102,7 @@ function tv_watch_link(array $link): string
     <link rel="stylesheet" href="/assets/css/tv.css?v=<?= ASSET_VERSION ?>">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
 </head>
-<body class="tv-<?= $view ?>">
+<body class="tv-<?= $view ?>" data-video-failed="<?= htmlspecialchars(t('tv_video_failed')) ?>">
 <header class="tv-head">
     <h1>📅 <?= t('calendar_title') ?></h1>
     <span class="tv-date"><?= htmlspecialchars(format_date(today())) ?></span>
@@ -134,7 +136,7 @@ function tv_watch_link(array $link): string
                             <?php if ($watch): ?>
                                 <div class="tv-play">
                                     <?php foreach ($watch as $w): ?>
-                                        <?= tv_watch_link($w) ?>
+                                        <?= tv_watch_link($w, (int) $ep['id']) ?>
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>

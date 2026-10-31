@@ -1,7 +1,7 @@
 // TV view (tv.php). The page works without this file (marking watched is a
 // plain form POST, ▶ links open their site); it keeps the page in place while
-// marking, shows the address of ▶ links set to alert, and runs the calendar's
-// background refresh.
+// marking, shows the video behind ▶ links set to video, and runs the
+// calendar's background refresh.
 
 // Same timezone report as app.js, so "today" follows the TV's clock.
 try {
@@ -40,15 +40,30 @@ function initTvMark() {
   });
 }
 
-// The ▶ badge of a site set to tv 'alert' in WATCH_SITES (data-alert): show
-// the episode's address instead of opening it. Delegated, so it survives the
-// .tv-main swaps.
-function initTvAlert() {
-  document.addEventListener('click', (e) => {
-    const link = e.target.closest('.tv-main a[data-alert]');
+// The ▶ badge of a site set to tv 'video' in WATCH_SITES (data-video): ask the
+// server for the video behind the episode page (api/watch_video.php) and show
+// its URL instead of opening the page. Delegated, so it survives the .tv-main
+// swaps; the badge reads "…" while the server fetches.
+function initTvVideo() {
+  document.addEventListener('click', async (e) => {
+    const link = e.target.closest('.tv-main a[data-video]');
     if (!link) return;
     e.preventDefault();
-    alert(link.href);
+    if (link.dataset.busy) return;
+    link.dataset.busy = '1';
+    const label = link.textContent;
+    link.textContent = '…';
+    let text = document.body.dataset.videoFailed;
+    try {
+      const url = `/api/watch_video.php?episode_id=${encodeURIComponent(link.dataset.episode)}&site=${encodeURIComponent(link.dataset.video)}`;
+      const data = await (await fetch(url, { cache: 'no-store' })).json();
+      text = data.text || data.error || text;
+    } catch {
+      // network hiccup or a non-JSON answer: the generic message
+    }
+    link.textContent = label;
+    delete link.dataset.busy;
+    alert(text);
   });
 }
 
@@ -72,5 +87,5 @@ async function refreshTv() {
 }
 
 initTvMark();
-initTvAlert();
+initTvVideo();
 refreshTv();
