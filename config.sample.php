@@ -25,15 +25,10 @@ define('ADMIN_EMAILS', '');
 //   remake — a show sharing its name with an older cached one:
 //            'year'  = slug + "-YYYY" (its start year)
 //            'clash' = URL + "-2" where the older one has the same episode
-//   tv     — its badge on the TV view (/tv): 'open' (default) opens the link,
-//            'video' shows the URL of the video behind the page instead: the
-//            page's player frame, then that player's own frame (the video
-//            host's embed), or a .m3u8/.mp4 the pages state
 define('WATCH_SITES', [
     // 'EX' => [
     //     'url' => 'https://example.com/{slug}-{season}x{episode}',
     //     'and' => false,
     //     'remake' => 'clash',
-    //     'tv' => 'video',
     // ],
 ]);

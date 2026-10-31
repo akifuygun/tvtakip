@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '73';
+const ASSET_VERSION = '71';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -363,7 +363,7 @@ function name_slug(string $name, bool $and = true): string
     return trim(preg_replace('/[^a-z0-9]+/', '-', $s), '-');
 }
 
-/** The Watch sites from config WATCH_SITES: label => [url, finale?, and?, remake?, tv?]
+/** The Watch sites from config WATCH_SITES: label => [url, finale?, and?, remake?]
  *  (see config.sample.php), in badge order. */
 function watch_sites(): array
 {
