@@ -79,6 +79,15 @@ function tv_info(array $ep, bool $withDay): string
         . ($sub ? '<p class="tv-sub">' . implode(' · ', $sub) . '</p>' : '')
         . '</div>';
 }
+
+/** The ▶ badge of one Watch link. A site set to tv 'alert' in WATCH_SITES gets
+ *  data-alert: tv.js then shows the URL instead of opening it. */
+function tv_watch_link(array $link): string
+{
+    $alert = (watch_sites()[$link['site']]['tv'] ?? 'open') === 'alert';
+    return '<a class="tv-btn tv-btn-play" href="' . htmlspecialchars($link['url']) . '" target="_blank" rel="noopener noreferrer"'
+        . ($alert ? ' data-alert' : '') . '>▶ ' . htmlspecialchars($link['site']) . '</a>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?= current_lang() ?>" data-theme="<?= app_theme() ?>">
@@ -125,7 +134,7 @@ function tv_info(array $ep, bool $withDay): string
                             <?php if ($watch): ?>
                                 <div class="tv-play">
                                     <?php foreach ($watch as $w): ?>
-                                        <a class="tv-btn tv-btn-play" href="<?= htmlspecialchars($w['url']) ?>" target="_blank" rel="noopener noreferrer">▶ <?= htmlspecialchars($w['site']) ?></a>
+                                        <?= tv_watch_link($w) ?>
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>

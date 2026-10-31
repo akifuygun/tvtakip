@@ -1,6 +1,7 @@
 // TV view (tv.php). The page works without this file (marking watched is a
-// plain form POST); it keeps the page in place while marking and runs the
-// calendar's background refresh.
+// plain form POST, ▶ links open their site); it keeps the page in place while
+// marking, shows the address of ▶ links set to alert, and runs the calendar's
+// background refresh.
 
 // Same timezone report as app.js, so "today" follows the TV's clock.
 try {
@@ -39,6 +40,18 @@ function initTvMark() {
   });
 }
 
+// The ▶ badge of a site set to tv 'alert' in WATCH_SITES (data-alert): show
+// the episode's address instead of opening it. Delegated, so it survives the
+// .tv-main swaps.
+function initTvAlert() {
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('.tv-main a[data-alert]');
+    if (!link) return;
+    e.preventDefault();
+    alert(link.href);
+  });
+}
+
 // Freshness, as on the calendar (app.js refreshCalendar): the server refreshes
 // this viewer's stale shows a few per call, so keep calling while some are
 // left — capped per visit — and swap in a fresh render whenever one changed.
@@ -59,4 +72,5 @@ async function refreshTv() {
 }
 
 initTvMark();
+initTvAlert();
 refreshTv();

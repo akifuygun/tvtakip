@@ -25,10 +25,13 @@ define('ADMIN_EMAILS', '');
 //   remake — a show sharing its name with an older cached one:
 //            'year'  = slug + "-YYYY" (its start year)
 //            'clash' = URL + "-2" where the older one has the same episode
+//   tv     — its badge on the TV view (/tv): 'open' (default) opens the link,
+//            'alert' shows the link's URL in a dialog instead
 define('WATCH_SITES', [
     // 'EX' => [
     //     'url' => 'https://example.com/{slug}-{season}x{episode}',
     //     'and' => false,
     //     'remake' => 'clash',
+    //     'tv' => 'alert',
     // ],
 ]);
