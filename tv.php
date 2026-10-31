@@ -81,12 +81,12 @@ function tv_info(array $ep, bool $withDay): string
 }
 ?>
 <!DOCTYPE html>
-<html lang="<?= current_lang() ?>">
+<html lang="<?= current_lang() ?>" data-theme="<?= app_theme() ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, follow">
-    <meta name="theme-color" content="#0f1218">
+    <meta name="theme-color" content="<?= app_theme() === 'light' ? '#eef1f6' : '#0f1218' ?>">
     <title><?= htmlspecialchars(app_name() . ' — ' . t('calendar_title')) ?></title>
     <link rel="stylesheet" href="/assets/css/tv.css?v=<?= ASSET_VERSION ?>">
     <link rel="icon" href="/favicon.ico" sizes="32x32">

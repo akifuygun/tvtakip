@@ -1,8 +1,9 @@
 /* TV view (tv.php): a 10-foot layout for the remote's on-screen pointer — big
    type, six posters a row, big buttons and an unmistakable hover. Sized in vw
    so it scales with whatever resolution the TV browser reports; plain units on
-   narrow screens. */
-:root {
+   narrow screens. The theme follows the site's (data-theme on <html>, from
+   the theme cookie), with the same palette as style.css. */
+:root, :root[data-theme="dark"] {
   --bg: #0f1218;
   --surface: #1a1f2a;
   --border: #2a3140;
@@ -12,8 +13,19 @@
   --danger: #e05252;
   --success: #5fbf6e;
   --warning: #e0b352;
-  font-size: 1.25vw;
 }
+:root[data-theme="light"] {
+  --bg: #eef1f6;
+  --surface: #ffffff;
+  --border: #d5dce6;
+  --text: #1b2430;
+  --muted: #5b6673;
+  --accent: #2563eb;
+  --danger: #d64343;
+  --success: #2e9e4f;
+  --warning: #b07d1a;
+}
+:root { font-size: 1.25vw; }
 @media (max-width: 900px) { :root { font-size: 16px; } }
 
 * { box-sizing: border-box; }
