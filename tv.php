@@ -1,8 +1,10 @@
 <?php
 // The calendar for a TV browser (/tv): the same episodes as index.php, big and
 // remote-friendly, on a page of its own (no site header, nav or app.js).
-// Marking watched is a plain form POST, so the page works with the TV
-// browser's pointer even when the arrow-key helpers in tv.js don't get keys.
+// Samsung's TV browser turns the remote into an on-screen pointer (no key
+// events reach the page), so it's built for pointing: big buttons and hover
+// highlights. Marking watched is a plain form POST that tv.js upgrades to an
+// in-place update.
 require_once __DIR__ . '/includes/calendar.php';
 
 if (!is_logged_in()) {
@@ -20,29 +22,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
         $stmt->execute([current_user_id(), (int) ($_POST['episode_id'] ?? 0), today()]);
     }
-    // Back to the list, focused on the same show's next episode (or whatever
-    // card took its place).
-    header('Location: /tv?' . http_build_query([
-        'show' => valid_imdb_id($_POST['show'] ?? null) ? $_POST['show'] : null,
-        'pos' => (int) ($_POST['pos'] ?? 0),
-        'expired' => $ok ? null : 1,
-    ]), true, 303);
+    // Back to the list, where the show's next episode takes its place.
+    header('Location: /tv' . ($ok ? '' : '?expired=1'), true, 303);
     exit;
 }
 
 $items = calendar_episodes(current_user_id());
 $upcoming = $items ? [] : calendar_upcoming(current_user_id());
-
-// Card that starts focused for the remote: the show just marked, else the
-// position it was at, else the first card.
-$focus = (int) ($_GET['pos'] ?? 0);
-foreach ($items as $i => $ep) {
-    if ($ep['show_imdb_id'] === ($_GET['show'] ?? null)) {
-        $focus = $i;
-        break;
-    }
-}
-$focused = false;
 
 /** Poster (or placeholder) with the network logo on it. */
 function tv_poster(array $ep): string
@@ -84,19 +70,14 @@ function tv_local(string $airstamp, string $format): string
 
     <?php if ($items): ?>
         <div class="tv-grid">
-            <?php foreach ($items as $i => $ep): ?>
+            <?php foreach ($items as $ep): ?>
                 <?php
                 // Airs later today: not markable until its airstamp, so show the local time.
                 $later = $ep['airstamp'] !== null && $ep['airstamp'] > gmdate('Y-m-d H:i:s');
                 $watch = $later ? []
                     : watch_links(['name' => $ep['show_name']] + $ep, (int) $ep['season'], (int) $ep['number'], $ep['finale']);
-                $autofocus = '';
-                if (!$later && !$focused && $i >= $focus) {
-                    $autofocus = ' autofocus';
-                    $focused = true;
-                }
                 ?>
-                <div class="tv-card" data-show="<?= htmlspecialchars($ep['show_imdb_id']) ?>">
+                <div class="tv-card">
                     <?= tv_poster($ep) ?>
                     <h2><?= htmlspecialchars($ep['show_name']) ?></h2>
                     <p class="tv-ep"><?= episode_code((int) $ep['season'], (int) $ep['number']) ?> <?= episode_badge_html((int) $ep['season'], (int) $ep['number'], $ep['finale']) ?></p>
@@ -107,17 +88,14 @@ function tv_local(string $airstamp, string $format): string
                             <?php if ($watch): ?>
                                 <div class="tv-play">
                                     <?php foreach ($watch as $w): ?>
-                                        <a class="tv-btn tv-btn-play" href="<?= htmlspecialchars($w['url']) ?>" target="_blank" rel="noopener noreferrer"<?= $autofocus ?>>▶ <?= htmlspecialchars($w['site']) ?></a>
-                                        <?php $autofocus = ''; ?>
+                                        <a class="tv-btn tv-btn-play" href="<?= htmlspecialchars($w['url']) ?>" target="_blank" rel="noopener noreferrer">▶ <?= htmlspecialchars($w['site']) ?></a>
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>
                             <form method="post" action="/tv">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
                                 <input type="hidden" name="episode_id" value="<?= (int) $ep['id'] ?>">
-                                <input type="hidden" name="show" value="<?= htmlspecialchars($ep['show_imdb_id']) ?>">
-                                <input type="hidden" name="pos" value="<?= $i ?>">
-                                <button class="tv-btn" type="submit"<?= $autofocus ?>><?= t('mark_watched') ?></button>
+                                <button class="tv-btn" type="submit"><?= t('mark_watched') ?></button>
                             </form>
                         </div>
                     <?php endif; ?>
@@ -150,29 +128,5 @@ function tv_local(string $airstamp, string $format): string
     <a href="https://thetvdb.com" rel="noopener">TheTVDB</a>
 </footer>
 <script src="/assets/js/tv.js?v=<?= ASSET_VERSION ?>"></script>
-<?php if (isset($_GET['keys'])): ?>
-<pre id="tv-keys" style="position: fixed; left: 1vw; bottom: 1vw; z-index: 9; margin: 0; padding: 0.6rem 0.8rem; max-width: 60vw; white-space: pre-wrap; font-size: 0.9rem; background: rgba(0, 0, 0, 0.85); color: #fff; border-radius: 0.4rem;"></pre>
-<script>
-// Temporary remote diagnostics (/tv?keys=1): what keys the TV browser hands
-// the page, and whether tv.js loaded. Plain ES5 + its own script tag, so it
-// still reports if tv.js can't run.
-(function () {
-    var box = document.getElementById('tv-keys');
-    var n = 0;
-    function show(line) {
-        box.textContent = navigator.userAgent + '\ntv.js: ' + (typeof tvNeighbor === 'function' ? 'loaded' : 'NOT loaded') + '\n' + line;
-    }
-    function log(e) {
-        var a = document.activeElement;
-        n++;
-        show('#' + n + ' ' + e.type + ' key=' + e.key + ' code=' + e.code + ' keyCode=' + e.keyCode
-            + ' handled=' + e.defaultPrevented + ' focus=' + (a ? (a.textContent || a.tagName).trim() : '-'));
-    }
-    show('no key yet');
-    window.addEventListener('keydown', log);
-    window.addEventListener('keyup', log);
-})();
-</script>
-<?php endif; ?>
 </body>
 </html>

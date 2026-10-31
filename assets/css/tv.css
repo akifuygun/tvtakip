@@ -1,6 +1,7 @@
-/* TV view (tv.php): a 10-foot layout — big type, six posters a row and one
-   unmistakable highlight. Sized in vw so it scales with whatever resolution
-   the TV browser reports; plain units on narrow screens. */
+/* TV view (tv.php): a 10-foot layout for the remote's on-screen pointer — big
+   type, six posters a row, big buttons and an unmistakable hover. Sized in vw
+   so it scales with whatever resolution the TV browser reports; plain units on
+   narrow screens. */
 :root {
   --bg: #0f1218;
   --surface: #1a1f2a;
@@ -65,10 +66,10 @@ a { color: var(--accent); text-decoration: none; }
   background: var(--surface);
   border: 0.2rem solid transparent;
   border-radius: 0.7rem;
-  /* Room around a card that tv.js scrolls into view. */
-  scroll-margin: 2.5vw;
 }
-.tv-card:focus-within { border-color: var(--text); }
+/* The card under the remote's pointer (or holding keyboard focus). */
+.tv-card:hover,
+.tv-card:has(:focus-visible) { border-color: var(--text); }
 
 .tv-poster {
   display: block;
@@ -143,10 +144,10 @@ a { color: var(--accent); text-decoration: none; }
   cursor: pointer;
 }
 .tv-btn-play { background: var(--accent); color: #fff; }
-/* One highlight for both ways of pointing on a TV — the remote's arrows
-   (focus) and the browser's on-screen pointer (hover) — inverted so it reads
-   from across the room. */
-.tv-btn:focus,
+/* Under the pointer (or keyboard focus): inverted, so it reads from across
+   the room. :focus-visible, not :focus — a clicked ▶ shouldn't stay lit after
+   coming back from its tab. */
+.tv-btn:focus-visible,
 .tv-btn:hover {
   background: var(--text);
   color: var(--bg);

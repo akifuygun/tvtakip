@@ -1,6 +1,6 @@
 // TV view (tv.php). The page works without this file (marking watched is a
-// plain form POST); it adds remote arrow-key navigation and the calendar's
-// background refresh.
+// plain form POST); it keeps the page in place while marking and runs the
+// calendar's background refresh.
 
 // Same timezone report as app.js, so "today" follows the TV's clock.
 try {
@@ -10,60 +10,32 @@ try {
   }
 } catch { /* keep server default */ }
 
-const TV_TARGETS = '.tv-head a, .tv-main a, .tv-main button';
-// By keyCode: what Tizen remotes send, whatever `key` name a TV browser reports.
-const TV_KEYS = { 37: [-1, 0], 38: [0, -1], 39: [1, 0], 40: [0, 1] };
-
-// Focus a button and bring its whole card into view, poster included (the
-// header's button: back to the top).
-function tvFocus(el) {
-  el.focus({ preventScroll: true });
-  const card = el.closest('.tv-card');
-  if (card) card.scrollIntoView({ block: 'nearest' });
-  else window.scrollTo(0, 0);
+// Swap in a fresh server render of the cards. False when `html` isn't the TV
+// page (say, the login page after a lost session).
+function swapTv(html) {
+  const next = new DOMParser().parseFromString(html, 'text/html').querySelector('.tv-main');
+  const main = document.querySelector('.tv-main');
+  if (!main || !next) return false;
+  main.replaceWith(next);
+  return true;
 }
 
-// The nearest target from `from` in direction [dx, dy], counting only targets
-// wholly past its edge on that side: the gap between the facing edges plus a
-// penalty for sideways drift (none while the two still overlap side-on), so
-// moves keep to the row or column and Down enters a card at its top button.
-function tvNeighbor(from, [dx, dy]) {
-  const a = from.getBoundingClientRect();
-  let best = null;
-  let bestScore = Infinity;
-  document.querySelectorAll(TV_TARGETS).forEach((el) => {
-    const b = el.getBoundingClientRect();
-    if (el === from || !b.width) return;
-    const gap = dx > 0 ? b.left - a.right : dx < 0 ? a.left - b.right
-      : dy > 0 ? b.top - a.bottom : a.top - b.bottom;
-    const drift = dx ? Math.max(0, b.top - a.bottom, a.top - b.bottom)
-      : Math.max(0, b.left - a.right, a.left - b.right);
-    const score = gap + 2 * drift;
-    if (gap > -1 && score < bestScore) {
-      best = el;
-      bestScore = score;
-    }
-  });
-  return best;
-}
-
-// Arrow keys jump between buttons. TV browsers that steer an on-screen pointer
-// with the arrows may keep the keys to themselves; hover is styled the same.
-// Captured on window, so the page sees them before anything else does.
-function initTvNav() {
-  window.addEventListener('keydown', (e) => {
-    const dir = TV_KEYS[e.keyCode];
-    if (!dir) return;
-    const cur = document.activeElement;
-    const next = cur?.matches(TV_TARGETS) ? tvNeighbor(cur, dir)
-      : document.querySelector('.tv-main a, .tv-main button') || document.querySelector(TV_TARGETS);
-    if (!next) return; // edge of the page: let the browser scroll
+// Mark Watched without a page load: post the form and swap in the list the
+// server redirects to, so the page — and the remote's pointer on it — stays
+// where it was. Anything unexpected falls back to the plain form post.
+function initTvMark() {
+  document.addEventListener('submit', async (e) => {
+    const form = e.target;
+    if (!form.closest('.tv-main')) return;
     e.preventDefault();
-    tvFocus(next);
-  }, true);
-  // The server autofocuses a card's first button; show the rest of the card too.
-  window.addEventListener('load', () => {
-    if (document.activeElement?.matches(TV_TARGETS)) tvFocus(document.activeElement);
+    form.querySelector('button').disabled = true;
+    try {
+      const res = await fetch(form.action, { method: 'POST', body: new FormData(form) });
+      if (res.ok && swapTv(await res.text())) return;
+    } catch {
+      // network hiccup: fall through to the plain post
+    }
+    form.submit();
   });
 }
 
@@ -75,7 +47,10 @@ async function refreshTv() {
   try {
     for (let round = 0; round < TV_REFRESH_ROUNDS; round++) {
       const res = await (await fetch('/api/tick.php?scope=mine')).json();
-      if (res.changed) await reloadTv();
+      if (res.changed) {
+        const page = await fetch('/tv', { cache: 'no-store' });
+        if (page.ok) swapTv(await page.text());
+      }
       if (!res.more) break;
     }
   } catch {
@@ -83,25 +58,5 @@ async function refreshTv() {
   }
 }
 
-// Swap in a fresh server render of the cards, keeping focus on the same show's
-// button (or the first card's when that show is done).
-async function reloadTv() {
-  const res = await fetch('/tv', { cache: 'no-store' });
-  if (!res.ok) return;
-  const next = new DOMParser().parseFromString(await res.text(), 'text/html').querySelector('.tv-main');
-  const main = document.querySelector('.tv-main');
-  // Only ever replace the cards with cards (never, say, a login page).
-  if (!main || !next) return;
-  const active = document.activeElement;
-  const card = main.contains(active) ? active.closest('.tv-card') : null;
-  const index = card ? [...card.querySelectorAll('a, button')].indexOf(active) : -1;
-  main.replaceWith(next);
-  if (!card) return;
-  const again = next.querySelector(`.tv-card[data-show="${card.dataset.show}"]`);
-  const buttons = again ? [...again.querySelectorAll('a, button')] : [];
-  const el = buttons[Math.min(index, buttons.length - 1)] || next.querySelector('a, button');
-  if (el) tvFocus(el);
-}
-
-initTvNav();
+initTvMark();
 refreshTv();
