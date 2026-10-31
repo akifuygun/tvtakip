@@ -150,5 +150,29 @@ function tv_local(string $airstamp, string $format): string
     <a href="https://thetvdb.com" rel="noopener">TheTVDB</a>
 </footer>
 <script src="/assets/js/tv.js?v=<?= ASSET_VERSION ?>"></script>
+<?php if (isset($_GET['keys'])): ?>
+<pre id="tv-keys" style="position: fixed; left: 1vw; bottom: 1vw; z-index: 9; margin: 0; padding: 0.6rem 0.8rem; max-width: 60vw; white-space: pre-wrap; font-size: 0.9rem; background: rgba(0, 0, 0, 0.85); color: #fff; border-radius: 0.4rem;"></pre>
+<script>
+// Temporary remote diagnostics (/tv?keys=1): what keys the TV browser hands
+// the page, and whether tv.js loaded. Plain ES5 + its own script tag, so it
+// still reports if tv.js can't run.
+(function () {
+    var box = document.getElementById('tv-keys');
+    var n = 0;
+    function show(line) {
+        box.textContent = navigator.userAgent + '\ntv.js: ' + (typeof tvNeighbor === 'function' ? 'loaded' : 'NOT loaded') + '\n' + line;
+    }
+    function log(e) {
+        var a = document.activeElement;
+        n++;
+        show('#' + n + ' ' + e.type + ' key=' + e.key + ' code=' + e.code + ' keyCode=' + e.keyCode
+            + ' handled=' + e.defaultPrevented + ' focus=' + (a ? (a.textContent || a.tagName).trim() : '-'));
+    }
+    show('no key yet');
+    window.addEventListener('keydown', log);
+    window.addEventListener('keyup', log);
+})();
+</script>
+<?php endif; ?>
 </body>
 </html>

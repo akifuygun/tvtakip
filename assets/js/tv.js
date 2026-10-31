@@ -11,7 +11,8 @@ try {
 } catch { /* keep server default */ }
 
 const TV_TARGETS = '.tv-head a, .tv-main a, .tv-main button';
-const TV_KEYS = { ArrowLeft: [-1, 0], ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1] };
+// By keyCode: what Tizen remotes send, whatever `key` name a TV browser reports.
+const TV_KEYS = { 37: [-1, 0], 38: [0, -1], 39: [1, 0], 40: [0, 1] };
 
 // Focus a button and bring its whole card into view, poster included (the
 // header's button: back to the top).
@@ -48,9 +49,10 @@ function tvNeighbor(from, [dx, dy]) {
 
 // Arrow keys jump between buttons. TV browsers that steer an on-screen pointer
 // with the arrows may keep the keys to themselves; hover is styled the same.
+// Captured on window, so the page sees them before anything else does.
 function initTvNav() {
-  document.addEventListener('keydown', (e) => {
-    const dir = TV_KEYS[e.key];
+  window.addEventListener('keydown', (e) => {
+    const dir = TV_KEYS[e.keyCode];
     if (!dir) return;
     const cur = document.activeElement;
     const next = cur?.matches(TV_TARGETS) ? tvNeighbor(cur, dir)
@@ -58,7 +60,7 @@ function initTvNav() {
     if (!next) return; // edge of the page: let the browser scroll
     e.preventDefault();
     tvFocus(next);
-  });
+  }, true);
   // The server autofocuses a card's first button; show the rest of the card too.
   window.addEventListener('load', () => {
     if (document.activeElement?.matches(TV_TARGETS)) tvFocus(document.activeElement);
