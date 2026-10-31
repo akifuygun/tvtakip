@@ -107,7 +107,7 @@ function tv_local(string $airstamp, string $format): string
                             <?php if ($watch): ?>
                                 <div class="tv-play">
                                     <?php foreach ($watch as $w): ?>
-                                        <a class="tv-btn tv-btn-play" href="<?= htmlspecialchars($w['url']) ?>" rel="noreferrer"<?= $autofocus ?>>▶ <?= htmlspecialchars($w['site']) ?></a>
+                                        <a class="tv-btn tv-btn-play" href="<?= htmlspecialchars($w['url']) ?>" target="_blank" rel="noopener noreferrer"<?= $autofocus ?>>▶ <?= htmlspecialchars($w['site']) ?></a>
                                         <?php $autofocus = ''; ?>
                                     <?php endforeach; ?>
                                 </div>
