@@ -77,14 +77,12 @@ try {
     if (!$lock->fetchColumn()) {
         $out['busy'] = true;
     } else {
-        // Airing shows first — the ones the calendar is waiting on — then the
-        // longest unrefreshed.
+        // Longest unrefreshed first (never-synced ones ahead of all), so a
+        // run that gets cut short has covered the shows most in need.
         $stmt = db()->prepare(
             'SELECT s.imdb_id FROM user_shows us JOIN shows s ON s.imdb_id = us.show_imdb_id
              WHERE us.user_id = ? AND ' . REFRESH_DUE_SQL . '
-             ORDER BY EXISTS (SELECT 1 FROM episodes e WHERE e.show_imdb_id = s.imdb_id
-                              AND e.airdate BETWEEN CURDATE() - INTERVAL 14 DAY AND CURDATE() + INTERVAL 14 DAY) DESC,
-                      s.synced_at IS NULL DESC, s.synced_at ASC
+             ORDER BY s.synced_at IS NULL DESC, s.synced_at ASC
              LIMIT ' . REFRESH_BATCH
         );
         $stmt->execute([$userId, $since]);
