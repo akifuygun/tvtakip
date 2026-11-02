@@ -10,6 +10,12 @@ if (is_logged_in()) {
 }
 
 $errors = [];
+// logout.php lands here after "Log out on all devices", saying how it went.
+$out = $_GET['out'] ?? '';
+$notice = $out === 'all' ? t('logout_all_done') : null;
+if ($out === 'err') {
+    $errors[] = t('logout_all_failed');
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf($_POST['csrf_token'] ?? null)) {
         $errors[] = t('session_expired');
@@ -42,6 +48,9 @@ require __DIR__ . '/includes/header.php';
     <?php foreach ($errors as $error): ?>
         <p class="error"><?= htmlspecialchars($error) ?></p>
     <?php endforeach; ?>
+    <?php if ($notice): ?>
+        <p class="success"><?= htmlspecialchars($notice) ?></p>
+    <?php endif; ?>
     <form method="post">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
         <label><?= t('email') ?>

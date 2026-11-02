@@ -278,6 +278,10 @@ $GLOBALS['I18N'] = [
         'err_current_wrong' => 'Current password is incorrect.',
         'err_new_short' => 'New password must be at least 8 characters.',
         'err_no_match' => 'New passwords do not match.',
+        'sessions_title' => 'Sessions', 'logout_all' => 'Log out on all devices',
+        'logout_all_hint' => 'Ends your login on every device and browser, including this one, and forgets all remembered logins.',
+        'logout_all_done' => 'You have been logged out on all devices.',
+        'logout_all_failed' => 'Could not log out your other devices. Please try again.',
     ],
     'tr' => [
         'welcome' => 'Hoşgeldin', 'nav_calendar' => 'Takvim', 'nav_myshows' => 'Dizilerim',
@@ -442,6 +446,10 @@ $GLOBALS['I18N'] = [
         'err_current_wrong' => 'Mevcut şifre yanlış.',
         'err_new_short' => 'Yeni şifre en az 8 karakter olmalı.',
         'err_no_match' => 'Yeni şifreler eşleşmiyor.',
+        'sessions_title' => 'Oturumlar', 'logout_all' => 'Tüm cihazlardan çıkış yap',
+        'logout_all_hint' => 'Bu cihaz dahil tüm cihaz ve tarayıcılardaki oturumunu kapatır; hatırlanan girişler de unutulur.',
+        'logout_all_done' => 'Tüm cihazlardan çıkış yapıldı.',
+        'logout_all_failed' => 'Diğer cihazlardan çıkış yapılamadı. Lütfen tekrar dene.',
     ],
 ];
 

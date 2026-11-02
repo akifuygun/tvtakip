@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '71';
+const ASSET_VERSION = '72';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  InfinityFree proxy), so cookies can carry the Secure flag. */
@@ -76,6 +76,8 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // If the session lapsed but a valid remember-me cookie is present, log back in.
 attempt_remember_login();
+// Then end the session if the user has logged out everywhere since it began.
+enforce_session_version();
 
 function current_user_id(): ?int
 {
@@ -99,6 +101,58 @@ function login_user(int $userId, string $displayName, string $email): void
     $_SESSION['user_id'] = $userId;
     $_SESSION['display_name'] = $displayName;
     $_SESSION['email'] = $email;
+    $_SESSION['session_version'] = user_session_version($userId);
+}
+
+/** users.session_version: 0 when unreadable (older installs without the
+ *  column), which is also what sessions from before the column carry. */
+function user_session_version(int $userId): int
+{
+    try {
+        $stmt = db()->prepare('SELECT session_version FROM users WHERE id = ?');
+        $stmt->execute([$userId]);
+        return (int) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+/** "Log out on all devices": bump the user's session version so every
+ *  session carrying an older one ends on its next request, and drop all of
+ *  their remember-me tokens. Returns false when the version couldn't be bumped. */
+function logout_everywhere(int $userId): bool
+{
+    try {
+        db()->prepare('DELETE FROM remember_tokens WHERE user_id = ?')->execute([$userId]);
+    } catch (Throwable $e) {
+        // remember_tokens may be absent on older installs — ignore
+    }
+    try {
+        db()->prepare('UPDATE users SET session_version = session_version + 1 WHERE id = ?')->execute([$userId]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/** End a session established before the user last logged out everywhere.
+ *  Fail-open: when the version can't be read the session stays. */
+function enforce_session_version(): void
+{
+    $userId = current_user_id();
+    if ($userId !== null
+        && user_session_version($userId) > (int) ($_SESSION['session_version'] ?? 0)) {
+        end_session();
+    }
+}
+
+/** Log this browser out: drop its remember-me token and swap the session for
+ *  an empty one (old id deleted), so the rest of the request runs as a guest. */
+function end_session(): void
+{
+    forget_user();
+    $_SESSION = [];
+    session_regenerate_id(true);
 }
 
 /** Issue a remember-me cookie + DB token (selector:validator). Fail-safe:

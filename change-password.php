@@ -64,5 +64,14 @@ require __DIR__ . '/includes/header.php';
         </label>
         <button type="submit" class="button"><?= t('cp_title') ?></button>
     </form>
+    <section class="auth-section">
+        <h2><?= t('sessions_title') ?></h2>
+        <p class="muted"><?= t('logout_all_hint') ?></p>
+        <form method="post" action="/logout.php">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+            <input type="hidden" name="all" value="1">
+            <button type="submit" class="button button-danger"><?= t('logout_all') ?></button>
+        </form>
+    </section>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

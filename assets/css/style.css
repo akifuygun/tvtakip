@@ -282,6 +282,9 @@ a:hover { color: var(--accent-hover); }
 .auth-card button { width: 100%; margin-top: 0.5rem; }
 .auth-card label.remember { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); }
 .auth-card label.remember input { width: auto; margin: 0; }
+.auth-section { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+.auth-section h2 { font-size: 1.1rem; margin: 0 0 0.4rem; }
+.auth-section p { margin: 0 0 0.75rem; font-size: 0.9rem; }
 
 /* Search */
 .search-form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
