@@ -100,7 +100,8 @@ assets/            css/style.css, js/app.js, icons/ (PWA + logo)
 manifest.php, sw.js   Localized PWA manifest + service worker (static-asset cache)
 sitemap.php        Dynamic sitemap (shows + movies, en + tr)
 scripts/           CLI utilities: import_popular.php, import_watchlist.php,
-                   backfill_images.php, backfill_airstamps.php, make_sync.php
+                   backfill_images.php, backfill_airstamps.php, make_sync.php,
+                   make_restore.php
 schema.sql         MySQL schema (users, shows, episodes, movies, user_shows,
                    watched_episodes, user_movies, remember_tokens)
 config.sample.php  Copy to config.php: DB credentials, TMDB_API_KEY, TVDB_API_KEY
