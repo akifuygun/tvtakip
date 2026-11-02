@@ -853,8 +853,12 @@ function initMyShows() {
 // anything changed. A failed round (the host kills long requests) is retried
 // a few times — the show that overran is already claimed, so the next round
 // moves on. `busy` means the calendar's auto-refresh holds the user's lock.
+// A run takes minutes for a long list, so `since` is kept in localStorage
+// until the run completes: leaving the page and clicking again resumes with
+// the shows still left rather than starting over.
 const REFRESH_ALL_RETRIES = 3;
 const REFRESH_ALL_BUSY_ROUNDS = 15;
+const REFRESH_ALL_SINCE_KEY = 'tvtrack_refresh_all_since';
 function initRefreshAll() {
   const btn = document.getElementById('refresh-all-btn');
   const note = document.getElementById('refresh-all-note');
@@ -864,11 +868,24 @@ function initRefreshAll() {
     note.textContent = text;
     note.hidden = !text;
   };
+  const storeSince = (value) => {
+    try {
+      if (value) localStorage.setItem(REFRESH_ALL_SINCE_KEY, value);
+      else localStorage.removeItem(REFRESH_ALL_SINCE_KEY);
+    } catch {
+      // storage blocked — the run still works, it just can't resume
+    }
+  };
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     btn.textContent = t('refreshing');
     setNote('');
     let since = null;
+    try {
+      since = localStorage.getItem(REFRESH_ALL_SINCE_KEY);
+    } catch {
+      // see storeSince
+    }
     let changed = false;
     let failures = 0;
     let busyRounds = 0;
@@ -884,9 +901,13 @@ function initRefreshAll() {
           continue;
         }
         since = res.since;
+        storeSince(since);
         changed = changed || res.changed;
         btn.textContent = t('refresh_all_progress', res.done, res.total);
-        if (!res.more) break;
+        if (!res.more) {
+          storeSince(null);
+          break;
+        }
         if (res.busy) {
           if (++busyRounds >= REFRESH_ALL_BUSY_ROUNDS) throw new Error(t('refresh_all_busy'));
           await wait(2000);
