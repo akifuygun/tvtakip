@@ -844,6 +844,67 @@ function initMyShows() {
   const root = document.getElementById('myshows-tabs');
   if (!root) return;
   wireTabs(root);
+  initRefreshAll();
+}
+
+// "Refresh all shows": a forced re-import of every tracked show, cooldown or
+// not. The server imports as many as fit one request and reports progress, so
+// keep calling with the run's `since` until none is left, then reload when
+// anything changed. A failed round (the host kills long requests) is retried
+// a few times — the show that overran is already claimed, so the next round
+// moves on. `busy` means the calendar's auto-refresh holds the user's lock.
+const REFRESH_ALL_RETRIES = 3;
+const REFRESH_ALL_BUSY_ROUNDS = 15;
+function initRefreshAll() {
+  const btn = document.getElementById('refresh-all-btn');
+  const note = document.getElementById('refresh-all-note');
+  if (!btn || !note) return;
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const setNote = (text) => {
+    note.textContent = text;
+    note.hidden = !text;
+  };
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = t('refreshing');
+    setNote('');
+    let since = null;
+    let changed = false;
+    let failures = 0;
+    let busyRounds = 0;
+    try {
+      for (;;) {
+        let res;
+        try {
+          res = await apiPost('/api/refresh.php', since ? { since } : {});
+          failures = 0;
+        } catch (err) {
+          if (++failures >= REFRESH_ALL_RETRIES) throw err;
+          await wait(2000);
+          continue;
+        }
+        since = res.since;
+        changed = changed || res.changed;
+        btn.textContent = t('refresh_all_progress', res.done, res.total);
+        if (!res.more) break;
+        if (res.busy) {
+          if (++busyRounds >= REFRESH_ALL_BUSY_ROUNDS) throw new Error(t('refresh_all_busy'));
+          await wait(2000);
+        } else {
+          busyRounds = 0;
+        }
+      }
+      if (changed) {
+        location.reload();
+        return;
+      }
+      setNote(t('refresh_all_done'));
+    } catch (err) {
+      setNote(t('refresh_all_failed', err.message));
+    }
+    btn.textContent = t('refresh_all');
+    btn.disabled = false;
+  });
 }
 
 // Upcoming: List / Calendar View tabs. The chosen view is remembered in a

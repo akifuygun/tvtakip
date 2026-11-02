@@ -124,7 +124,13 @@ require __DIR__ . '/includes/header.php';
         <p><a class="button" href="/search.php"><?= t('search_for_show') ?></a></p>
     </div>
 <?php else: ?>
-    <h1><?= t('myshows_title') ?></h1>
+    <div class="page-header">
+        <h1><?= t('myshows_title') ?></h1>
+        <div class="episodes-actions">
+            <button type="button" id="refresh-all-btn" class="button button-small button-secondary"><?= t('refresh_all') ?></button>
+        </div>
+    </div>
+    <p id="refresh-all-note" class="muted" hidden></p>
     <div id="myshows-tabs">
         <div class="filter-tabs" role="tablist">
             <?php foreach ($nonEmpty as $key => $group): ?>
