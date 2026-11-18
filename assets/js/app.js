@@ -408,31 +408,53 @@ function initPosterLightbox() {
 // {results, more}): submitting fills the `results` grid with render(item)
 // cards, and a "More results" button under it fetches the next page for as
 // long as the provider has one. A title can come back on a later page; what
-// is already shown is skipped.
+// was already received is skipped. A page holds no fixed number of new titles
+// (the first one merges two providers), so while there is more to load the
+// grid ends on a full row: the titles left over wait for the next page.
 function wireSearch({ form, input, results, endpoint, emptyKey, render }) {
   const moreBtn = el('button', { type: 'button', class: 'button button-secondary', text: t('more_results') });
   const moreWrap = el('div', { class: 'show-more-wrap' }, [moreBtn]);
-  const shown = new Set(); // ids of the cards in the grid
+  const seen = new Set(); // ids of the titles received so far
+  const waiting = [];     // received titles not in the grid yet
   let query = '';
-  let page = 0;            // last page shown
-  let search = 0;          // counts the searches: an answer to an earlier one is dropped
+  let page = 0;           // last page fetched
+  let more = false;       // the provider has another page
+  let search = 0;         // counts the searches: an answer to an earlier one is dropped
 
-  // Fetch the page after the last one shown and append its new cards. False
-  // when a newer search started meanwhile.
+  // Cards per row of the grid, as it is laid out now.
+  const perRow = () => getComputedStyle(results).gridTemplateColumns.split(' ').length;
+
+  // Fetch the next page and put its new titles in the grid, up to the last
+  // full row. Returns how many cards went in, or null when a newer search
+  // started meanwhile.
   const showNextPage = async () => {
     const mine = search;
     const data = await apiGet(`${endpoint}?q=${encodeURIComponent(query)}&page=${page + 1}`);
-    if (mine !== search) return false;
+    if (mine !== search) return null;
     if (page === 0) results.replaceChildren();
     page++;
+    more = data.more;
     for (const item of data.results) {
-      if (shown.has(item.imdb_id)) continue;
-      shown.add(item.imdb_id);
-      results.append(render(item));
+      if (seen.has(item.imdb_id)) continue;
+      seen.add(item.imdb_id);
+      waiting.push(item);
     }
-    if (data.more) results.after(moreWrap);
+    const held = more ? (results.children.length + waiting.length) % perRow() : 0;
+    const items = waiting.splice(0, Math.max(0, waiting.length - held));
+    results.append(...items.map(render));
+    if (more) results.after(moreWrap);
     else moreWrap.remove();
-    return true;
+    return items.length;
+  };
+
+  // The next page — and the ones after it while a page puts no card in the
+  // grid (its titles were all received before, or don't complete a row).
+  const showMore = async () => {
+    let added;
+    do {
+      added = await showNextPage();
+    } while (added === 0 && more);
+    return added;
   };
 
   form.addEventListener('submit', async (e) => {
@@ -442,11 +464,12 @@ function wireSearch({ form, input, results, endpoint, emptyKey, render }) {
     const mine = ++search;
     query = q;
     page = 0;
-    shown.clear();
+    seen.clear();
+    waiting.length = 0;
     moreWrap.remove();
     results.textContent = t('searching');
     try {
-      if (await showNextPage() && !shown.size) results.textContent = t(emptyKey);
+      if ((await showMore()) !== null && !seen.size) results.textContent = t(emptyKey);
     } catch (err) {
       if (mine === search) results.textContent = t('search_failed', err.message);
     }
@@ -456,7 +479,7 @@ function wireSearch({ form, input, results, endpoint, emptyKey, render }) {
     moreBtn.disabled = true;
     moreBtn.textContent = t('searching');
     try {
-      await showNextPage();
+      await showMore();
     } catch (err) {
       alert(t('search_failed', err.message));
     }
