@@ -144,8 +144,8 @@ a:hover { color: var(--accent-hover); }
 .footer-data { font-size: 0.72rem; }
 /* Admin-only: the ❤ opens the Watch links' domain prompt. */
 .footer-heart { font: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
-.footer-data a { color: inherit; }
-.footer-data a:hover { color: inherit; text-decoration: underline; }
+.footer-data a, .footer-author { color: inherit; }
+.footer-data a:hover, .footer-author:hover { color: inherit; text-decoration: underline; }
 .footer-flags { display: flex; align-items: center; gap: 0.5rem; }
 .flag { display: inline-flex; line-height: 0; opacity: 0.5; border-radius: 3px; }
 .flag svg { display: block; border-radius: 3px; }
