@@ -1,6 +1,7 @@
 <?php
 // PUBLIC, server-rendered show page (no login) — the site's indexable content.
-// Pretty URL /series/ttNNNNNNN rewrites here (.htaccess / router.php).
+// Pretty URL /series/ttNNNNNNN rewrites here (.htaccess / router.php); a show
+// IMDB doesn't list has its provisional id there (valid_show_id()).
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/network_logos.php';
 
@@ -8,10 +9,10 @@ require_once __DIR__ . '/includes/network_logos.php';
 // visitor-supplied ?id= after the path's id (PHP would keep the last one),
 // and router.php resolves it the other way — the path is the one truth.
 $showId = is_string($_GET['id'] ?? null) ? $_GET['id'] : '';
-if (preg_match('#^(?:/tr)?/series/(tt\d{6,10})#', strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?'), $m)) {
+if (preg_match('#^(?:/tr)?/series/(' . SHOW_ID_PATTERN . ')(?:/|$)#', strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?'), $m)) {
     $showId = $m[1];
 }
-if (!valid_imdb_id($showId)) {
+if (!valid_show_id($showId)) {
     header('Location: /browse');
     exit;
 }
@@ -23,6 +24,16 @@ $stmt = db()->prepare(
 );
 $stmt->execute([$showId]);
 $show = $stmt->fetch();
+
+if (!$show && !valid_imdb_id($showId)) {
+    // A provisional id that isn't cached is either a show new here, or an old
+    // link to one that moved to its IMDB id since: that link moves along.
+    require_once __DIR__ . '/includes/importer.php';
+    if ($imdbId = promoted_show_id($showId)) {
+        header('Location: ' . series_url($imdbId), true, 301);
+        exit;
+    }
+}
 
 if (!$show) {
     // Logged-in viewers get the interactive shell instead of a 404: search
@@ -136,7 +147,7 @@ $tvSeriesLd = array_filter([
     'numberOfEpisodes' => count($episodes) ?: null,
     'numberOfSeasons' => count($seasonNodes) ?: null,
     'containsSeason' => $seasonNodes ?: null,
-    'sameAs' => 'https://www.imdb.com/title/' . $showId . '/',
+    'sameAs' => valid_imdb_id($showId) ? 'https://www.imdb.com/title/' . $showId . '/' : null,
 ]);
 $breadcrumbLd = [
     '@type' => 'BreadcrumbList',
@@ -179,8 +190,10 @@ require __DIR__ . '/includes/header.php';
         <?php endif; ?>
         <div class="show-info">
             <h1><?= htmlspecialchars($show['name']) ?>
-                <a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($showId) ?>/"
-                   target="_blank" rel="noopener">IMDB</a>
+                <?php if (valid_imdb_id($showId)): ?>
+                    <a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($showId) ?>/"
+                       target="_blank" rel="noopener">IMDB</a>
+                <?php endif; ?>
                 <?php if ($trailer = localized_trailer($show)): ?>
                     <button type="button" class="trailer-link" data-trailer="<?= htmlspecialchars($trailer) ?>"
                             title="<?= t('trailer_title') ?>">▶ <?= t('trailer') ?></button>

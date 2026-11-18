@@ -13,7 +13,7 @@ $data = read_json_post();
 $imdbId = $data['imdb_id'] ?? '';
 $url = trim((string) ($data['image_url'] ?? ''));
 
-if (!valid_imdb_id($imdbId)) {
+if (!valid_show_id($imdbId)) {
     json_response(['error' => 'Invalid show id'], 400);
 }
 

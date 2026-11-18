@@ -53,10 +53,10 @@ while ($done < $target && $page <= 50) {
         }
 
         try {
-            $count = import_show($pdo, $imdbId, background: true);
+            import_show($pdo, $imdbId, background: true);
             $done++;
             $imported++;
-            echo "[$done/$target] {$tv['name']} ($imdbId): $count episodes\n";
+            echo "[$done/$target] {$tv['name']} ($imdbId)\n";
         } catch (Throwable $e) {
             $failed[] = $imdbId;
             echo "[$done/$target] {$tv['name']} ($imdbId) FAILED: {$e->getMessage()}\n";

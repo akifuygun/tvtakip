@@ -1,7 +1,8 @@
 // tvtakip frontend.
 // All provider access (TVmaze/TMDB) happens server-side: search goes through
 // api/search.php, and imports happen inside api/episodes.php / api/track.php —
-// the browser only ever sends IMDB ids and reads our own cache.
+// the browser only ever sends a title's id and reads our own cache. That id is
+// its IMDB id; a title IMDB doesn't list goes by a provisional id (tm…/mz…).
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 const IS_ADMIN = document.querySelector('meta[name="is-admin"]')?.content === '1';
 
@@ -202,6 +203,11 @@ function posterEl(showId, imageUrl, backdropUrl = null, gallery = []) {
 function lightboxImages(posterUrl, backdropUrl, gallery) {
   const rest = Array.isArray(gallery) && gallery.length ? gallery : [backdropUrl];
   return [...new Set([largePoster(posterUrl), ...rest].filter(Boolean))];
+}
+
+// Mirrors PHP valid_imdb_id(): false for a provisional id.
+function isImdbId(id) {
+  return /^tt\d{6,10}$/.test(id);
 }
 
 function imdbLink(imdbId) {
@@ -438,15 +444,6 @@ function renderSearchCard(item, trackedIds) {
     : el('div', { class: 'no-poster', text: t('no_image') });
   const source = el('span', { class: 'muted source-tag', text: item.source });
 
-  if (!item.imdb_id) {
-    return el('div', { class: 'show-card' }, [
-      poster,
-      el('h3', { text: item.name + year }),
-      source,
-      el('span', { class: 'muted', text: t('no_imdb') }),
-    ]);
-  }
-
   // Guests get link-only cards — the series page imports on first visit.
   if (!window.CAN_TRACK) {
     return el('div', { class: 'show-card' }, [
@@ -555,14 +552,6 @@ function initMovies() {
     const poster = item.image
       ? el('img', { src: item.image, alt: '' })
       : el('div', { class: 'no-poster', text: t('no_image') });
-
-    if (!item.imdb_id) {
-      return el('div', { class: 'show-card' }, [
-        poster,
-        el('h3', { text: item.name + year }),
-        el('span', { class: 'muted', text: t('no_imdb') }),
-      ]);
-    }
 
     const inList = myIds.has(item.imdb_id);
     const addBtn = el('button', {
@@ -714,16 +703,10 @@ function initPubShows() {
         const poster = item.image
           ? el('img', { src: item.image, alt: '' })
           : el('div', { class: 'no-poster', text: t('no_image') });
-        results.append(item.imdb_id
-          ? el('div', { class: 'show-card' }, [
-              el('a', { href: seriesUrl(item.imdb_id) }, [poster]),
-              el('h3', {}, [el('a', { href: seriesUrl(item.imdb_id), text: item.name + year })]),
-            ])
-          : el('div', { class: 'show-card' }, [
-              poster,
-              el('h3', { text: item.name + year }),
-              el('span', { class: 'muted', text: t('no_imdb') }),
-            ]));
+        results.append(el('div', { class: 'show-card' }, [
+          el('a', { href: seriesUrl(item.imdb_id) }, [poster]),
+          el('h3', {}, [el('a', { href: seriesUrl(item.imdb_id), text: item.name + year })]),
+        ]));
       }
     } catch (err) {
       results.textContent = t('search_failed', err.message);
@@ -757,16 +740,10 @@ function initPubMovies() {
         const poster = item.image
           ? el('img', { src: item.image, alt: '' })
           : el('div', { class: 'no-poster', text: t('no_image') });
-        results.append(item.imdb_id
-          ? el('div', { class: 'show-card' }, [
-              el('a', { href: movieUrl(item.imdb_id) }, [poster]),
-              el('h3', {}, [el('a', { href: movieUrl(item.imdb_id), text: item.name + year })]),
-            ])
-          : el('div', { class: 'show-card' }, [
-              poster,
-              el('h3', { text: item.name + year }),
-              el('span', { class: 'muted', text: t('no_imdb') }),
-            ]));
+        results.append(el('div', { class: 'show-card' }, [
+          el('a', { href: movieUrl(item.imdb_id) }, [poster]),
+          el('h3', {}, [el('a', { href: movieUrl(item.imdb_id), text: item.name + year })]),
+        ]));
       }
     } catch (err) {
       results.textContent = t('search_failed', err.message);
@@ -994,6 +971,12 @@ async function initShowDetail() {
     status.textContent = t('could_not_load', err.message);
     return;
   }
+  // The import found the show's IMDB id and moved it there from the
+  // provisional id this page was opened by: continue on its page.
+  if (data.show && data.show.imdb_id !== showId) {
+    location.replace(seriesUrl(data.show.imdb_id));
+    return;
+  }
 
   const show = data.show;
   const episodes = data.episodes;
@@ -1129,7 +1112,8 @@ async function initShowDetail() {
   const trailerKey = pickTrailer(show.trailer);
   const info = el('div', { class: 'show-info' }, [
     el('h1', {}, [
-      show.name + ' ', imdbLink(showId),
+      show.name,
+      ...(isImdbId(showId) ? [' ', imdbLink(showId)] : []),
       ...(trailerKey ? [' ', trailerButton(trailerKey)] : []),
       ...(show.watch_slugs ? [' ', watchSlugButton(showId, show.watch_slugs)] : []),
     ]),

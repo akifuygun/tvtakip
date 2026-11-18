@@ -15,7 +15,7 @@ $data = read_json_post();
 $imdbId = $data['imdb_id'] ?? '';
 $network = trim((string) ($data['network'] ?? ''));
 
-if (!valid_imdb_id($imdbId)) {
+if (!valid_show_id($imdbId)) {
     json_response(['error' => 'Invalid show id'], 400);
 }
 if (mb_strlen($network) > 100 || str_contains($network, ',')) {

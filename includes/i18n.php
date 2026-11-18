@@ -28,11 +28,18 @@ function lang_path(string $path, ?string $lang = null): string
     return $path === '/' ? '/tr/' : '/tr' . $path;
 }
 
+// The id of a show / a movie, as its page URL carries it: an IMDB id, or the
+// provisional id of a title IMDB doesn't list — "tm" + its TMDB id, or for a
+// show only TVmaze lists "mz" + its TVmaze id. (.htaccess and router.php
+// repeat these.)
+const SHOW_ID_PATTERN = 'tt\d{6,10}|(?:tm|mz)\d{1,9}';
+const MOVIE_ID_PATTERN = 'tt\d{6,10}|tm\d{1,9}';
+
 /** Public pages exist under both / and /tr/ URLs; app pages don't. */
 function is_public_path(string $barePath): bool
 {
     return $barePath === '/' || $barePath === '/index.php'
-        || preg_match('#^/(browse|upcoming|movies|series/tt\d{6,10}|movie/tt\d{6,10})/?$#', $barePath) === 1;
+        || preg_match('#^/(browse|upcoming|movies|series/(?:' . SHOW_ID_PATTERN . ')|movie/(?:' . MOVIE_ID_PATTERN . '))/?$#', $barePath) === 1;
 }
 
 // Handle a language switch before any output, then redirect to the same page
@@ -237,7 +244,7 @@ $GLOBALS['I18N'] = [
         // search
         'search_title' => 'Search shows', 'search_placeholder' => 'e.g. Breaking Bad', 'search_button' => 'Search',
         'searching' => 'Searching…', 'no_shows_found' => 'No shows found.', 'search_failed' => 'Search failed: %s',
-        'no_imdb' => 'No IMDB id — cannot track', 'track' => 'Track', 'tracking' => 'Tracking ✓', 'importing' => 'Importing…',
+        'track' => 'Track', 'tracking' => 'Tracking ✓', 'importing' => 'Importing…',
         // show page
         'loading_show' => 'Loading show…',
         'importing_first' => 'Importing episodes (first visit for this show)…',
@@ -412,7 +419,7 @@ $GLOBALS['I18N'] = [
         'remove_from_list' => 'Listemden kaldır',
         'search_title' => 'Dizi ara', 'search_placeholder' => 'örn. Breaking Bad', 'search_button' => 'Ara',
         'searching' => 'Aranıyor…', 'no_shows_found' => 'Dizi bulunamadı.', 'search_failed' => 'Arama başarısız: %s',
-        'no_imdb' => 'IMDB kimliği yok — takip edilemez', 'track' => 'Takip et', 'tracking' => 'Takipte ✓', 'importing' => 'İçe aktarılıyor…',
+        'track' => 'Takip et', 'tracking' => 'Takipte ✓', 'importing' => 'İçe aktarılıyor…',
         'loading_show' => 'Dizi yükleniyor…',
         'importing_first' => 'Bölümler içe aktarılıyor (bu dizi için ilk ziyaret)…',
         'could_not_load' => 'Dizi yüklenemedi: %s',

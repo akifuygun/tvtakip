@@ -34,7 +34,7 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 
 // Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
 // safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '79';
+const ASSET_VERSION = '80';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  a TLS-terminating proxy), so cookies can carry the Secure flag. */
@@ -310,6 +310,22 @@ function json_response(array $data, int $status = 200): never
 function valid_imdb_id(?string $id): bool
 {
     return is_string($id) && preg_match('/^tt\d{6,10}$/', $id) === 1;
+}
+
+/**
+ * A key of the shows cache: an IMDB id — or, for a show IMDB doesn't list, a
+ * provisional id, which the importer swaps for the IMDB id once the show has
+ * one (see promote_title()).
+ */
+function valid_show_id(?string $id): bool
+{
+    return is_string($id) && preg_match('/^(?:' . SHOW_ID_PATTERN . ')$/', $id) === 1;
+}
+
+/** A key of the movies cache: an IMDB id, or a provisional id as for shows. */
+function valid_movie_id(?string $id): bool
+{
+    return is_string($id) && preg_match('/^(?:' . MOVIE_ID_PATTERN . ')$/', $id) === 1;
 }
 
 /** Public (SEO) URL of a show's series page, in the given/current language. */

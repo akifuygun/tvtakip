@@ -13,8 +13,10 @@ RewriteRule ^(?:\.gitignore|README\.md|CLAUDE\.md|schema\.sql|config\.sample\.ph
 
 # Pretty URLs for the public SEO pages (mirrored by router.php for local dev).
 # Each public page also exists under /tr/ for crawlable Turkish content.
-RewriteRule ^(?:tr/)?series/(tt\d{6,10})/?$ series.php?id=$1 [L,QSA]
-RewriteRule ^(?:tr/)?movie/(tt\d{6,10})/?$ movie.php?id=$1 [L,QSA]
+# The id is an IMDB id, or the provisional id (tm…/mz…) of a title IMDB
+# doesn't list — the patterns of SHOW_ID_PATTERN / MOVIE_ID_PATTERN (i18n.php).
+RewriteRule ^(?:tr/)?series/(tt\d{6,10}|(?:tm|mz)\d{1,9})/?$ series.php?id=$1 [L,QSA]
+RewriteRule ^(?:tr/)?movie/(tt\d{6,10}|tm\d{1,9})/?$ movie.php?id=$1 [L,QSA]
 RewriteRule ^(?:tr/)?movies/?$ movies.php [L,QSA]
 RewriteRule ^(?:tr/)?browse/?$ browse.php [L,QSA]
 RewriteRule ^(?:tr/)?upcoming/?$ upcoming.php [L,QSA]

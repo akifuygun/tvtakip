@@ -25,7 +25,8 @@ $upd = $pdo->prepare(
 $n = 0;
 foreach ($shows as $show) {
     $n++;
-    $stamps = tvmaze_airstamps($show['imdb_id']);
+    $maze = valid_imdb_id($show['imdb_id']) ? tvmaze_lookup($show['imdb_id']) : null;
+    $stamps = $maze ? tvmaze_airstamps((int) $maze['id']) : [];
     if (!$stamps) {
         echo "[$n/" . count($shows) . "] {$show['name']}: not on TVmaze / no stamps\n";
         usleep(250000);

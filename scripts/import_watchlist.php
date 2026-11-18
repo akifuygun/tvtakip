@@ -61,7 +61,7 @@ $n = 0;
 foreach ($ids as $imdbId) {
     $n++;
     try {
-        $count = import_show($pdo, $imdbId, background: true);
+        import_show($pdo, $imdbId, background: true);
     } catch (RuntimeException $e) {
         $failed[] = $imdbId;
         echo "[$n/" . count($ids) . "] $imdbId FAILED: {$e->getMessage()}\n";
@@ -69,6 +69,7 @@ foreach ($ids as $imdbId) {
     }
     $insertTrack->execute([$userId, $imdbId]);
     $insertWatched->execute([$userId, $imdbId, today()]);
+    $count = (int) $pdo->query('SELECT COUNT(*) FROM episodes WHERE show_imdb_id = ' . $pdo->quote($imdbId))->fetchColumn();
     $totalEpisodes += $count;
 
     $name = $pdo->query("SELECT name FROM shows WHERE imdb_id = " . $pdo->quote($imdbId))->fetchColumn();

@@ -10,7 +10,7 @@ $data = read_json_post();
 // Bulk: mark all episodes of a show as watched.
 if (!empty($data['all'])) {
     $imdbId = $data['show_id'] ?? '';
-    if (!valid_imdb_id($imdbId)) {
+    if (!valid_show_id($imdbId)) {
         json_response(['error' => 'Missing or invalid show_id'], 400);
     }
     $params = [current_user_id(), $imdbId];

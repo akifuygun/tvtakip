@@ -1,11 +1,13 @@
 -- tvtakip database schema (v2 — IMDB-keyed)
 -- Import via phpMyAdmin or: mysql -u root tvtakip < schema.sql
 --
--- IMDB ids are the canonical identity for shows. Episodes are identified by
+-- IMDB ids are the canonical identity for shows and movies. One IMDB doesn't
+-- list is stored under a provisional id — "tm" + its TMDB id, or "mz" + its
+-- TVmaze id for a show only TVmaze lists — until its provider links an IMDB
+-- id: the importer then renames the key, and the ON UPDATE CASCADE keys below
+-- carry tracking, episodes and watched marks along. Episodes are identified by
 -- (show_imdb_id, season, number) because a few episodes (specials, unaired)
 -- have no IMDB id yet; the episode's imdb_id is stored whenever IMDB has one.
--- TVmaze (search) and TMDB (episode data) are fetch layers only — none of
--- their ids are stored.
 
 CREATE TABLE IF NOT EXISTS users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -18,7 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Shared cache of show metadata, populated on first track / first visit.
 CREATE TABLE IF NOT EXISTS shows (
-    imdb_id VARCHAR(12) PRIMARY KEY,
+    imdb_id VARCHAR(12) PRIMARY KEY,  -- IMDB id, or a provisional id (tm…/mz…) until the show has one
     name VARCHAR(255) NOT NULL,
     original_name VARCHAR(255) DEFAULT NULL,  -- original-language title (TMDB); Turkish productions' Watch link slug
     original_language VARCHAR(8) DEFAULT NULL,  -- ISO 639-1 (TMDB), e.g. 'tr'; NULL = unknown
@@ -60,7 +62,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     UNIQUE KEY uq_show_episode (show_imdb_id, season, number),
     KEY idx_show_airdate (show_imdb_id, airdate),
     KEY idx_airdate (airdate),  -- public /upcoming page filters by airdate alone
-    FOREIGN KEY (show_imdb_id) REFERENCES shows(imdb_id) ON DELETE CASCADE
+    FOREIGN KEY (show_imdb_id) REFERENCES shows(imdb_id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS user_shows (
@@ -69,7 +71,7 @@ CREATE TABLE IF NOT EXISTS user_shows (
     added_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, show_imdb_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (show_imdb_id) REFERENCES shows(imdb_id) ON DELETE CASCADE
+    FOREIGN KEY (show_imdb_id) REFERENCES shows(imdb_id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Persistent "remember me" login tokens (selector/validator pattern).
@@ -106,7 +108,7 @@ CREATE TABLE IF NOT EXISTS watched_episodes (
 
 -- Shared cache of movie metadata (TMDB-only; TVmaze has no movies).
 CREATE TABLE IF NOT EXISTS movies (
-    imdb_id VARCHAR(12) PRIMARY KEY,
+    imdb_id VARCHAR(12) PRIMARY KEY,  -- IMDB id, or a provisional id (tm…) until the movie has one
     name VARCHAR(255) NOT NULL,
     image_url VARCHAR(500) DEFAULT NULL,
     backdrop_url VARCHAR(500) DEFAULT NULL,
@@ -134,5 +136,5 @@ CREATE TABLE IF NOT EXISTS user_movies (
     watched_at TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (user_id, movie_imdb_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (movie_imdb_id) REFERENCES movies(imdb_id) ON DELETE CASCADE
+    FOREIGN KEY (movie_imdb_id) REFERENCES movies(imdb_id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

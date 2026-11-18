@@ -2,7 +2,8 @@
 // Movies API — one endpoint for the whole (deliberately small) movie surface.
 //
 // GET  ?q=inception
-//      -> {results: [{imdb_id|null, name, year, image}]}   (TMDB search)
+//      -> {results: [{imdb_id, name, year, image}]}   (TMDB search; a movie
+//         IMDB doesn't list comes with its provisional id — valid_movie_id())
 // POST {action: "add"|"remove", imdb_id}
 //      -> add imports the movie server-side when not cached, then upserts the
 //         user_movies row; remove deletes it (watched state goes with it).
@@ -34,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     foreach ($results as $i => $r) {
         $imdbId = $exts[$i]['imdb_id'] ?? null;
         $out[] = [
-            'imdb_id' => valid_imdb_id($imdbId) ? $imdbId : null,
+            'imdb_id' => valid_imdb_id($imdbId) ? $imdbId : 'tm' . $r['id'],
             'name' => (string) ($r['title'] ?? ''),
             'year' => !empty($r['release_date']) ? substr($r['release_date'], 0, 4) : null,
             'image' => !empty($r['poster_path']) ? TMDB_IMG_BASE . $r['poster_path'] : '',
@@ -47,7 +48,7 @@ require_login_json();
 $data = read_json_post();
 $action = $data['action'] ?? '';
 $imdbId = $data['imdb_id'] ?? '';
-if (!valid_imdb_id($imdbId)) {
+if (!valid_movie_id($imdbId)) {
     json_response(['error' => 'Missing or invalid IMDB id'], 400);
 }
 
@@ -57,7 +58,7 @@ if ($action === 'add') {
     $movie = $stmt->fetch();
     if (!$movie || $movie['synced_at'] === null) {
         try {
-            import_movie(db(), $imdbId);
+            $imdbId = import_movie(db(), $imdbId);
         } catch (RuntimeException $e) {
             json_response(['error' => $e->getMessage()], 404);
         }

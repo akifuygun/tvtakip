@@ -1,8 +1,13 @@
 <?php
 // Server-side show importer — THE one place that fetches provider data
 // (TMDB first for per-episode IMDB ids, TVmaze fallback; air times from
-// TVmaze, then TheTVDB) and writes the shared shows/episodes cache. Clients only ever send an IMDB id; provider
+// TVmaze, then TheTVDB) and writes the shared shows/episodes cache. Clients only ever send a show's id; provider
 // data never transits the browser, and the TMDB key never leaves the server.
+//
+// A show is stored under its IMDB id. One IMDB doesn't list goes by a
+// provisional id instead — "tm" + its TMDB id, or "mz" + its TVmaze id when
+// only TVmaze lists it — and moves to its IMDB id at the first import that
+// finds the provider linking one (promote_title()). Movies work the same.
 //
 // An import is one pass: fetch everything from the providers, then write it
 // in one transaction. Only the episode IMDB ids are slow — one TMDB call per
@@ -127,10 +132,10 @@ function tmdb_finale(?string $episodeType): ?string
     };
 }
 
-/** TMDB detail query: translations, English/text-free images and EN/TR videos
- *  in the same call. */
+/** TMDB detail query: translations, English/text-free images, EN/TR videos
+ *  and the title's ids elsewhere (IMDB, TheTVDB) in the same call. */
 const TMDB_DETAIL_EXTRAS = [
-    'append_to_response' => 'translations,images,videos',
+    'append_to_response' => 'translations,images,videos,external_ids',
     'include_image_language' => 'en,null',
     'include_video_language' => 'en,tr,null',
 ];
@@ -223,28 +228,50 @@ function turkish_episode_name(string $turkish, string $english): string
     return $turkish;
 }
 
-/** Base show + episodes (no per-episode IMDB ids) from TMDB, or null.
- *  'tmdb_id' is TMDB's own show id, kept in memory for the episode-id
- *  lookups, never stored. An episode's 'name_tr' is TMDB's Turkish answer as
- *  it came, null when that fetch failed. */
-function fetch_base_from_tmdb(string $imdbId): ?array
+/** TMDB's own id of the show or movie ($kind 'tv' | 'movie') stored under
+ *  $id — an IMDB id TMDB links, or a provisional "tm" id — else null. */
+function tmdb_id(string $id, string $kind): ?int
 {
-    $found = http_get_json(tmdb_api_url("/find/$imdbId", ['external_source' => 'imdb_id']));
-    $tv = $found['tv_results'][0] ?? null;
-    if (!$tv) {
-        return null;
+    if (!valid_imdb_id($id)) {
+        return str_starts_with($id, 'tm') ? (int) substr($id, 2) : null;
     }
-    $detail = http_get_json(tmdb_api_url('/tv/' . $tv['id'], TMDB_DETAIL_EXTRAS));
+    $found = http_get_json(tmdb_api_url("/find/$id", ['external_source' => 'imdb_id']));
+    return $found[$kind . '_results'][0]['id'] ?? null;
+}
+
+/**
+ * The key a title asked for by $id is stored under: $id — unless that is a
+ * provisional id and its provider states the IMDB id $linked by now, which
+ * then is the key. Only when $sameRecord($linked) holds, though: the provider
+ * must find this very record by that IMDB id. Where it finds another one (a
+ * duplicate entry, or a wrong link), later imports by the IMDB id would bring
+ * that other record's data, so the title stays provisional.
+ */
+function title_key(string $id, mixed $linked, callable $sameRecord): string
+{
+    return !valid_imdb_id($id) && valid_imdb_id($linked) && $sameRecord($linked) ? $linked : $id;
+}
+
+/** Base show + episodes (no per-episode IMDB ids) from TMDB, or null. $id:
+ *  the show's IMDB id, or its provisional "tm" id. The show's 'imdb_id' is
+ *  the key to store it under (title_key()); 'tmdb_id' is TMDB's own show id
+ *  and 'tvdb_id' the TheTVDB id TMDB states (or null). An episode's 'name_tr'
+ *  is TMDB's Turkish answer as it came, null when that fetch failed. */
+function fetch_base_from_tmdb(string $id): ?array
+{
+    $tmdbId = tmdb_id($id, 'tv');
+    $detail = $tmdbId ? http_get_json(tmdb_api_url('/tv/' . $tmdbId, TMDB_DETAIL_EXTRAS)) : null;
     if (!$detail) {
         return null;
     }
+    $imdbId = title_key($id, $detail['external_ids']['imdb_id'] ?? null, fn($linked) => tmdb_id($linked, 'tv') === $tmdbId);
 
     // Every season twice, concurrently: in English, and in Turkish for the
     // episode names (the season call is the only one that has them in bulk).
     $numbers = array_map('intval', array_column($detail['seasons'] ?? [], 'season_number'));
     $seasons = http_multi_json([
-        ...array_map(fn($n) => tmdb_season_url($tv['id'], $n), $numbers),
-        ...array_map(fn($n) => tmdb_season_url($tv['id'], $n, 'tr-TR'), $numbers),
+        ...array_map(fn($n) => tmdb_season_url($tmdbId, $n), $numbers),
+        ...array_map(fn($n) => tmdb_season_url($tmdbId, $n, 'tr-TR'), $numbers),
     ], 12, TMDB_MAX_RPS);
     $turkish = tmdb_turkish_names(array_slice($seasons, count($numbers)));
     $episodes = [];
@@ -287,7 +314,8 @@ function fetch_base_from_tmdb(string $imdbId): ?array
         ],
         'episodes' => $episodes,
         'source' => 'tmdb',
-        'tmdb_id' => (int) $tv['id'],
+        'tmdb_id' => $tmdbId,
+        'tvdb_id' => (int) ($detail['external_ids']['tvdb_id'] ?? 0) ?: null,
     ];
 }
 
@@ -310,20 +338,27 @@ function tvmaze_stamp(array $ep): ?string
 }
 
 /**
- * Exact air times from TVmaze, keyed "season-number" (UTC DATETIME strings,
- * null for episodes TVmaze lists without an air time). TMDB has no air times,
- * so this is the only source; empty map when the show isn't on TVmaze.
- * $dates receives TVmaze's air dates under the same keys.
+ * A show's TVmaze record, found by its IMDB id — a show without one by the
+ * TheTVDB id another provider states for it. Null when TVmaze doesn't list it.
  */
-function tvmaze_airstamps(string $imdbId, ?array &$dates = null): array
+function tvmaze_lookup(?string $imdbId, ?int $tvdbId = null): ?array
+{
+    $by = $imdbId !== null ? 'imdb=' . urlencode($imdbId) : ($tvdbId ? 'thetvdb=' . $tvdbId : null);
+    $show = $by !== null ? http_get_json(TVMAZE_BASE . '/lookup/shows?' . $by) : null;
+    return isset($show['id']) ? $show : null;
+}
+
+/**
+ * Exact air times of a show (by its TVmaze id), keyed "season-number" (UTC
+ * DATETIME strings, null for episodes TVmaze lists without an air time). TMDB
+ * has no air times, so this is the only source. $dates receives TVmaze's air
+ * dates under the same keys.
+ */
+function tvmaze_airstamps(int $tvmazeId, ?array &$dates = null): array
 {
     $dates = [];
-    $show = http_get_json(TVMAZE_BASE . '/lookup/shows?imdb=' . urlencode($imdbId));
-    if (!$show || !isset($show['id'])) {
-        return [];
-    }
     $map = [];
-    foreach (http_get_json(TVMAZE_BASE . '/shows/' . $show['id'] . '/episodes') ?? [] as $ep) {
+    foreach (http_get_json(TVMAZE_BASE . '/shows/' . $tvmazeId . '/episodes') ?? [] as $ep) {
         if (isset($ep['season'], $ep['number'])) {
             $map[$ep['season'] . '-' . $ep['number']] = tvmaze_stamp($ep);
             $dates[$ep['season'] . '-' . $ep['number']] = valid_date($ep['airdate'] ?? null);
@@ -388,26 +423,30 @@ function tvdb_get(string $path): ?array
  * [season, number, name, airdate, finale] rows, 'overview_tr' => its Turkish
  * description or null, 'trailers' => YouTube keys by language ('en'/'tr'),
  * and 'id' => its TheTVDB series id (kept in memory for
- * follow-up calls, never stored). All empty when TheTVDB doesn't know the show (or no
+ * follow-up calls, never stored). The show is found by its IMDB id; one
+ * without ($imdbId null) is taken to be $seriesId, the TheTVDB id another
+ * provider states for it. All empty when TheTVDB doesn't know the show (or no
  * key is configured); null when TheTVDB couldn't be asked, so callers keep
  * what's stored. A time with no air day is TheTVDB's unset
  * default, not a schedule.
  */
-function tvdb_show(string $imdbId): ?array
+function tvdb_show(?string $imdbId, ?int $seriesId = null): ?array
 {
     $none = ['id' => null, 'airs' => null, 'episodes' => [], 'overview_tr' => null, 'trailers' => []];
     if (!defined('TVDB_API_KEY') || TVDB_API_KEY === '') {
         return $none;
     }
-    $found = tvdb_get('/search/remoteid/' . rawurlencode($imdbId));
-    if ($found === null) {
-        return null;
-    }
-    $seriesId = null;
-    foreach ($found['data'] ?? [] as $hit) {
-        if (isset($hit['series']['id'])) {
-            $seriesId = (int) $hit['series']['id'];
-            break;
+    if ($imdbId !== null) {
+        $found = tvdb_get('/search/remoteid/' . rawurlencode($imdbId));
+        if ($found === null) {
+            return null;
+        }
+        $seriesId = null;
+        foreach ($found['data'] ?? [] as $hit) {
+            if (isset($hit['series']['id'])) {
+                $seriesId = (int) $hit['series']['id'];
+                break;
+            }
         }
     }
     if (!$seriesId) {
@@ -567,13 +606,21 @@ function tvdb_stamp(string $airdate, array $airs): string
         ->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
 }
 
-/** Base show + episodes from TVmaze (no episode IMDB ids there). */
-function fetch_base_from_tvmaze(string $imdbId): ?array
+/** Base show + episodes from TVmaze (no episode IMDB ids there), or null.
+ *  $id: the show's IMDB id, or its provisional "mz" id. The show's 'imdb_id'
+ *  is the key to store it under (title_key()); 'tvmaze_id' is TVmaze's own
+ *  show id and 'tvdb_id' the TheTVDB id TVmaze states (or null). */
+function fetch_base_from_tvmaze(string $id): ?array
 {
-    $show = http_get_json(TVMAZE_BASE . '/lookup/shows?imdb=' . urlencode($imdbId));
-    if (!$show || !isset($show['id'])) {
+    if (valid_imdb_id($id)) {
+        $show = tvmaze_lookup($id);
+    } else {
+        $show = str_starts_with($id, 'mz') ? http_get_json(TVMAZE_BASE . '/shows/' . (int) substr($id, 2)) : null;
+    }
+    if (!isset($show['id'])) {
         return null;
     }
+    $imdbId = title_key($id, $show['externals']['imdb'] ?? null, fn($linked) => (tvmaze_lookup($linked)['id'] ?? null) === $show['id']);
     $episodes = [];
     foreach (http_get_json(TVMAZE_BASE . '/shows/' . $show['id'] . '/episodes') ?? [] as $ep) {
         $episodes[] = [
@@ -602,6 +649,8 @@ function fetch_base_from_tvmaze(string $imdbId): ?array
         ],
         'episodes' => $episodes,
         'source' => 'tvmaze',
+        'tvmaze_id' => (int) $show['id'],
+        'tvdb_id' => (int) ($show['externals']['thetvdb'] ?? 0) ?: null,
     ];
 }
 
@@ -827,9 +876,77 @@ function tmdb_episode_imdb_ids(int $tmdbId, array $episodes): array
 }
 
 /**
+ * A title ($table 'shows' | 'movies') stored under the provisional id $old
+ * has the IMDB id $imdbId now: move it there. Everything hanging on the key —
+ * who tracks it, its episodes and through them the watched marks — follows
+ * (ON UPDATE CASCADE). False when $imdbId is cached as well: nothing moved,
+ * the caller folds the old row into that one (merge_show() / merge_movie()).
+ */
+function promote_title(PDO $pdo, string $table, string $old, string $imdbId): bool
+{
+    $stmt = $pdo->prepare("SELECT imdb_id FROM $table WHERE imdb_id IN (?, ?)");
+    $stmt->execute([$old, $imdbId]);
+    $cached = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array($old, $cached, true)) {
+        return true;
+    }
+    if (in_array($imdbId, $cached, true)) {
+        return false;
+    }
+    $pdo->prepare("UPDATE $table SET imdb_id = ? WHERE imdb_id = ?")->execute([$imdbId, $old]);
+    return true;
+}
+
+/**
+ * Fold the show stored under the provisional id $old into $imdbId — the same
+ * show, cached under both. Who tracks it, the watched marks of the episodes
+ * both list (by season and number) and the admin's settings move over; the
+ * old row goes, with what is left on it.
+ */
+function merge_show(PDO $pdo, string $old, string $imdbId): void
+{
+    $pdo->prepare(
+        'INSERT IGNORE INTO user_shows (user_id, show_imdb_id, added_at)
+         SELECT user_id, ?, added_at FROM user_shows WHERE show_imdb_id = ?'
+    )->execute([$imdbId, $old]);
+    $pdo->prepare(
+        'INSERT IGNORE INTO watched_episodes (user_id, episode_id, watched_at)
+         SELECT w.user_id, n.id, w.watched_at
+         FROM episodes o
+         JOIN watched_episodes w ON w.episode_id = o.id
+         JOIN episodes n ON n.show_imdb_id = ? AND n.season = o.season AND n.number = o.number
+         WHERE o.show_imdb_id = ?'
+    )->execute([$imdbId, $old]);
+    $pdo->prepare(
+        'UPDATE shows n JOIN shows o ON o.imdb_id = ?
+         SET n.primary_network = COALESCE(n.primary_network, o.primary_network),
+             n.watch_slug = COALESCE(n.watch_slug, o.watch_slug)
+         WHERE n.imdb_id = ?'
+    )->execute([$old, $imdbId]);
+    $pdo->prepare('DELETE FROM shows WHERE imdb_id = ?')->execute([$old]);
+}
+
+/**
+ * The IMDB id of the show the provisional id $id stands for, once its
+ * provider links one; else null. One provider call — for a provisional id
+ * that isn't cached, to tell an old link to a show since moved to its IMDB
+ * id from a show that is simply new here.
+ */
+function promoted_show_id(string $id): ?string
+{
+    $n = (int) substr($id, 2);
+    $imdbId = str_starts_with($id, 'mz')
+        ? http_get_json(TVMAZE_BASE . '/shows/' . $n)['externals']['imdb'] ?? null
+        : http_get_json(tmdb_api_url("/tv/$n/external_ids"))['imdb_id'] ?? null;
+    return valid_imdb_id($imdbId) ? $imdbId : null;
+}
+
+/**
  * Import (or refresh) one show in one pass: everything is fetched from the
- * providers first, then written in a single transaction. Returns the episode
- * count. Throws RuntimeException when neither provider knows the show.
+ * providers first, then written in a single transaction. Returns the key the
+ * show is stored under: $id — or, for a provisional $id whose show has an
+ * IMDB id by now, that IMDB id (the stored show moves to it). Throws
+ * RuntimeException when no provider knows the show.
  *
  * $prune: also DELETE episodes the providers no longer list (renumbered or
  * removed) — only the manual "Refresh" uses this, so a transient provider gap
@@ -840,45 +957,52 @@ function tmdb_episode_imdb_ids(int $tmdbId, array $episodes): array
  * import needing more than WEB_ID_LOOKUPS saves the show without them and
  * flags it for the worker, which completes it within about a minute.
  */
-function import_show(PDO $pdo, string $imdbId, bool $prune = false, bool $background = false): int
+function import_show(PDO $pdo, string $id, bool $prune = false, bool $background = false): string
 {
     @set_time_limit($background ? 0 : 120);
 
     // The only read, ahead of every provider call: nothing below needs the
     // database until the final write.
-    $storedIds = stored_episode_ids($pdo, $imdbId);
+    $storedIds = stored_episode_ids($pdo, $id);
 
-    $payload = fetch_base_from_tmdb($imdbId) ?? fetch_base_from_tvmaze($imdbId);
+    $payload = fetch_base_from_tmdb($id) ?? fetch_base_from_tvmaze($id);
     if (!$payload) {
         throw new RuntimeException('Show not found on TMDB or TVmaze.');
     }
+    // $showId: the key to store the show under. $imdbId: its IMDB id, null
+    // while it goes by a provisional id — the other providers then find it by
+    // $tvdbId, the TheTVDB id the base provider states.
+    $showId = $payload['show']['imdb_id'];
+    $imdbId = valid_imdb_id($showId) ? $showId : null;
+    $tvdbId = $payload['tvdb_id'];
 
     // $listed: "season-number" of every episode TVmaze lists, timed or not.
     // $onTmdb: the same keys for the episodes TMDB lists under the numbering
-    // stored here — the ones it can be asked for an IMDB id.
+    // stored here — the ones it can be asked for an IMDB id (none while IMDB
+    // doesn't list the show itself).
     $listed = [];
     $onTmdb = [];
     foreach ($payload['episodes'] as $ep) {
         if ($payload['source'] === 'tvmaze') {
             $listed[$ep['season'] . '-' . $ep['number']] = true;
-        } else {
+        } elseif ($imdbId !== null) {
             $onTmdb[$ep['season'] . '-' . $ep['number']] = true;
         }
     }
 
     // null when TheTVDB was unreachable.
-    $tvdb = tvdb_show($imdbId);
+    $tvdb = tvdb_show($imdbId, $tvdbId);
 
     // Curated shows (TVDB_EPISODE_SOURCE) take their regular episodes from
     // TheTVDB; specials stay the base provider's. Without TheTVDB's list their
     // stored episodes are left alone — the base numbering is the wrong one.
     // $sameNumbering: episodes both number alike, the only ones whose TMDB
     // episode ids and Turkish names fit (the others get '', no Turkish name).
-    $tvdbSource = in_array($imdbId, TVDB_EPISODE_SOURCE, true);
+    $tvdbSource = in_array($showId, TVDB_EPISODE_SOURCE, true);
     $sameNumbering = null;
     if ($tvdbSource) {
         if (!($tvdb['episodes'] ?? [])) {
-            return 0;
+            return $showId;
         }
         $sameNumbering = same_numbering($payload['episodes'], $tvdb['episodes']);
         $alike = [];
@@ -931,9 +1055,13 @@ function import_show(PDO $pdo, string $imdbId, bool $prune = false, bool $backgr
     // TheTVDB-numbered episodes only take a time TVmaze gives the same episode.
     // A time-less TVmaze date shortly before the base one is an early streaming
     // release: the episode takes that date, and stays date-only ($early).
+    // $maze: the show's TVmaze record, where TVmaze isn't the base provider.
+    $maze = $payload['source'] === 'tmdb' ? tvmaze_lookup($imdbId, $tvdbId) : null;
+    $mazeId = $payload['tvmaze_id'] ?? $maze['id'] ?? null;
     $early = [];
     if ($payload['source'] === 'tmdb' || $tvdbSource) {
-        $stamps = tvmaze_airstamps($imdbId, $dates);
+        $dates = [];
+        $stamps = $mazeId ? tvmaze_airstamps($mazeId, $dates) : [];
         foreach ($payload['episodes'] as &$ep) {
             $key = $ep['season'] . '-' . $ep['number'];
             if ($tvdbSource && $ep['season'] >= 1 && !within_a_day($stamps[$key] ?? null, $ep['airdate'])) {
@@ -976,10 +1104,11 @@ function import_show(PDO $pdo, string $imdbId, bool $prune = false, bool $backgr
     // Combine providers for the poster: whoever has one wins.
     if (empty($payload['show']['image_url'])) {
         if ($payload['source'] === 'tmdb') {
-            $other = http_get_json(TVMAZE_BASE . '/lookup/shows?imdb=' . urlencode($imdbId));
-            $payload['show']['image_url'] = $other['image']['medium'] ?? null;
-        } else {
-            $found = http_get_json(tmdb_api_url("/find/$imdbId", ['external_source' => 'imdb_id']));
+            $payload['show']['image_url'] = $maze['image']['medium'] ?? null;
+        } elseif ($imdbId !== null || $tvdbId) {
+            $found = http_get_json(tmdb_api_url('/find/' . ($imdbId ?? $tvdbId), [
+                'external_source' => $imdbId !== null ? 'imdb_id' : 'tvdb_id',
+            ]));
             $poster = $found['tv_results'][0]['poster_path'] ?? null;
             $payload['show']['image_url'] = $poster ? TMDB_IMG_BASE . $poster : null;
         }
@@ -1001,25 +1130,39 @@ function import_show(PDO $pdo, string $imdbId, bool $prune = false, bool $backgr
     if ($ask && !$idsPending) {
         $ids = tmdb_episode_imdb_ids($payload['tmdb_id'], $ask);
         foreach ($payload['episodes'] as &$ep) {
-            $id = $ids[$ep['season'] . '-' . $ep['number']] ?? null;
-            if ($id !== null) {
-                $ep['imdb_id'] = $id ?: null;
+            $episodeId = $ids[$ep['season'] . '-' . $ep['number']] ?? null;
+            if ($episodeId !== null) {
+                $ep['imdb_id'] = $episodeId ?: null;
                 $ep['imdb_checked'] = true;
             }
         }
         unset($ep);
     }
 
+    // The provisional ids the show may be stored under, now that it has an
+    // IMDB id: the one it was asked for by, or one from an earlier import —
+    // this one may have come in by the IMDB id (a search result, a link).
+    $provisional = $imdbId === null ? [] : array_filter([
+        isset($payload['tmdb_id']) ? 'tm' . $payload['tmdb_id'] : null,
+        $mazeId ? 'mz' . $mazeId : null,
+    ]);
+
     // Everything is fetched: write it in one transaction. db_live() is the
     // safety net for a connection the server dropped during the fetches.
     $pdo = db_live();
     $pdo->beginTransaction();
     try {
+        // Moving comes first, so the upserts land on the moved rows; a row
+        // that can't move is folded in once the episodes are there.
+        $twins = array_filter($provisional, fn($old) => !promote_title($pdo, 'shows', $old, $showId));
         upsert_show($pdo, $payload['show'], true, $idsPending);
-        $count = upsert_episodes($pdo, $imdbId, $payload['episodes']);
-        clear_airstamps($pdo, $imdbId, $timeless);
+        upsert_episodes($pdo, $showId, $payload['episodes']);
+        foreach ($twins as $old) {
+            merge_show($pdo, $old, $showId);
+        }
+        clear_airstamps($pdo, $showId, $timeless);
         if ($sameNumbering !== null) {
-            clear_episode_imdb_ids($pdo, $imdbId, $sameNumbering);
+            clear_episode_imdb_ids($pdo, $showId, $sameNumbering);
         }
         if ($payload['episodes'] && ($prune || $tvdb !== null)) {
             // Drop unwatched rows the providers no longer list, keyed by the
@@ -1032,7 +1175,7 @@ function import_show(PDO $pdo, string $imdbId, bool $prune = false, bool $backgr
             [$keepSql, $params] = episode_pairs_sql($keep);
             $sql = "DELETE FROM episodes WHERE show_imdb_id = ? AND NOT $keepSql
                     AND NOT EXISTS (SELECT 1 FROM watched_episodes w WHERE w.episode_id = episodes.id)";
-            $params = [$imdbId, ...$params];
+            $params = [$showId, ...$params];
             if (!$prune) {
                 $sql .= ' AND airdate > ? AND (airstamp IS NULL OR airstamp > UTC_TIMESTAMP())';
                 $params[] = today();
@@ -1046,26 +1189,26 @@ function import_show(PDO $pdo, string $imdbId, bool $prune = false, bool $backgr
         throw $e;
     }
 
-    return $count;
+    return $showId;
 }
 
 // ---------------------------------------------------------------------------
 // Movies. TMDB-only (TVmaze has no movies); a movie is a single row, so the
 // import is just two HTTP calls.
 
-/** Movie metadata from TMDB by IMDB id, or null when TMDB doesn't know it. */
-function fetch_movie_from_tmdb(string $imdbId): ?array
+/** Movie metadata from TMDB, or null when TMDB doesn't know it. $id: the
+ *  movie's IMDB id, or its provisional "tm" id. 'imdb_id' is the key to store
+ *  it under (title_key()), 'tmdb_id' TMDB's own movie id. */
+function fetch_movie_from_tmdb(string $id): ?array
 {
-    $found = http_get_json(tmdb_api_url("/find/$imdbId", ['external_source' => 'imdb_id']));
-    $movie = $found['movie_results'][0] ?? null;
-    if (!$movie) {
-        return null;
-    }
-    $detail = http_get_json(tmdb_api_url('/movie/' . $movie['id'], TMDB_DETAIL_EXTRAS));
+    $tmdbId = tmdb_id($id, 'movie');
+    $detail = $tmdbId ? http_get_json(tmdb_api_url('/movie/' . $tmdbId, TMDB_DETAIL_EXTRAS)) : null;
     if (!$detail) {
         return null;
     }
+    $imdbId = title_key($id, $detail['imdb_id'] ?? null, fn($linked) => tmdb_id($linked, 'movie') === $tmdbId);
     return [
+        'tmdb_id' => $tmdbId,
         'imdb_id' => $imdbId,
         'name' => $detail['title'] ?? $imdbId,
         'image_url' => !empty($detail['poster_path']) ? TMDB_IMG_BASE . $detail['poster_path'] : null,
@@ -1126,24 +1269,57 @@ function upsert_movie(PDO $pdo, array $movie, bool $markSynced): void
     ]);
 }
 
-/** Import (or refresh) one movie. Throws RuntimeException when TMDB lacks it. */
-function import_movie(PDO $pdo, string $imdbId): void
+/**
+ * Fold the movie stored under the provisional id $old into $imdbId — the same
+ * movie, cached under both: everyone's list entry moves over (watched on
+ * either one stays watched), the old row goes.
+ */
+function merge_movie(PDO $pdo, string $old, string $imdbId): void
+{
+    $pdo->prepare(
+        'UPDATE user_movies n JOIN user_movies o ON o.user_id = n.user_id AND o.movie_imdb_id = ?
+         SET n.watched = GREATEST(n.watched, o.watched), n.watched_at = COALESCE(n.watched_at, o.watched_at)
+         WHERE n.movie_imdb_id = ?'
+    )->execute([$old, $imdbId]);
+    $pdo->prepare(
+        'INSERT IGNORE INTO user_movies (user_id, movie_imdb_id, added_at, watched, watched_at)
+         SELECT user_id, ?, added_at, watched, watched_at FROM user_movies WHERE movie_imdb_id = ?'
+    )->execute([$imdbId, $old]);
+    $pdo->prepare('DELETE FROM movies WHERE imdb_id = ?')->execute([$old]);
+}
+
+/**
+ * Import (or refresh) one movie. Returns the key it is stored under: $id —
+ * or, for a provisional $id whose movie has an IMDB id by now, that IMDB id
+ * (the stored movie moves to it). Throws RuntimeException when TMDB lacks it.
+ */
+function import_movie(PDO $pdo, string $id): string
 {
     @set_time_limit(60);
 
-    $movie = fetch_movie_from_tmdb($imdbId);
+    $movie = fetch_movie_from_tmdb($id);
     if (!$movie) {
         throw new RuntimeException('Movie not found on TMDB.');
     }
+    $movieId = $movie['imdb_id'];
+    $provisional = 'tm' . $movie['tmdb_id'];
 
     // Reconnect first — the fetch may have outlasted an idle MySQL connection.
     $pdo = db_live();
     $pdo->beginTransaction();
     try {
+        // The movie may be stored under its provisional id, from before it
+        // had an IMDB id: it moves, or is folded in when both are cached.
+        $twin = $movieId !== $provisional && !promote_title($pdo, 'movies', $provisional, $movieId);
         upsert_movie($pdo, $movie, true);
+        if ($twin) {
+            merge_movie($pdo, $provisional, $movieId);
+        }
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();
         throw $e;
     }
+
+    return $movieId;
 }

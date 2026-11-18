@@ -1,6 +1,7 @@
 <?php
 // PUBLIC, server-rendered movie page (no login) — indexable content.
-// Pretty URL /movie/ttNNNNNNN rewrites here (.htaccess / router.php).
+// Pretty URL /movie/ttNNNNNNN rewrites here (.htaccess / router.php); a movie
+// IMDB doesn't list has its provisional id there (valid_movie_id()).
 // Unlike series.php there is nothing to hydrate client-side (no episodes), so
 // the page is fully server-rendered for everyone; logged-in users just get an
 // actions row (#movie-actions) whose buttons app.js wires.
@@ -8,10 +9,10 @@ require_once __DIR__ . '/includes/auth.php';
 
 // The pretty-URL path id always wins over ?id= (same reasoning as series.php).
 $movieId = is_string($_GET['id'] ?? null) ? $_GET['id'] : '';
-if (preg_match('#^(?:/tr)?/movie/(tt\d{6,10})#', strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?'), $m)) {
+if (preg_match('#^(?:/tr)?/movie/(' . MOVIE_ID_PATTERN . ')(?:/|$)#', strtok((string) ($_SERVER['REQUEST_URI'] ?? ''), '?'), $m)) {
     $movieId = $m[1];
 }
-if (!valid_imdb_id($movieId)) {
+if (!valid_movie_id($movieId)) {
     header('Location: /browse');
     exit;
 }
@@ -30,7 +31,12 @@ if (!$movie) {
     // visit enriches the shared cache. Unknown ids fall through to the 404.
     require_once __DIR__ . '/includes/importer.php';
     try {
-        import_movie(db(), $movieId);
+        $storedAs = import_movie(db(), $movieId);
+        if ($storedAs !== $movieId) {
+            // An old link by the provisional id: the movie has an IMDB id now.
+            header('Location: ' . movie_url($storedAs), true, 301);
+            exit;
+        }
         $stmt->execute([$movieId]);
         $movie = $stmt->fetch();
     } catch (RuntimeException $e) {
@@ -80,7 +86,7 @@ $movieLd = array_filter([
     'datePublished' => $movie['released'] ?: null,
     'genre' => $genreList ?: null,
     'duration' => $movie['runtime'] ? 'PT' . (int) $movie['runtime'] . 'M' : null,
-    'sameAs' => 'https://www.imdb.com/title/' . $movieId . '/',
+    'sameAs' => valid_imdb_id($movieId) ? 'https://www.imdb.com/title/' . $movieId . '/' : null,
 ]);
 $breadcrumbLd = [
     '@type' => 'BreadcrumbList',
@@ -119,8 +125,10 @@ require __DIR__ . '/includes/header.php';
     <?php endif; ?>
     <div class="show-info">
         <h1><?= htmlspecialchars($movie['name']) ?>
-            <a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($movieId) ?>/"
-               target="_blank" rel="noopener">IMDB</a>
+            <?php if (valid_imdb_id($movieId)): ?>
+                <a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($movieId) ?>/"
+                   target="_blank" rel="noopener">IMDB</a>
+            <?php endif; ?>
             <?php if ($trailer = localized_trailer($movie)): ?>
                 <button type="button" class="trailer-link" data-trailer="<?= htmlspecialchars($trailer) ?>"
                         title="<?= t('trailer_title') ?>">▶ <?= t('trailer') ?></button>

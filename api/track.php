@@ -9,7 +9,7 @@ $data = read_json_post();
 $action = $data['action'] ?? '';
 $imdbId = $data['imdb_id'] ?? ($data['show']['imdb_id'] ?? ''); // legacy shape tolerated
 
-if (!valid_imdb_id($imdbId)) {
+if (!valid_show_id($imdbId)) {
     json_response(['error' => 'Missing or invalid IMDB id'], 400);
 }
 
@@ -19,7 +19,7 @@ if ($action === 'track') {
     $show = $stmt->fetch();
     if (!$show || $show['synced_at'] === null) {
         try {
-            import_show(db(), $imdbId);
+            $imdbId = import_show(db(), $imdbId);
         } catch (RuntimeException $e) {
             json_response(['error' => $e->getMessage()], 404);
         }

@@ -1,11 +1,13 @@
 <?php
-// Shared show/episode cache, keyed by IMDB ids.
+// Shared show/episode cache, keyed by IMDB ids (a show IMDB doesn't list goes
+// by a provisional id — valid_show_id()).
 // GET  ?show_id=ttNNNNNNN
 //      -> {show, episodes: [{id, imdb_id, season, number, name, name_tr, airdate, airstamp, finale, watch?}], watched: [...], today}
 // POST {show_id: "ttNNNNNNN"}
 //      -> imports/refreshes the show SERVER-SIDE from TMDB/TVmaze, then
 //         returns the same payload as GET. No provider data is accepted
-//         from the client.
+//         from the client. show.imdb_id differs from show_id when the import
+//         moved a provisional show to the IMDB id it has by now.
 require_once __DIR__ . '/../includes/importer.php';
 require_login_json();
 
@@ -66,7 +68,7 @@ function cache_payload(string $imdbId): array
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $imdbId = $_GET['show_id'] ?? '';
-    if (!valid_imdb_id($imdbId)) {
+    if (!valid_show_id($imdbId)) {
         json_response(['error' => 'Missing or invalid show_id'], 400);
     }
     json_response(cache_payload($imdbId));
@@ -74,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 $data = read_json_post();
 $imdbId = $data['show_id'] ?? '';
-if (!valid_imdb_id($imdbId)) {
+if (!valid_show_id($imdbId)) {
     json_response(['error' => 'Missing or invalid show_id'], 400);
 }
 
@@ -96,7 +98,7 @@ if ($force || !$fresh) {
     try {
         // The manual Refresh button (force) is a FULL refresh: metadata,
         // episodes, airstamps, AND pruning of episodes the provider dropped.
-        import_show(db(), $imdbId, $force);
+        $imdbId = import_show(db(), $imdbId, $force);
     } catch (RuntimeException $e) {
         json_response(['error' => $e->getMessage()], 404);
     }

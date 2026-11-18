@@ -16,7 +16,7 @@ $imdbId = $data['imdb_id'] ?? '';
 $site = (string) ($data['site'] ?? '');
 $slug = trim((string) ($data['slug'] ?? ''));
 
-if (!valid_imdb_id($imdbId) || !isset(watch_sites()[$site])) {
+if (!valid_show_id($imdbId) || !isset(watch_sites()[$site])) {
     json_response(['error' => 'Invalid show or site'], 400);
 }
 if ($slug !== '' && (strlen($slug) > 100 || !preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $slug))) {

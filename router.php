@@ -5,7 +5,7 @@
 // Usage: php -S localhost:8000 router.php
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-if (preg_match('#^(?:/tr)?/series/(tt\d{6,10})/?$#', $path, $m)) {
+if (preg_match('#^(?:/tr)?/series/(tt\d{6,10}|(?:tm|mz)\d{1,9})/?$#', $path, $m)) {
     $_GET['id'] = $m[1];
     require __DIR__ . '/series.php';
     return true;
@@ -17,7 +17,7 @@ if (preg_match('#^(?:/tr)?/series(/|$)#', $path)) {
     echo 'Not Found';
     return true;
 }
-if (preg_match('#^(?:/tr)?/movie/(tt\d{6,10})/?$#', $path, $m)) {
+if (preg_match('#^(?:/tr)?/movie/(tt\d{6,10}|tm\d{1,9})/?$#', $path, $m)) {
     $_GET['id'] = $m[1];
     require __DIR__ . '/movie.php';
     return true;
