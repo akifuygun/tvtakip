@@ -604,6 +604,14 @@ a.genre-chip:hover { color: var(--accent); border-color: var(--accent); }
 .cal-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
 .cal-nav-btn.disabled { opacity: 0.35; pointer-events: none; }
 .cal-nav-today { position: absolute; right: 0; }
+.cal-nav-list { position: absolute; left: 0; }
+/* The calendar table takes the whole page: full width, no heading or tabs —
+   its "List View" link stands in for the tab. Phones (agenda) keep the tabs. */
+@media (min-width: 701px) {
+  .container:has([data-panel="calendar"]:not(.hidden)) { max-width: none; }
+  .container:has([data-panel="calendar"]:not(.hidden)) > h1,
+  .container:has([data-panel="calendar"]:not(.hidden)) .filter-tabs { display: none; }
+}
 .cal-month {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -662,6 +670,7 @@ a.genre-chip:hover { color: var(--accent); border-color: var(--accent); }
   .cal-dow { display: inline; }
   .cal-ep { font-size: 0.85rem; }
   .cal-nav-today { position: static; }
+  .cal-nav-list { display: none; }
 }
 
 .next-ep { font-size: 0.78rem; color: var(--warning); }

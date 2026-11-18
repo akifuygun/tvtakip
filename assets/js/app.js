@@ -940,6 +940,11 @@ function initUpcoming() {
     }
     history.replaceState(null, '', url);
   }));
+  // The desktop calendar hides the tabs; its "List View" link stands in for that tab.
+  cal.querySelector('.cal-nav-list').addEventListener('click', (e) => {
+    e.preventDefault();
+    root.querySelector('.filter-tab[data-tab="list"]').click();
+  });
 }
 
 // Calendar "Movies to watch" section: mark watched removes the card in place,
