@@ -22,9 +22,9 @@ watched, and keep a movie watchlist.
   **public** (shows and movies), and visiting any not-yet-cached `/series/ttNNN` or
   `/movie/ttNNN` imports it on first visit — every visitor grows the shared catalog;
   tracking/watching stays login-only.
-- **Freshness needs no refresh cron job:** every calendar visit
-  refreshes the viewer's stale tracked shows (airing ones first) and re-renders in
-  place, and a per-session background ping refreshes stale shows site-wide.
+- **Freshness is scheduled:** a cron worker (`scripts/refresh_worker.php`, every 10
+  minutes) re-imports shows that are due — synced more than 12 h ago while an episode
+  airs within two weeks, 48 h otherwise; tracked and airing shows first.
 - **Episode data** comes from TMDB, including each episode's IMDB id via its
   `external_ids` endpoint, with TVmaze as fallback for shows TMDB doesn't know
   (their episode IMDB ids stay empty and are backfilled on refresh once TMDB has them).
@@ -92,7 +92,7 @@ api/track.php      POST: track/untrack by IMDB id (imports server-side if uncach
 api/episodes.php   GET cached show+episodes+watched; POST imports/refreshes server-side
 api/watch.php      POST toggle episode watched; bulk (un)watch per show or season
 api/movies.php     GET movie search; POST add/remove/watch (single endpoint)
-api/tick.php       Page-view-driven freshness: refreshes stale shows (own first)
+scripts/refresh_worker.php  Cron worker: re-imports shows that are due a refresh
 api/image.php      POST set/remove a show poster (admin only)
 includes/          db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
                    network_logos.php, header.php (+ site_footer.php), footer.php

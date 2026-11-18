@@ -1,7 +1,7 @@
 <?php
 // The "Refresh all shows" button on My Shows: a forced re-import of EVERY
-// show the caller tracks, cooldown or not. The automatic tick (api/tick.php)
-// skips fresh, ended and canceled shows, so this is how a renewed "ended" show
+// show the caller tracks, cooldown or not. The scheduled worker
+// (scripts/refresh_worker.php) skips fresh, ended and canceled shows, so this is how a renewed "ended" show
 // or a provider correction is picked up without opening each show page.
 //
 //   POST {since?: "YYYY-MM-DD HH:MM:SS"}   (login + CSRF)
@@ -10,10 +10,10 @@
 // Each call imports only within a time budget, keeping requests short, and
 // reports `more`; the client calls again with the same `since` until done.
 // `since` is the run's start on the DB clock: a show is due while its
-// synced_at predates it, so one the tick or another tab refreshed meanwhile
+// synced_at predates it, so one the worker or another tab refreshed meanwhile
 // is skipped, and an import that failed still counts as done (its claim moved
-// synced_at) instead of stalling the run. `busy`: the caller's tick holds the
-// per-user lock right now — call again shortly.
+// synced_at) instead of stalling the run. `busy`: another tab of the caller holds
+// the per-user lock right now — call again shortly.
 //
 // Unlike the per-show Refresh this does NOT prune: a provider hiccup during a
 // bulk run would otherwise drop episodes across every show at once.
@@ -68,8 +68,7 @@ $deadline = microtime(true) + REFRESH_BUDGET_SECONDS;
 $out = ['since' => $since, 'refreshed' => [], 'changed' => false, 'more' => false, 'busy' => false];
 
 try {
-    // Same per-user lock as the tick's own-shows phase, so a calendar tab's
-    // auto-refresh and this run never import the user's shows side by side.
+    // One run per user: a second tab never imports the same shows side by side.
     // Returns instantly when taken and auto-releases when this request's
     // connection closes.
     $lock = db()->prepare('SELECT GET_LOCK(?, 0)');
@@ -91,7 +90,7 @@ try {
                 break;
             }
             // Claim atomically (the due check sits in the WHERE): a loser lost
-            // the show to the tick or another tab since the SELECT and moves
+            // the show to the worker or another tab since the SELECT and moves
             // on. db_live(): the previous import may have outlasted the
             // connection.
             $pdo = db_live();

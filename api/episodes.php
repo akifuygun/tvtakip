@@ -83,7 +83,7 @@ if (!valid_imdb_id($imdbId)) {
 // "Refresh episodes" button). Mirrors the synced_at guard in track.php.
 const EPISODES_REFRESH_COOLDOWN_HOURS = 12;
 $force = !empty($data['force']);
-// Compare in SQL (like tick.php) so the cooldown isn't skewed by the difference
+// Compare in SQL so the cooldown isn't skewed by the difference
 // between the DB session timezone and the per-viewer PHP timezone.
 $stmt = db()->prepare(
     'SELECT synced_at IS NOT NULL AND synced_at > (NOW() - INTERVAL ? HOUR)

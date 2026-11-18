@@ -1,6 +1,7 @@
 config.php
 includes/watch_base.php*
 deploy/
+scripts/refresh_worker.lock
 .vscode/
 .claude/
 CLAUDE.md

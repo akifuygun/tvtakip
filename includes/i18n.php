@@ -174,7 +174,6 @@ $GLOBALS['I18N'] = [
         // calendar
         'calendar_title' => 'Calendar',
         'calendar_sub' => "The next unwatched episode of each show you track.",
-        'cal_checking' => 'Checking for new episodes…',
         'tv_view' => '📺 TV view', 'tv_full_site' => 'Full site', 'tv_tiles' => 'Tiles', 'tv_list' => 'List',
         'all_caught_up' => '🎉 All caught up!',
         'no_unwatched' => 'No unwatched aired episodes.',
@@ -350,7 +349,6 @@ $GLOBALS['I18N'] = [
         'show_more' => 'Daha fazla göster',
         'calendar_title' => 'Takvim',
         'calendar_sub' => 'Takip ettiğin her dizinin izlemediğin ilk bölümü.',
-        'cal_checking' => 'Yeni bölümler kontrol ediliyor…',
         'tv_view' => '📺 TV görünümü', 'tv_full_site' => 'Tam site', 'tv_tiles' => 'Kartlar', 'tv_list' => 'Liste',
         'all_caught_up' => '🎉 Her şeyi izledin!',
         'no_unwatched' => 'İzlenmemiş yayınlanmış bölüm yok.',

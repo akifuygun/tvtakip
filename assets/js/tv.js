@@ -1,6 +1,5 @@
 // TV view (tv.php). The page works without this file (marking watched is a
-// plain form POST); it keeps the page in place while marking and runs the
-// calendar's background refresh.
+// plain form POST); it keeps the page in place while marking.
 
 // Same timezone report as app.js, so "today" follows the TV's clock.
 try {
@@ -39,24 +38,4 @@ function initTvMark() {
   });
 }
 
-// Freshness, as on the calendar (app.js refreshCalendar): the server refreshes
-// this viewer's stale shows a few per call, so keep calling while some are
-// left — capped per visit — and swap in a fresh render whenever one changed.
-const TV_REFRESH_ROUNDS = 10;
-async function refreshTv() {
-  try {
-    for (let round = 0; round < TV_REFRESH_ROUNDS; round++) {
-      const res = await (await fetch('/api/tick.php?scope=mine')).json();
-      if (res.changed) {
-        const page = await fetch('/tv', { cache: 'no-store' });
-        if (page.ok) swapTv(await page.text());
-      }
-      if (!res.more) break;
-    }
-  } catch {
-    // best-effort: the page stays as first rendered
-  }
-}
-
 initTvMark();
-refreshTv();
