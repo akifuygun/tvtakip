@@ -61,9 +61,11 @@ $dryRun = in_array('--dry-run', $argv, true);
 
 // One run at a time. The lock is released when the process ends, however it
 // ends, so a crashed run never blocks the next one.
-$lock = fopen(__DIR__ . '/refresh_worker.lock', 'c');
-if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
-    exit(0);
+if (!$dryRun) {
+    $lock = fopen(__DIR__ . '/refresh_worker.lock', 'c');
+    if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
+        exit(0);
+    }
 }
 
 $started = microtime(true);
