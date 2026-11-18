@@ -22,9 +22,13 @@ watched, and keep a movie watchlist.
   **public** (shows and movies), and visiting any not-yet-cached `/series/ttNNN` or
   `/movie/ttNNN` imports it on first visit — every visitor grows the shared catalog;
   tracking/watching stays login-only.
-- **Freshness is scheduled:** a cron worker (`scripts/refresh_worker.php`, every 10
-  minutes) re-imports shows that are due — synced more than 12 h ago while an episode
-  airs within two weeks, 48 h otherwise; tracked and airing shows first.
+- **Freshness is scheduled:** a cron worker (`scripts/refresh_worker.php`, every
+  minute) re-imports shows that are due — synced more than 12 h ago while an episode
+  airs within two weeks, otherwise 48 h, or a week once ended or canceled (so renewals
+  and status corrections still arrive); tracked and airing shows first.
+- **"Refresh all shows"** (My Shows) is a background job: the button files a request
+  in `refresh_requests`, the same worker re-imports every show the user tracks, and
+  the page shows the progress from the database — closing the tab doesn't stop it.
 - **Episode data** comes from TMDB, including each episode's IMDB id via its
   `external_ids` endpoint, with TVmaze as fallback for shows TMDB doesn't know
   (their episode IMDB ids stay empty and are backfilled on refresh once TMDB has them).
@@ -92,10 +96,13 @@ api/track.php      POST: track/untrack by IMDB id (imports server-side if uncach
 api/episodes.php   GET cached show+episodes+watched; POST imports/refreshes server-side
 api/watch.php      POST toggle episode watched; bulk (un)watch per show or season
 api/movies.php     GET movie search; POST add/remove/watch (single endpoint)
-scripts/refresh_worker.php  Cron worker: re-imports shows that are due a refresh
+api/refresh.php    POST files a "Refresh all shows" request; GET reads its progress
+scripts/refresh_worker.php  Cron worker: works off those requests and re-imports
+                   shows that are due a refresh
 api/image.php      POST set/remove a show poster (admin only)
 includes/          db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
-                   network_logos.php, header.php (+ site_footer.php), footer.php
+                   refresh.php, network_logos.php, header.php (+ site_footer.php),
+                   footer.php
 assets/            css/style.css, js/app.js, icons/ (PWA + logo)
 manifest.php, sw.js   Localized PWA manifest + service worker (static-asset cache)
 sitemap.php        Dynamic sitemap (shows + movies, en + tr)
@@ -103,7 +110,7 @@ scripts/           CLI utilities: import_popular.php, import_watchlist.php,
                    backfill_images.php, backfill_airstamps.php, make_sync.php,
                    make_restore.php
 schema.sql         MySQL schema (users, shows, episodes, movies, user_shows,
-                   watched_episodes, user_movies, remember_tokens)
+                   watched_episodes, user_movies, remember_tokens, refresh_requests)
 config.sample.php  Copy to config.php: DB credentials, TMDB_API_KEY, TVDB_API_KEY
                    (optional), ADMIN_EMAILS
 ```

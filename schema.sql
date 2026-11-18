@@ -80,6 +80,18 @@ CREATE TABLE IF NOT EXISTS remember_tokens (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- "Refresh all shows" (My Shows): one row per user, their latest request. The
+-- cron worker (scripts/refresh_worker.php) re-imports the user's shows whose
+-- synced_at is older than requested_at, then sets finished_at.
+CREATE TABLE IF NOT EXISTS refresh_requests (
+    user_id INT UNSIGNED NOT NULL PRIMARY KEY,
+    requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP NULL DEFAULT NULL,   -- the worker picked it up; NULL = queued
+    finished_at TIMESTAMP NULL DEFAULT NULL,  -- NULL = still open
+    changed TINYINT(1) NOT NULL DEFAULT 0,    -- a refreshed show's episode list or status changed
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS watched_episodes (
     user_id INT UNSIGNED NOT NULL,
     episode_id INT UNSIGNED NOT NULL,

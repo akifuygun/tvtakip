@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/refresh.php';
 require_login();
 
 // The next unaired episode's exact airstamp (and airdate) — same not-yet-aired
@@ -114,6 +115,15 @@ usort($groups['finished']['shows'], $byBacklog);
 $nonEmpty = array_filter($groups, fn($g) => (bool) $g['shows']);
 $activeGroup = array_key_first($nonEmpty);
 
+// A "Refresh all shows" run still open in the background: the button comes up
+// showing it, and app.js keeps following it (initRefreshAll).
+$refresh = refresh_request_state(current_user_id());
+$refreshLabel = match (true) {
+    !$refresh['active'] => t('refresh_all'),
+    $refresh['started'] => t('refresh_all_progress', $refresh['done'], $refresh['total']),
+    default => t('refresh_all_queued'),
+};
+
 $pageTitle = t('myshows_title');
 $noindex = true;
 require __DIR__ . '/includes/header.php';
@@ -127,10 +137,10 @@ require __DIR__ . '/includes/header.php';
     <div class="page-header">
         <h1><?= t('myshows_title') ?></h1>
         <div class="episodes-actions">
-            <button type="button" id="refresh-all-btn" class="button button-small button-secondary"><?= t('refresh_all') ?></button>
+            <button type="button" id="refresh-all-btn" class="button button-small button-secondary"<?= $refresh['active'] ? ' data-active="1" disabled' : '' ?>><?= $refreshLabel ?></button>
         </div>
     </div>
-    <p id="refresh-all-note" class="muted" hidden></p>
+    <p id="refresh-all-note" class="muted"<?= $refresh['active'] ? '' : ' hidden' ?>><?= $refresh['active'] ? t('refresh_all_background') : '' ?></p>
     <div id="myshows-tabs">
         <div class="filter-tabs" role="tablist">
             <?php foreach ($nonEmpty as $key => $group): ?>
