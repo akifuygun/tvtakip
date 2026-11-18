@@ -7,7 +7,7 @@
 //   POST {since?: "YYYY-MM-DD HH:MM:SS"}   (login + CSRF)
 //     -> {since, refreshed: [ids], changed, more, busy, done, total}
 //
-// The host kills long requests, so each call imports only within a budget and
+// Each call imports only within a time budget, keeping requests short, and
 // reports `more`; the client calls again with the same `since` until done.
 // `since` is the run's start on the DB clock: a show is due while its
 // synced_at predates it, so one the tick or another tab refreshed meanwhile

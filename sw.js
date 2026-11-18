@@ -1,7 +1,7 @@
 // Service worker: stale-while-revalidate for same-origin STATIC assets only.
 // HTML pages and /api/* pass straight through to the network so authenticated,
 // per-user content is never served stale or to the wrong session.
-const CACHE = 'tvtrack-v74';
+const CACHE = 'tvtrack-v75';
 const STATIC = /\.(css|js|png|svg|webmanifest|woff2?|ico)$/;
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -27,9 +27,9 @@ self.addEventListener('fetch', (event) => {
       const cached = await cache.match(req);
       const network = fetch(req)
         .then((res) => {
-          // Only cache genuine same-origin 200s that are NOT HTML — the
-          // host's anti-bot interstitial is a same-origin 200 HTML page and
-          // must never be cached in place of a static asset.
+          // Only cache genuine same-origin 200s that are NOT HTML — an
+          // interstitial or error page served as a same-origin 200 must
+          // never be cached in place of a static asset.
           const type = res.headers.get('content-type') || '';
           if (res.ok && res.type === 'basic' && !type.includes('text/html')) {
             cache.put(req, res.clone());

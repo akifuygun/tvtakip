@@ -3,11 +3,11 @@
 // and watched history included) as one-statement-per-line SQL that loads into
 // *_new staging tables on live. Every statement is idempotent
 // (CREATE TABLE IF NOT EXISTS + INSERT IGNORE), so the resumable web runner
-// (deploy/restore.php) can re-run from its last byte offset after the host
-// kills a request, then swap the staging tables in with one RENAME TABLE.
-// The output is split at statement boundaries into parts under 8 MB because
-// the host silently discards FTP uploads over 10 MB; the runner reads the
-// parts as one stream. Nothing here touches live; the files delete nothing.
+// (deploy/restore.php) can re-run from its last byte offset after a request
+// is killed, then swap the staging tables in with one RENAME TABLE.
+// Built for the former FTP-only host (no shell, ~30s requests, FTP silently
+// dropped uploads over 10 MB), hence parts under 8 MB read as one stream; with
+// SSH the parts can also be fed straight to the mysql client. Nothing here touches live; the files delete nothing.
 //
 // Usage: php scripts/make_restore.php
 //   then paste the printed DATA_PARTS line into deploy/restore.php

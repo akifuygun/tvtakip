@@ -22,7 +22,7 @@ watched, and keep a movie watchlist.
   **public** (shows and movies), and visiting any not-yet-cached `/series/ttNNN` or
   `/movie/ttNNN` imports it on first visit — every visitor grows the shared catalog;
   tracking/watching stays login-only.
-- **Freshness is cron-free** (the free host has no cron): every calendar visit
+- **Freshness needs no refresh cron job:** every calendar visit
   refreshes the viewer's stale tracked shows (airing ones first) and re-renders in
   place, and a per-session background ping refreshes stale shows site-wide.
 - **Episode data** comes from TMDB, including each episode's IMDB id via its
@@ -58,7 +58,7 @@ watched, and keep a movie watchlist.
   release date. Public movie pages at `/movie/ttNNN` and a public catalog at
   `/movies`.
 - **Accounts:** email login, display name shown in the header, self-service
-  change-password. 30-day sessions plus a 60-day "remember me" token so the free
+  change-password. 30-day sessions plus a 60-day "remember me" token so a shared
   host's short session GC doesn't force frequent logins.
 - **Admin** (emails listed in `ADMIN_EMAILS`): can set/remove a show's poster
   (shared cache) — the "no image" placeholder is admin-only. Everyone else is
@@ -92,7 +92,7 @@ api/track.php      POST: track/untrack by IMDB id (imports server-side if uncach
 api/episodes.php   GET cached show+episodes+watched; POST imports/refreshes server-side
 api/watch.php      POST toggle episode watched; bulk (un)watch per show or season
 api/movies.php     GET movie search; POST add/remove/watch (single endpoint)
-api/tick.php       Cron-free freshness: refreshes stale shows (own tracked first)
+api/tick.php       Page-view-driven freshness: refreshes stale shows (own first)
 api/image.php      POST set/remove a show poster (admin only)
 includes/          db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
                    network_logos.php, header.php (+ site_footer.php), footer.php

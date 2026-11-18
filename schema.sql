@@ -1,5 +1,5 @@
 -- tvtakip database schema (v2 — IMDB-keyed)
--- Import via phpMyAdmin (InfinityFree) or: mysql -u root tvtakip < schema.sql
+-- Import via phpMyAdmin or: mysql -u root tvtakip < schema.sql
 --
 -- IMDB ids are the canonical identity for shows. Episodes are identified by
 -- (show_imdb_id, season, number) because a few episodes (specials, unaired)

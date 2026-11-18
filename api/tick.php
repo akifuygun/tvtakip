@@ -1,6 +1,5 @@
 <?php
-// Cron-free freshness. The host (InfinityFree free tier) has no cron and bans
-// automated periodic requests, so refreshes ride on real page views instead:
+// Freshness without a refresh cron job: refreshes ride on real page views:
 //
 //   GET /api/tick.php             app.js, once per browser session: the
 //                                 caller's own stale tracked shows first, then
@@ -11,8 +10,8 @@
 //                                 re-renders in place), `more` that some are
 //                                 still stale (the page calls again).
 //
-// Bounded by design: imports only start within TICK_BUDGET_SECONDS (the host
-// kills long requests), and every show is claimed atomically and then skipped
+// Bounded by design: imports only start within TICK_BUDGET_SECONDS (requests
+// stay short), and every show is claimed atomically and then skipped
 // for its cooldown, so even hammering this only keeps the cache fresh. No
 // login required (freshness benefits the public pages too), no client input
 // is trusted beyond the scope flag.

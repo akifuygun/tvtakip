@@ -24,8 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         json_response(['error' => 'Movie search failed'], 502);
     }
 
-    // Cap at 8: each result costs an /external_ids call, and curl_multi is
-    // disabled live so these run sequentially inside the request limit.
+    // Cap at 8: each result costs an /external_ids call (concurrent where
+    // curl_multi works, sequential otherwise).
     $results = array_slice($search['results'] ?? [], 0, 8);
     $extUrls = array_map(fn($r) => tmdb_api_url('/movie/' . $r['id'] . '/external_ids'), $results);
     $exts = http_multi_json($extUrls, 8);

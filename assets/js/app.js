@@ -850,7 +850,7 @@ function initMyShows() {
 // "Refresh all shows": a forced re-import of every tracked show, cooldown or
 // not. The server imports as many as fit one request and reports progress, so
 // keep calling with the run's `since` until none is left, then reload when
-// anything changed. A failed round (the host kills long requests) is retried
+// anything changed. A failed round (a timeout or server error) is retried
 // a few times — the show that overran is already claimed, so the next round
 // moves on. `busy` means the calendar's auto-refresh holds the user's lock.
 // A run takes minutes for a long list, so `since` is kept in localStorage
@@ -1388,10 +1388,9 @@ function initNav() {
   });
 }
 
-// Cron-free freshness — the host has no cron and bans automated periodic
-// requests, so refreshes ride on real page views: the calendar refreshes the
-// viewer's own stale shows on every visit, then once per browser session any
-// page nudges the server to refresh the most-stale shows site-wide (the
+// Freshness without a refresh cron job — refreshes ride on real page views:
+// the calendar refreshes the viewer's own stale shows on every visit, then
+// once per browser session any page nudges the server to refresh the most-stale shows site-wide (the
 // viewer's own first). The server bounds and claims the work, so this is safe
 // to call from every page load.
 async function initTick() {
