@@ -55,6 +55,10 @@ function http_post_json(string $url, array $payload): ?array
  * $limit run at once, and $perSecond (0 = no cap) caps how many start per
  * second — evenly spaced, so a provider's rate limit is never met in a burst.
  * Transient failures (anything but 401/404) get one retry pass.
+ *
+ * Requests to a host that speaks HTTP/2 (TMDB does) share one connection
+ * (CURLOPT_PIPEWAIT: wait for it rather than open another). A burst otherwise
+ * spends most of its time on one TLS handshake per request.
  */
 function http_multi_json(array $urls, int $limit = 12, float $perSecond = 0, bool $retry = true): array
 {
@@ -87,6 +91,7 @@ function http_multi_json(array $urls, int $limit = 12, float $perSecond = 0, boo
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT => 20,
                 CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_PIPEWAIT => true,
             ]);
             curl_multi_add_handle($mh, $ch);
             $active[(int) $ch] = $next++;
