@@ -6,9 +6,11 @@
 // A run works off, in this order:
 //   1. the open "Refresh all shows" requests (includes/refresh.php), oldest
 //      first: every show the user tracks, whatever its status or cooldown;
-//   2. every show that is due, most important first, until none is left. A
-//      request filed meanwhile is picked up between two shows, so it never
-//      waits for a long scheduled run to end.
+//   2. the shows a web request imported without their episode IMDB ids
+//      (shows.ids_pending, see import_show()), smallest first;
+//   3. every show that is due, most important first, until none is left.
+// What arrives for 1 or 2 meanwhile is picked up between two shows, so it
+// never waits for a long scheduled run to end.
 //
 // Usage: php scripts/refresh_worker.php            refresh what is waiting
 //        php scripts/refresh_worker.php --dry-run  only list what is waiting
@@ -91,6 +93,16 @@ function refresh_request_shows(PDO $pdo, int $userId): array
     return $stmt->fetchAll();
 }
 
+/** Shows whose last import left their episode IMDB ids to this worker, fewest
+ *  episodes first — a huge show must not hold up the quick ones. */
+function refresh_pending_shows(PDO $pdo): array
+{
+    return $pdo->query(
+        'SELECT s.imdb_id, s.name FROM shows s WHERE s.ids_pending = 1
+         ORDER BY (SELECT COUNT(*) FROM episodes e WHERE e.show_imdb_id = s.imdb_id), s.imdb_id'
+    )->fetchAll();
+}
+
 /** What My Shows sees of a show: its episode list (count, numbering, air
  *  dates/times) and status — it changes when a refresh brought anything new. */
 function refresh_fingerprint(PDO $pdo, string $imdbId): string
@@ -124,7 +136,7 @@ function refresh_import(string $imdbId, string $name, string $for = ''): bool
         // db_live(): the previous import may have outlasted the connection.
         $pdo = db_live();
         $before = refresh_fingerprint($pdo, $imdbId);
-        import_show($pdo, $imdbId);
+        import_show($pdo, $imdbId, background: true);
         $pdo = db_live();
         if (refresh_fingerprint($pdo, $imdbId) !== $before) {
             $pdo->prepare(
@@ -176,12 +188,35 @@ function refresh_run_requests(array &$stats): void
     }
 }
 
+/**
+ * Complete the imports that left their episode IMDB ids to the worker. The
+ * claim clears the flag, so a failed import isn't retried in a loop — the ids
+ * it missed are asked for at the show's next refresh. The queue is read anew
+ * for every show, so a small one flagged meanwhile doesn't wait for the huge
+ * ones, and open requests go ahead of each next show.
+ */
+function refresh_run_pending(array &$stats): void
+{
+    while ($show = refresh_pending_shows(db_live())[0] ?? null) {
+        $claim = db_live()->prepare('UPDATE shows SET ids_pending = 0 WHERE imdb_id = ? AND ids_pending = 1');
+        $claim->execute([$show['imdb_id']]);
+        if ($claim->rowCount() === 0) {
+            continue;
+        }
+        $stats[refresh_import($show['imdb_id'], $show['name'], ' [ids]') ? 'refreshed' : 'failed']++;
+        refresh_run_requests($stats);
+    }
+}
+
 if (in_array('--dry-run', $argv, true)) {
     $pdo = db();
     foreach (refresh_open_requests($pdo) as $userId) {
         foreach (refresh_request_shows($pdo, $userId) as $show) {
             refresh_log("request of user $userId: {$show['imdb_id']} {$show['name']}");
         }
+    }
+    foreach (refresh_pending_shows($pdo) as $show) {
+        refresh_log("ids pending {$show['imdb_id']} {$show['name']}");
     }
     foreach (refresh_due_shows($pdo, true) as $show) {
         refresh_log("due {$show['imdb_id']} {$show['name']}");
@@ -201,6 +236,7 @@ $stats = ['refreshed' => 0, 'failed' => 0];
 
 try {
     refresh_run_requests($stats);
+    refresh_run_pending($stats);
     while ($shows = refresh_due_shows(db_live())) {
         foreach ($shows as $show) {
             // Claim atomically (the due check sits in the WHERE): a show a web
@@ -212,8 +248,9 @@ try {
                 continue;
             }
             $stats[refresh_import($show['imdb_id'], $show['name']) ? 'refreshed' : 'failed']++;
-            // A request filed meanwhile goes ahead of the rest of the queue.
+            // What was filed meanwhile goes ahead of the rest of the queue.
             refresh_run_requests($stats);
+            refresh_run_pending($stats);
         }
     }
 } catch (Throwable $e) {

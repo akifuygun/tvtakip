@@ -43,12 +43,13 @@ if (!$show) {
     }
     // Guests enrich the cache too: import inline on first visit (no authed API
     // to do it async). Single-flight lock so id-enumeration can't fan out
-    // concurrent provider imports; skipped episode-id backfill keeps the page
-    // load bounded (ids converge via later refreshes).
+    // concurrent provider imports. The page load stays bounded: a show with
+    // many episodes is saved without their IMDB ids, which the cron worker
+    // adds within about a minute (WEB_ID_LOOKUPS).
     if (db()->query("SELECT GET_LOCK('tvtrack_guest_import', 0)")->fetchColumn()) {
         try {
             require_once __DIR__ . '/includes/importer.php';
-            import_show(db(), $showId, 0);
+            import_show(db(), $showId);
             $stmt->execute([$showId]);
             $show = $stmt->fetch();
         } catch (Throwable $e) {

@@ -50,9 +50,13 @@ function http_post_json(string $url, array $payload): ?array
     return is_array($data) ? $data : null;
 }
 
-/** Concurrent GETs, order-preserving; null for any URL that failed.
- *  A single retry pass re-fetches failures sequentially. */
-function http_multi_json(array $urls, int $limit = 12): array
+/**
+ * Concurrent GETs, order-preserving; null for any URL that failed. At most
+ * $limit run at once, and $perSecond (0 = no cap) caps how many start per
+ * second — evenly spaced, so a provider's rate limit is never met in a burst.
+ * Transient failures (anything but 401/404) get one retry pass.
+ */
+function http_multi_json(array $urls, int $limit = 12, float $perSecond = 0, bool $retry = true): array
 {
     $results = array_fill(0, count($urls), null);
     if (!$urls) {
@@ -70,26 +74,24 @@ function http_multi_json(array $urls, int $limit = 12): array
     }
 
     $mh = curl_multi_init();
-    $active = [];
+    $active = [];      // handle => index into $urls
+    $failed = [];      // indexes worth another try
+    $throttled = false;
     $next = 0;
-    $add = function () use (&$next, $urls, $mh, &$active) {
-        if ($next >= count($urls)) {
-            return;
-        }
-        $i = $next++;
-        $ch = curl_init($urls[$i]);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 20,
-            CURLOPT_FOLLOWLOCATION => true,
-        ]);
-        curl_multi_add_handle($mh, $ch);
-        $active[(int) $ch] = $i;
-    };
-    for ($i = 0; $i < $limit; $i++) {
-        $add();
-    }
+    $gap = $perSecond > 0 ? 1 / $perSecond : 0.0;
+    $startAt = 0.0;    // earliest moment the next request may start
     do {
+        while ($next < count($urls) && count($active) < $limit && ($now = microtime(true)) >= $startAt) {
+            $ch = curl_init($urls[$next]);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_FOLLOWLOCATION => true,
+            ]);
+            curl_multi_add_handle($mh, $ch);
+            $active[(int) $ch] = $next++;
+            $startAt = $now + $gap;
+        }
         curl_multi_exec($mh, $running);
         while ($info = curl_multi_info_read($mh)) {
             $ch = $info['handle'];
@@ -97,22 +99,35 @@ function http_multi_json(array $urls, int $limit = 12): array
             $body = curl_multi_getcontent($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
             $decoded = ($code === 200 && $body) ? json_decode($body, true) : null;
-            $results[$i] = is_array($decoded) ? $decoded : null;
+            if (is_array($decoded)) {
+                $results[$i] = $decoded;
+            } elseif ($code !== 401 && $code !== 404) {
+                $failed[] = $i;
+                $throttled = $throttled || $code === 429;
+            }
             curl_multi_remove_handle($mh, $ch);
             curl_close($ch);
             unset($active[(int) $ch]);
-            $add();
         }
-        if ($running) {
-            curl_multi_select($mh, 0.2);
+        if ($active) {
+            // Until a response arrives — or the next start slot, when one is free.
+            $slotFree = $next < count($urls) && count($active) < $limit;
+            if (curl_multi_select($mh, $slotFree ? max(0.0, $startAt - microtime(true)) : 0.2) === -1) {
+                usleep(5000);
+            }
+        } elseif ($next < count($urls)) {
+            usleep((int) (max(0.0, $startAt - microtime(true)) * 1000000));
         }
-    } while ($running || $active);
+    } while ($active || $next < count($urls));
     curl_multi_close($mh);
 
-    // One sequential retry pass for transient failures.
-    foreach ($results as $i => $result) {
-        if ($result === null) {
-            $results[$i] = http_get_json($urls[$i], 2);
+    // One retry pass, after a pause — a longer one when the provider said it
+    // was being asked too fast.
+    if ($retry && $failed) {
+        usleep($throttled ? 2000000 : 400000);
+        $again = http_multi_json(array_map(fn($i) => $urls[$i], $failed), $limit, $perSecond, false);
+        foreach ($failed as $k => $i) {
+            $results[$i] = $again[$k];
         }
     }
     return $results;

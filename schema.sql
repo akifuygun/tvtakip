@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS shows (
     rating DECIMAL(3,1) DEFAULT NULL,  -- provider average (0-10)
     runtime SMALLINT UNSIGNED DEFAULT NULL,  -- typical episode length, minutes
     synced_at TIMESTAMP NULL DEFAULT NULL,  -- set when a full episode import completed
+    ids_pending TINYINT(1) NOT NULL DEFAULT 0,  -- the last import left the episode IMDB ids to the cron worker
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -51,6 +52,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     airdate DATE DEFAULT NULL,
     airstamp DATETIME DEFAULT NULL,  -- exact air time in UTC (TVmaze), when known
     finale VARCHAR(9) DEFAULT NULL,  -- season|series|midseason; '' = regular episode, NULL = unknown
+    imdb_checked_at TIMESTAMP NULL DEFAULT NULL,  -- when TMDB last answered the lookup of imdb_id (it may have none); NULL = never asked
     -- (show, season, number) is the ONLY identity. imdb_id is deliberately
     -- NOT unique: IMDB lists two-part episodes under one id, and a second
     -- unique key would make upserts ambiguous (corrupting the wrong row).

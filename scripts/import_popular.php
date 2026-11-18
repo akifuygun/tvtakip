@@ -53,7 +53,7 @@ while ($done < $target && $page <= 50) {
         }
 
         try {
-            $count = import_show($pdo, $imdbId, PHP_INT_MAX);
+            $count = import_show($pdo, $imdbId, background: true);
             $done++;
             $imported++;
             echo "[$done/$target] {$tv['name']} ($imdbId): $count episodes\n";
