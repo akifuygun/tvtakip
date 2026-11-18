@@ -54,7 +54,7 @@ function refresh_due_shows(PDO $pdo): array
 
 function refresh_log(string $line): void
 {
-    echo date('Y-m-d H:i:s') . ' ' . $line . "\n";
+    echo gmdate('Y-m-d H:i:s\Z') . ' ' . $line . "\n";
 }
 
 $dryRun = in_array('--dry-run', $argv, true);
