@@ -187,9 +187,46 @@ function tmdb_tr_overview(array $detail): ?string
     return null;
 }
 
+/** TMDB's URL of one season of a show: in English, or in $language ('tr-TR'). */
+function tmdb_season_url(int $tmdbId, int $season, ?string $language = null): string
+{
+    return tmdb_api_url("/tv/$tmdbId/season/$season", $language !== null ? ['language' => $language] : []);
+}
+
+/** Episode names, keyed "season-number", from TMDB season records fetched in
+ *  Turkish. A season whose fetch failed (null) leaves its episodes out. */
+function tmdb_turkish_names(array $seasons): array
+{
+    $names = [];
+    foreach ($seasons as $season) {
+        foreach ($season['episodes'] ?? [] as $ep) {
+            $key = max(0, (int) ($ep['season_number'] ?? 0)) . '-' . max(0, (int) ($ep['episode_number'] ?? 0));
+            $names[$key] = trim((string) ($ep['name'] ?? ''));
+        }
+    }
+    return $names;
+}
+
+/**
+ * The Turkish episode name worth storing, '' for none. TMDB answers in Turkish
+ * for every episode: untranslated ones come back as a numbered placeholder
+ * ("3. Bölüm") or under the English name. The placeholder is only kept when
+ * the English name is one too ("Episode 3") — there it is the better reading.
+ */
+function turkish_episode_name(string $turkish, string $english): string
+{
+    $turkish = mb_substr(trim($turkish), 0, 255);
+    $placeholder = preg_match('/^\d+\.\s*Bölüm$/u', $turkish) === 1;
+    if ($turkish === $english || ($placeholder && !preg_match('/^(Episode \d+)?$/i', $english))) {
+        return '';
+    }
+    return $turkish;
+}
+
 /** Base show + episodes (no per-episode IMDB ids) from TMDB, or null.
  *  'tmdb_id' is TMDB's own show id, kept in memory for the episode-id
- *  lookups, never stored. */
+ *  lookups, never stored. An episode's 'name_tr' is TMDB's Turkish answer as
+ *  it came, null when that fetch failed. */
 function fetch_base_from_tmdb(string $imdbId): ?array
 {
     $found = http_get_json(tmdb_api_url("/find/$imdbId", ['external_source' => 'imdb_id']));
@@ -202,14 +239,18 @@ function fetch_base_from_tmdb(string $imdbId): ?array
         return null;
     }
 
-    $seasonUrls = array_map(
-        fn($s) => tmdb_api_url('/tv/' . $tv['id'] . '/season/' . $s['season_number']),
-        $detail['seasons'] ?? []
-    );
+    // Every season twice, concurrently: in English, and in Turkish for the
+    // episode names (the season call is the only one that has them in bulk).
+    $numbers = array_map('intval', array_column($detail['seasons'] ?? [], 'season_number'));
+    $seasons = http_multi_json([
+        ...array_map(fn($n) => tmdb_season_url($tv['id'], $n), $numbers),
+        ...array_map(fn($n) => tmdb_season_url($tv['id'], $n, 'tr-TR'), $numbers),
+    ], 12, TMDB_MAX_RPS);
+    $turkish = tmdb_turkish_names(array_slice($seasons, count($numbers)));
     $episodes = [];
-    foreach (http_multi_json($seasonUrls, 6, TMDB_MAX_RPS) as $season) {
+    foreach (array_slice($seasons, 0, count($numbers)) as $season) {
         foreach ($season['episodes'] ?? [] as $ep) {
-            $episodes[] = [
+            $episode = [
                 'imdb_id' => null,
                 'season' => max(0, (int) ($ep['season_number'] ?? 0)),
                 'number' => max(0, (int) ($ep['episode_number'] ?? 0)),
@@ -217,6 +258,8 @@ function fetch_base_from_tmdb(string $imdbId): ?array
                 'airdate' => valid_date($ep['air_date'] ?? null),
                 'finale' => tmdb_finale($ep['episode_type'] ?? null),
             ];
+            $episode['name_tr'] = $turkish[$episode['season'] . '-' . $episode['number']] ?? null;
+            $episodes[] = $episode;
         }
     }
 
@@ -642,7 +685,8 @@ function upsert_show(PDO $pdo, array $show, bool $markSynced, bool $idsPending =
  * (show, season, number); imdb_id COALESCEs so an import without ids
  * (TVmaze, or lookups left to the worker) never erases stored ones. An
  * episode with 'imdb_checked' set gets imdb_checked_at stamped: TMDB answered
- * the lookup of its id, with or without one.
+ * the lookup of its id, with or without one. 'name_tr' is TMDB's Turkish
+ * name as it came (see turkish_episode_name()), null when it wasn't asked.
  */
 function upsert_episodes(PDO $pdo, string $showImdbId, array $episodes): int
 {
@@ -651,26 +695,30 @@ function upsert_episodes(PDO $pdo, string $showImdbId, array $episodes): int
         $placeholders = [];
         $params = [];
         foreach ($chunk as $ep) {
-            $placeholders[] = '(?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))';
+            $name = mb_substr(trim((string) ($ep['name'] ?? '')), 0, 255);
+            $placeholders[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, NOW(), NULL))';
             $params[] = $showImdbId;
             $params[] = valid_imdb_id($ep['imdb_id'] ?? null) ? $ep['imdb_id'] : null;
             $params[] = max(0, (int) ($ep['season'] ?? 0));
             $params[] = max(0, (int) ($ep['number'] ?? 0));
-            $params[] = mb_substr(trim((string) ($ep['name'] ?? '')), 0, 255) ?: null;
+            $params[] = $name ?: null;
+            $params[] = isset($ep['name_tr']) ? turkish_episode_name((string) $ep['name_tr'], $name) : null;
             $params[] = valid_date($ep['airdate'] ?? null);
             $params[] = $ep['airstamp'] ?? null;
             $params[] = $ep['finale'] ?? null;
             $params[] = (int) !empty($ep['imdb_checked']);
         }
         // finale: '' (a provider said "regular episode") clears an old flag;
-        // null (provider has no flags, e.g. TVmaze) keeps it.
+        // null (provider has no flags, e.g. TVmaze) keeps it. name_tr alike:
+        // '' (TMDB has no Turkish name) clears an old one, null keeps it.
         $stmt = $pdo->prepare(
             'INSERT INTO episodes
-                 (show_imdb_id, imdb_id, season, number, name, airdate, airstamp, finale, imdb_checked_at)
+                 (show_imdb_id, imdb_id, season, number, name, name_tr, airdate, airstamp, finale, imdb_checked_at)
              VALUES ' . implode(', ', $placeholders) . '
              ON DUPLICATE KEY UPDATE
                  imdb_id = COALESCE(VALUES(imdb_id), imdb_id),
                  name = VALUES(name),
+                 name_tr = COALESCE(VALUES(name_tr), name_tr),
                  airdate = VALUES(airdate),
                  airstamp = COALESCE(VALUES(airstamp), airstamp),
                  finale = COALESCE(VALUES(finale), finale),
@@ -825,7 +873,7 @@ function import_show(PDO $pdo, string $imdbId, bool $prune = false, bool $backgr
     // TheTVDB; specials stay the base provider's. Without TheTVDB's list their
     // stored episodes are left alone — the base numbering is the wrong one.
     // $sameNumbering: episodes both number alike, the only ones whose TMDB
-    // episode ids fit.
+    // episode ids and Turkish names fit (the others get '', no Turkish name).
     $tvdbSource = in_array($imdbId, TVDB_EPISODE_SOURCE, true);
     $sameNumbering = null;
     if ($tvdbSource) {
@@ -842,9 +890,16 @@ function import_show(PDO $pdo, string $imdbId, bool $prune = false, bool $backgr
             fn($key) => str_starts_with($key, '0-') || isset($alike[$key]),
             ARRAY_FILTER_USE_KEY
         );
+        $turkish = [];
+        foreach ($payload['episodes'] as $ep) {
+            $turkish[$ep['season'] . '-' . $ep['number']] = $ep['name_tr'] ?? null;
+        }
         $payload['episodes'] = [
             ...array_filter($payload['episodes'], fn($ep) => $ep['season'] < 1),
-            ...array_map(fn($ep) => ['imdb_id' => null] + $ep, $tvdb['episodes']),
+            ...array_map(function ($ep) use ($alike, $turkish) {
+                $key = $ep['season'] . '-' . $ep['number'];
+                return ['imdb_id' => null, 'name_tr' => isset($alike[$key]) ? $turkish[$key] : ''] + $ep;
+            }, $tvdb['episodes']),
         ];
         $listed = []; // TVmaze's listing follows the base numbering
     }

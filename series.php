@@ -79,7 +79,7 @@ if (!$show) {
 $show['overview'] = localized_overview($show);
 
 $stmt = db()->prepare(
-    'SELECT imdb_id, season, number, name, airdate FROM episodes
+    'SELECT imdb_id, season, number, ' . episode_name_sql() . ' AS name, airdate FROM episodes
      WHERE show_imdb_id = ? ORDER BY season, number'
 );
 $stmt->execute([$showId]);

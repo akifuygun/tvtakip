@@ -81,6 +81,15 @@ function localized_overview(array $row): ?string
     return current_lang() === 'tr' && !empty($row['overview_tr']) ? $row['overview_tr'] : ($row['overview'] ?? null);
 }
 
+/** SQL expression for an episode's name in the page language: its Turkish
+ *  `name_tr` on TR pages when there is one, the English `name` otherwise.
+ *  $alias: the episodes table's alias in the query, if any. */
+function episode_name_sql(string $alias = ''): string
+{
+    $col = $alias === '' ? '' : $alias . '.';
+    return current_lang() === 'tr' ? "COALESCE(NULLIF({$col}name_tr, ''), {$col}name)" : "{$col}name";
+}
+
 /** A show/movie row's YouTube trailer key for the page language (the other
  *  language's when that's all there is), or null. */
 function localized_trailer(array $row): ?string

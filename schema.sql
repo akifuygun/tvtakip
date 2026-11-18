@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     season SMALLINT UNSIGNED NOT NULL,
     number SMALLINT UNSIGNED NOT NULL,
     name VARCHAR(255) DEFAULT NULL,
+    name_tr VARCHAR(255) DEFAULT NULL,  -- Turkish name (TMDB) for TR pages; '' = TMDB has none, NULL = never asked
     airdate DATE DEFAULT NULL,
     airstamp DATETIME DEFAULT NULL,  -- exact air time in UTC (TVmaze), when known
     finale VARCHAR(9) DEFAULT NULL,  -- season|series|midseason; '' = regular episode, NULL = unknown

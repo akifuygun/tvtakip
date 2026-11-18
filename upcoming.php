@@ -21,7 +21,7 @@ $mine = is_logged_in();
  */
 function upcoming_by_date(string $from, string $to, bool $mine): array
 {
-    $sql = 'SELECT e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp, e.finale,
+    $sql = 'SELECT e.season, e.number, ' . episode_name_sql('e') . ' AS ep_name, e.airdate, e.airstamp, e.finale,
                    s.imdb_id, s.name AS show_name, s.network, s.primary_network, s.rating,
                    (SELECT COUNT(*) FROM user_shows t WHERE t.show_imdb_id = s.imdb_id) AS trackers
             FROM episodes e JOIN shows s ON s.imdb_id = e.show_imdb_id ';

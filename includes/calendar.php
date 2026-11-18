@@ -16,7 +16,7 @@ const CALENDAR_FINISHED_LAST = "COALESCE(s.status IN ('ended', 'canceled'), 0)";
 function calendar_episodes(int $userId): array
 {
     $stmt = db()->prepare(
-        'SELECT e.id, e.imdb_id, e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp, e.finale,
+        'SELECT e.id, e.imdb_id, e.season, e.number, ' . episode_name_sql('e') . ' AS ep_name, e.airdate, e.airstamp, e.finale,
                 s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url, s.network, s.primary_network,
                 s.original_name, s.original_language, s.premiered, s.watch_slug
          FROM user_shows us
@@ -44,7 +44,7 @@ function calendar_episodes(int $userId): array
 function calendar_upcoming(int $userId): array
 {
     $stmt = db()->prepare(
-        "SELECT e.season, e.number, e.name AS ep_name, e.airdate, e.airstamp, e.finale,
+        "SELECT e.season, e.number, " . episode_name_sql('e') . " AS ep_name, e.airdate, e.airstamp, e.finale,
                 s.imdb_id AS show_imdb_id, s.name AS show_name, s.image_url, s.network, s.primary_network
          FROM user_shows us
          JOIN shows s ON s.imdb_id = us.show_imdb_id

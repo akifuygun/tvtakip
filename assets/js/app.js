@@ -62,6 +62,11 @@ function epCode(ep) {
   return `S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')}`;
 }
 
+// An episode's name in the page language: Turkish on TR pages when it has one.
+function epName(ep) {
+  return (I18N.lang === 'tr' && ep.name_tr) || ep.name || '';
+}
+
 // The API sends airstamps as MySQL UTC datetimes ("2026-07-12 01:00:00").
 function airstampDate(airstamp) {
   return new Date(airstamp.replace(' ', 'T') + 'Z');
@@ -1012,7 +1017,7 @@ async function initShowDetail() {
     const box = el('div', { class: 'countdown' });
     const label = el('div', {
       class: 'countdown-label',
-      text: `${t('next_episode')}: ${epCode(n.ep)}${n.ep.name ? ' · ' + n.ep.name : ''}`,
+      text: `${t('next_episode')}: ${epCode(n.ep)}${epName(n.ep) ? ' · ' + epName(n.ep) : ''}`,
     });
     const timer = el('div', { class: 'countdown-timer' });
     const sub = el('div', { class: 'countdown-sub muted', text: airsLabel(n.ep) });
@@ -1203,7 +1208,7 @@ async function initShowDetail() {
       }
 
       const title = el('span', { class: 'ep-title' }, [
-        `${code} ${ep.name ?? ''}${aired} `,
+        `${code} ${epName(ep)}${aired} `,
         ...(ep.imdb_id ? [imdbLink(ep.imdb_id)] : []),
         ...(hasAired && ep.watch ? ep.watch.flatMap((w) => [' ', watchLink(w)]) : []),
       ]);
