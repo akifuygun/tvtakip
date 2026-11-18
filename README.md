@@ -106,11 +106,13 @@ includes/          db.php, auth.php, errors.php, i18n.php, http.php, importer.ph
 assets/            css/style.css, js/app.js, icons/ (PWA + logo)
 manifest.php, sw.js   Localized PWA manifest + service worker (static-asset cache)
 sitemap.php        Dynamic sitemap (shows + movies, en + tr)
-scripts/           CLI utilities: import_popular.php, import_watchlist.php,
-                   backfill_images.php, backfill_airstamps.php, make_sync.php,
-                   make_restore.php
-schema.sql         MySQL schema (users, shows, episodes, movies, user_shows,
-                   watched_episodes, user_movies, remember_tokens, refresh_requests)
+scripts/           CLI utilities: migrate.php, import_popular.php,
+                   import_watchlist.php, backfill_images.php,
+                   backfill_airstamps.php, make_sync.php, make_restore.php
+migrations/        The MySQL schema as numbered migrations: 0001_baseline.sql
+                   (users, shows, episodes, movies, user_shows, watched_episodes,
+                   user_movies, remember_tokens, refresh_requests), then one
+                   file per change — applied by scripts/migrate.php
 config.sample.php  Copy to config.php: DB credentials, TMDB_API_KEY, TVDB_API_KEY
                    (optional), ADMIN_EMAILS
 ```
@@ -119,9 +121,8 @@ config.sample.php  Copy to config.php: DB credentials, TMDB_API_KEY, TVDB_API_KE
 
 Requires XAMPP (installed at `C:\xampp`, PHP 8.2 + MariaDB). One-time setup:
 
-1. Create the database and import the schema:
-   `C:\xampp\mysql\bin\mysql.exe -u root -e "CREATE DATABASE tvtakip CHARACTER SET utf8mb4"` then
-   `C:\xampp\mysql\bin\mysql.exe -u root tvtakip < schema.sql`
+1. Create the database:
+   `C:\xampp\mysql\bin\mysql.exe -u root -e "CREATE DATABASE tvtakip CHARACTER SET utf8mb4"`
 2. `copy config.sample.php config.php` (defaults already match XAMPP: root, no password),
    set `TMDB_API_KEY` (free key from https://www.themoviedb.org/settings/api), and add
    your email to `ADMIN_EMAILS` if you want admin controls. Optionally set
@@ -129,9 +130,31 @@ Requires XAMPP (installed at `C:\xampp`, PHP 8.2 + MariaDB). One-time setup:
    revenue, attribution required and shown in the footer) for streaming air times,
    early announced episodes, series-finale badges and extra Turkish descriptions;
    without it the site works on TMDB + TVmaze alone.
+3. Create the tables: `C:\xampp\php\php.exe scripts\migrate.php`
 
 Then run `start-dev.bat` — it starts MySQL if needed and serves the site at
 http://localhost:8000.
+
+## Schema changes
+
+The schema lives in `migrations/` as numbered files; the `schema_migrations` table
+records which ones a database has had. `php scripts/migrate.php` applies the pending
+ones in order (`--status` only lists them) — the same command locally, on the server
+over SSH, and on an empty database, where `0001_baseline.sql` creates everything.
+
+To change the schema, add the next file — `NNNN_what_it_does.sql` with plain
+statements, or `.php` returning a `function (PDO $pdo): void` when the change needs
+code — and never edit one that has been applied:
+
+- **One schema change per file.** MySQL commits each on the spot, so a file that
+  fails halfway can't be rolled back (a file that only changes rows can, and is).
+- **It must run on both MySQL 8.0 (live) and MariaDB 10.4 (local):** no
+  `ADD COLUMN IF NOT EXISTS`; new tables end in
+  `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`.
+- **Name new foreign keys** (`CONSTRAINT fk_… FOREIGN KEY …`). The baseline's are
+  auto-named and differ from database to database, so a migration that drops one
+  has to look its name up in `information_schema` first.
+- No "down" migrations: undo with a new migration, or restore a dump.
 
 ## Data sources
 

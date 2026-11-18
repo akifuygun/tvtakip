@@ -1,5 +1,9 @@
--- tvtakip database schema (v2 — IMDB-keyed)
--- Import via phpMyAdmin or: mysql -u root tvtakip < schema.sql
+-- Baseline: the whole schema as it stood when versioned migrations started.
+-- Every later change is a numbered file after this one, applied by
+-- scripts/migrate.php. IF NOT EXISTS, so a database that already had these
+-- tables adopts the baseline as a no-op. The collation is spelled out because
+-- MySQL 8 would otherwise pick utf8mb4_0900_ai_ci, which MariaDB doesn't know
+-- and which can't be joined by a foreign key to the columns here.
 --
 -- IMDB ids are the canonical identity for shows and movies. One IMDB doesn't
 -- list is stored under a provisional id — "tm" + its TMDB id, or "mz" + its
@@ -16,32 +20,33 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     session_version INT UNSIGNED NOT NULL DEFAULT 0,  -- bumped by "log out on all devices"; sessions carrying an older value end
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Shared cache of show metadata, populated on first track / first visit.
+-- (Columns in the order the live table has them, as they were added over time.)
 CREATE TABLE IF NOT EXISTS shows (
     imdb_id VARCHAR(12) PRIMARY KEY,  -- IMDB id, or a provisional id (tm…/mz…) until the show has one
     name VARCHAR(255) NOT NULL,
     original_name VARCHAR(255) DEFAULT NULL,  -- original-language title (TMDB); Turkish productions' Watch link slug
     original_language VARCHAR(8) DEFAULT NULL,  -- ISO 639-1 (TMDB), e.g. 'tr'; NULL = unknown
     image_url VARCHAR(500) DEFAULT NULL,
-    backdrop_url VARCHAR(500) DEFAULT NULL,  -- wide hero/social image (TMDB only)
-    gallery TEXT DEFAULT NULL,  -- JSON list of backdrop URLs for the poster slider (TMDB, TheTVDB top-up)
-    trailer TEXT DEFAULT NULL,  -- JSON {"en": youtubeKey, "tr": youtubeKey} (TMDB, TheTVDB per missing language)
     status VARCHAR(50) DEFAULT NULL,  -- canonical: running|ended|canceled|upcoming|unknown (normalize_show_status)
     overview TEXT DEFAULT NULL,
     overview_tr TEXT DEFAULT NULL,  -- Turkish description (TMDB, else TheTVDB) for TR pages; NULL = none
     premiered DATE DEFAULT NULL,
+    synced_at TIMESTAMP NULL DEFAULT NULL,  -- set when a full episode import completed
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    backdrop_url VARCHAR(500) DEFAULT NULL,  -- wide hero/social image (TMDB only)
+    gallery TEXT DEFAULT NULL,  -- JSON list of backdrop URLs for the poster slider (TMDB, TheTVDB top-up)
+    trailer TEXT DEFAULT NULL,  -- JSON {"en": youtubeKey, "tr": youtubeKey} (TMDB, TheTVDB per missing language)
     genres VARCHAR(255) DEFAULT NULL,  -- comma-separated, from provider payloads
     network VARCHAR(255) DEFAULT NULL,  -- ALL networks the show aired on, comma-separated
     primary_network VARCHAR(100) DEFAULT NULL,  -- admin-set main network (e.g. the Turkish distributor); imports never touch it
     watch_slug VARCHAR(255) DEFAULT NULL,  -- admin-set show slug for the Watch links (config WATCH_URL); imports never touch it
     rating DECIMAL(3,1) DEFAULT NULL,  -- provider average (0-10)
     runtime SMALLINT UNSIGNED DEFAULT NULL,  -- typical episode length, minutes
-    synced_at TIMESTAMP NULL DEFAULT NULL,  -- set when a full episode import completed
-    ids_pending TINYINT(1) NOT NULL DEFAULT 0,  -- the last import left the episode IMDB ids to the cron worker
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ids_pending TINYINT(1) NOT NULL DEFAULT 0  -- the last import left the episode IMDB ids to the cron worker
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Shared cache of episodes per show.
 CREATE TABLE IF NOT EXISTS episodes (
@@ -63,7 +68,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     KEY idx_show_airdate (show_imdb_id, airdate),
     KEY idx_airdate (airdate),  -- public /upcoming page filters by airdate alone
     FOREIGN KEY (show_imdb_id) REFERENCES shows(imdb_id) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS user_shows (
     user_id INT UNSIGNED NOT NULL,
@@ -72,7 +77,7 @@ CREATE TABLE IF NOT EXISTS user_shows (
     PRIMARY KEY (user_id, show_imdb_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (show_imdb_id) REFERENCES shows(imdb_id) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Persistent "remember me" login tokens (selector/validator pattern).
 CREATE TABLE IF NOT EXISTS remember_tokens (
@@ -83,7 +88,7 @@ CREATE TABLE IF NOT EXISTS remember_tokens (
     expires_at DATETIME NOT NULL,
     UNIQUE KEY uq_selector (selector),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- "Refresh all shows" (My Shows): one row per user, their latest request. The
 -- cron worker (scripts/refresh_worker.php) re-imports the user's shows whose
@@ -95,7 +100,7 @@ CREATE TABLE IF NOT EXISTS refresh_requests (
     finished_at TIMESTAMP NULL DEFAULT NULL,  -- NULL = still open
     changed TINYINT(1) NOT NULL DEFAULT 0,    -- a refreshed show's episode list or status changed
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS watched_episodes (
     user_id INT UNSIGNED NOT NULL,
@@ -104,7 +109,7 @@ CREATE TABLE IF NOT EXISTS watched_episodes (
     PRIMARY KEY (user_id, episode_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Shared cache of movie metadata (TMDB-only; TVmaze has no movies).
 CREATE TABLE IF NOT EXISTS movies (
@@ -124,7 +129,7 @@ CREATE TABLE IF NOT EXISTS movies (
     runtime SMALLINT UNSIGNED DEFAULT NULL,  -- minutes
     synced_at TIMESTAMP NULL DEFAULT NULL,   -- set when the TMDB import completed
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- A user's movie list. Watched state lives here (a movie is one watchable
 -- unit — no per-episode analog).
@@ -137,4 +142,4 @@ CREATE TABLE IF NOT EXISTS user_movies (
     PRIMARY KEY (user_id, movie_imdb_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (movie_imdb_id) REFERENCES movies(imdb_id) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
