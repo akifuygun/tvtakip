@@ -1,9 +1,10 @@
 <?php
 // Movies API — one endpoint for the whole (deliberately small) movie surface.
 //
-// GET  ?q=inception
-//      -> {results: [{imdb_id, name, year, image}]}   (TMDB search; a movie
-//         IMDB doesn't list comes with its provisional id — valid_movie_id())
+// GET  ?q=inception[&page=N]
+//      -> {results: [{imdb_id, name, year, image}], more: bool}   (one page of
+//         TMDB's search, `more` = it has another; a movie IMDB doesn't list
+//         comes with its provisional id — valid_movie_id())
 // POST {action: "add"|"remove", imdb_id}
 //      -> add imports the movie server-side when not cached, then upserts the
 //         user_movies row; remove deletes it (watched state goes with it).
@@ -20,16 +21,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         json_response(['error' => 'Missing or invalid q'], 400);
     }
 
-    $search = http_get_json(tmdb_api_url('/search/movie', ['query' => $q]));
+    $page = max(1, min(TMDB_MAX_PAGE, (int) ($_GET['page'] ?? 1)));
+
+    $search = http_get_json(tmdb_api_url('/search/movie', ['query' => $q, 'page' => $page]));
     if ($search === null) {
         json_response(['error' => 'Movie search failed'], 502);
     }
 
-    // Cap at 8: each result costs an /external_ids call (concurrent where
-    // curl_multi works, sequential otherwise).
-    $results = array_slice($search['results'] ?? [], 0, 8);
+    // Search results carry no external ids — resolve each one's IMDB id.
+    $results = $search['results'] ?? [];
     $extUrls = array_map(fn($r) => tmdb_api_url('/movie/' . $r['id'] . '/external_ids'), $results);
-    $exts = http_multi_json($extUrls, 8);
+    $exts = http_multi_json($extUrls, TMDB_PAGE_SIZE);
 
     $out = [];
     foreach ($results as $i => $r) {
@@ -41,7 +43,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'image' => !empty($r['poster_path']) ? TMDB_IMG_BASE . $r['poster_path'] : '',
         ];
     }
-    json_response(['results' => $out]);
+    json_response([
+        'results' => $out,
+        'more' => $page < min(TMDB_MAX_PAGE, (int) ($search['total_pages'] ?? 0)),
+    ]);
 }
 
 require_login_json();

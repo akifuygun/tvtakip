@@ -403,38 +403,99 @@ function initPosterLightbox() {
   });
 }
 
-// ---------- Search page ----------
-function initSearch() {
-  const form = document.getElementById('search-form');
-  if (!form) return;
-  const input = document.getElementById('search-input');
-  const results = document.getElementById('search-results');
-  const trackedIds = new Set(window.TRACKED_IDS || []);
+// ---------- Provider search (shows and movies) ----------
+// Wire a search box to a search endpoint (`endpoint?q=…&page=N` answering
+// {results, more}): submitting fills the `results` grid with render(item)
+// cards, and a "More results" button under it fetches the next page for as
+// long as the provider has one. A title can come back on a later page; what
+// is already shown is skipped.
+function wireSearch({ form, input, results, endpoint, emptyKey, render }) {
+  const moreBtn = el('button', { type: 'button', class: 'button button-secondary', text: t('more_results') });
+  const moreWrap = el('div', { class: 'show-more-wrap' }, [moreBtn]);
+  const shown = new Set(); // ids of the cards in the grid
+  let query = '';
+  let page = 0;            // last page shown
+  let search = 0;          // counts the searches: an answer to an earlier one is dropped
 
-  // Arriving from the header search box (?q=...): run the search right away.
-  if (input.value.trim()) {
-    setTimeout(() => form.requestSubmit(), 0);
-  }
+  // Fetch the page after the last one shown and append its new cards. False
+  // when a newer search started meanwhile.
+  const showNextPage = async () => {
+    const mine = search;
+    const data = await apiGet(`${endpoint}?q=${encodeURIComponent(query)}&page=${page + 1}`);
+    if (mine !== search) return false;
+    if (page === 0) results.replaceChildren();
+    page++;
+    for (const item of data.results) {
+      if (shown.has(item.imdb_id)) continue;
+      shown.add(item.imdb_id);
+      results.append(render(item));
+    }
+    if (data.more) results.after(moreWrap);
+    else moreWrap.remove();
+    return true;
+  };
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const q = input.value.trim();
     if (!q) return;
+    const mine = ++search;
+    query = q;
+    page = 0;
+    shown.clear();
+    moreWrap.remove();
     results.textContent = t('searching');
     try {
-      const { results: items } = await apiGet(`/api/search.php?q=${encodeURIComponent(q)}`);
-      results.replaceChildren();
-      if (!items.length) {
-        results.textContent = t('no_shows_found');
-        return;
-      }
-      for (const item of items) {
-        results.append(renderSearchCard(item, trackedIds));
-      }
+      if (await showNextPage() && !shown.size) results.textContent = t(emptyKey);
     } catch (err) {
-      results.textContent = t('search_failed', err.message);
+      if (mine === search) results.textContent = t('search_failed', err.message);
     }
   });
+
+  moreBtn.addEventListener('click', async () => {
+    moreBtn.disabled = true;
+    moreBtn.textContent = t('searching');
+    try {
+      await showNextPage();
+    } catch (err) {
+      alert(t('search_failed', err.message));
+    }
+    moreBtn.disabled = false;
+    moreBtn.textContent = t('more_results');
+  });
+}
+
+// A link-only result card: poster and "Name (year)", both leading to `url`.
+function searchLinkCard(item, url) {
+  const poster = item.image
+    ? el('img', { src: item.image, alt: '' })
+    : el('div', { class: 'no-poster', text: t('no_image') });
+  return el('div', { class: 'show-card' }, [
+    el('a', { href: url }, [poster]),
+    el('h3', {}, [el('a', { href: url, text: item.name + (item.year ? ` (${item.year})` : '') })]),
+  ]);
+}
+
+// ---------- Search page ----------
+function initSearch() {
+  const form = document.getElementById('search-form');
+  if (!form) return;
+  const input = document.getElementById('search-input');
+  const trackedIds = new Set(window.TRACKED_IDS || []);
+
+  wireSearch({
+    form,
+    input,
+    results: document.getElementById('search-results'),
+    endpoint: '/api/search.php',
+    emptyKey: 'no_shows_found',
+    render: (item) => renderSearchCard(item, trackedIds),
+  });
+
+  // Arriving from the header search box (?q=...): run the search right away.
+  if (input.value.trim()) {
+    setTimeout(() => form.requestSubmit(), 0);
+  }
 }
 
 function renderSearchCard(item, trackedIds) {
@@ -607,24 +668,13 @@ function initMovies() {
     ]);
   };
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const q = input.value.trim();
-    if (!q) return;
-    results.textContent = t('searching');
-    try {
-      const { results: items } = await apiGet(`/api/movies.php?q=${encodeURIComponent(q)}`);
-      results.replaceChildren();
-      if (!items.length) {
-        results.textContent = t('no_movies_found');
-        return;
-      }
-      for (const item of items) {
-        results.append(renderSearchResult(item));
-      }
-    } catch (err) {
-      results.textContent = t('search_failed', err.message);
-    }
+  wireSearch({
+    form,
+    input,
+    results,
+    endpoint: '/api/movies.php',
+    emptyKey: 'no_movies_found',
+    render: renderSearchResult,
   });
 
   // Card buttons via delegation, so client-built cards work like server ones.
@@ -683,34 +733,13 @@ function initMovies() {
 function initPubShows() {
   const form = document.getElementById('pub-show-search-form');
   if (!form) return;
-  const input = document.getElementById('pub-show-search-input');
-  const results = document.getElementById('pub-show-search-results');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const q = input.value.trim();
-    if (!q) return;
-    results.textContent = t('searching');
-    try {
-      const { results: items } = await apiGet(`/api/search.php?q=${encodeURIComponent(q)}`);
-      results.replaceChildren();
-      if (!items.length) {
-        results.textContent = t('no_shows_found');
-        return;
-      }
-      for (const item of items) {
-        const year = item.year ? ` (${item.year})` : '';
-        const poster = item.image
-          ? el('img', { src: item.image, alt: '' })
-          : el('div', { class: 'no-poster', text: t('no_image') });
-        results.append(el('div', { class: 'show-card' }, [
-          el('a', { href: seriesUrl(item.imdb_id) }, [poster]),
-          el('h3', {}, [el('a', { href: seriesUrl(item.imdb_id), text: item.name + year })]),
-        ]));
-      }
-    } catch (err) {
-      results.textContent = t('search_failed', err.message);
-    }
+  wireSearch({
+    form,
+    input: document.getElementById('pub-show-search-input'),
+    results: document.getElementById('pub-show-search-results'),
+    endpoint: '/api/search.php',
+    emptyKey: 'no_shows_found',
+    render: (item) => searchLinkCard(item, seriesUrl(item.imdb_id)),
   });
 }
 
@@ -720,34 +749,13 @@ function initPubShows() {
 function initPubMovies() {
   const form = document.getElementById('pub-movie-search-form');
   if (!form) return;
-  const input = document.getElementById('pub-movie-search-input');
-  const results = document.getElementById('pub-movie-search-results');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const q = input.value.trim();
-    if (!q) return;
-    results.textContent = t('searching');
-    try {
-      const { results: items } = await apiGet(`/api/movies.php?q=${encodeURIComponent(q)}`);
-      results.replaceChildren();
-      if (!items.length) {
-        results.textContent = t('no_movies_found');
-        return;
-      }
-      for (const item of items) {
-        const year = item.year ? ` (${item.year})` : '';
-        const poster = item.image
-          ? el('img', { src: item.image, alt: '' })
-          : el('div', { class: 'no-poster', text: t('no_image') });
-        results.append(el('div', { class: 'show-card' }, [
-          el('a', { href: movieUrl(item.imdb_id) }, [poster]),
-          el('h3', {}, [el('a', { href: movieUrl(item.imdb_id), text: item.name + year })]),
-        ]));
-      }
-    } catch (err) {
-      results.textContent = t('search_failed', err.message);
-    }
+  wireSearch({
+    form,
+    input: document.getElementById('pub-movie-search-input'),
+    results: document.getElementById('pub-movie-search-results'),
+    endpoint: '/api/movies.php',
+    emptyKey: 'no_movies_found',
+    render: (item) => searchLinkCard(item, movieUrl(item.imdb_id)),
   });
 }
 

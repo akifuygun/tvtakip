@@ -1,25 +1,34 @@
 <?php
-// GET ?q=... -> {results: [{imdb_id, name, year, image, source}]}
+// GET ?q=...[&page=N] -> {results: [{imdb_id, name, year, image, source}], more: bool}
 // Queries TVmaze and TMDB server-side in parallel-ish and merges by IMDB id,
 // so the TMDB key never reaches the browser and either provider being down
 // only narrows the results. A show IMDB doesn't list comes with its
 // provisional id instead (valid_show_id()). PUBLIC — guests search too
 // (results link to public pages, and clicking imports the show into the
 // shared cache).
+//
+// TVmaze answers with one short list, TMDB in pages: page 1 is TVmaze's list
+// merged with TMDB's first page, every later page ("More results") TMDB's
+// alone. `more` says whether TMDB has another page. A show can come back on a
+// later page — the client skips what it already shows.
 require_once __DIR__ . '/../includes/importer.php';
 
 $q = trim((string) ($_GET['q'] ?? ''));
 if ($q === '' || mb_strlen($q) > 100) {
     json_response(['error' => 'Missing or invalid q'], 400);
 }
+$page = max(1, min(TMDB_MAX_PAGE, (int) ($_GET['page'] ?? 1)));
 
-[$tvmaze, $tmdb] = http_multi_json([
-    TVMAZE_BASE . '/search/shows?q=' . urlencode($q),
-    tmdb_api_url('/search/tv', ['query' => $q]),
-], 2);
+$urls = [tmdb_api_url('/search/tv', ['query' => $q, 'page' => $page])];
+if ($page === 1) {
+    $urls[] = TVMAZE_BASE . '/search/shows?q=' . urlencode($q);
+}
+$answers = http_multi_json($urls, 2);
+$tmdb = $answers[0];
+$tvmaze = $answers[1] ?? null; // null as well on the pages TVmaze isn't asked for
 
 if ($tvmaze === null && $tmdb === null) {
-    json_response(['error' => 'Both search providers failed'], 502);
+    json_response(['error' => $page === 1 ? 'Both search providers failed' : 'TMDB search failed'], 502);
 }
 
 $byImdb = [];
@@ -45,10 +54,10 @@ foreach ($tvmaze ?? [] as $entry) {
     }
 }
 
-$tmdbResults = array_slice($tmdb['results'] ?? [], 0, 12);
+$tmdbResults = $tmdb['results'] ?? [];
 // Search results carry no external ids — resolve each one's IMDB id.
 $extUrls = array_map(fn($r) => tmdb_api_url('/tv/' . $r['id'] . '/external_ids'), $tmdbResults);
-$exts = http_multi_json($extUrls, 8);
+$exts = http_multi_json($extUrls, TMDB_PAGE_SIZE);
 
 foreach ($tmdbResults as $i => $r) {
     $imdbId = $exts[$i]['imdb_id'] ?? null;
@@ -88,4 +97,7 @@ foreach ($tmdbResults as $i => $r) {
     }
 }
 
-json_response(['results' => [...array_values($byImdb), ...array_values($provisional)]]);
+json_response([
+    'results' => [...array_values($byImdb), ...array_values($provisional)],
+    'more' => $page < min(TMDB_MAX_PAGE, (int) ($tmdb['total_pages'] ?? 0)),
+]);

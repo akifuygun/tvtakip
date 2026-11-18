@@ -74,6 +74,12 @@ const EARLY_RELEASE_DAYS = 2;
 // this many.
 const TMDB_MAX_RPS = 40;
 
+// TMDB answers a search in pages of TMDB_PAGE_SIZE results, up to page
+// TMDB_MAX_PAGE. A result carries no IMDB id: each costs one lookup, and a
+// page's lookups all go out at once.
+const TMDB_PAGE_SIZE = 20;
+const TMDB_MAX_PAGE = 500;
+
 // Episode IMDB ids cost one TMDB call per episode (there is no bulk endpoint;
 // measured at ~30 answers a second), so each episode is asked about sparingly:
 // - A web request looks up at most WEB_ID_LOOKUPS (~4 s). An import needing

@@ -244,6 +244,7 @@ $GLOBALS['I18N'] = [
         // search
         'search_title' => 'Search shows', 'search_placeholder' => 'e.g. Breaking Bad', 'search_button' => 'Search',
         'searching' => 'Searching…', 'no_shows_found' => 'No shows found.', 'search_failed' => 'Search failed: %s',
+        'more_results' => 'More results',
         'track' => 'Track', 'tracking' => 'Tracking ✓', 'importing' => 'Importing…',
         // show page
         'loading_show' => 'Loading show…',
@@ -419,6 +420,7 @@ $GLOBALS['I18N'] = [
         'remove_from_list' => 'Listemden kaldır',
         'search_title' => 'Dizi ara', 'search_placeholder' => 'örn. Breaking Bad', 'search_button' => 'Ara',
         'searching' => 'Aranıyor…', 'no_shows_found' => 'Dizi bulunamadı.', 'search_failed' => 'Arama başarısız: %s',
+        'more_results' => 'Daha fazla sonuç',
         'track' => 'Takip et', 'tracking' => 'Takipte ✓', 'importing' => 'İçe aktarılıyor…',
         'loading_show' => 'Dizi yükleniyor…',
         'importing_first' => 'Bölümler içe aktarılıyor (bu dizi için ilk ziyaret)…',
