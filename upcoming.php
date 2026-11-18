@@ -1,11 +1,9 @@
 <?php
 // PUBLIC upcoming-episodes page (no login) — fresh, regularly changing content.
-// Pretty URL /upcoming rewrites here. Two views: a 30-day list and a month
-// calendar (?month=YYYY-MM navigates it).
+// Pretty URL /upcoming rewrites here. A month calendar; ?month=YYYY-MM navigates it.
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/network_logos.php';
 
-const UPCOMING_DAYS = 30;
 const CAL_MONTHS_BACK = 12;   // navigable range, so crawlers can't walk months forever
 const CAL_MONTHS_AHEAD = 12;
 const CAL_DAY_LIMIT = 6;      // entries per day before the "+N more" expander
@@ -56,17 +54,6 @@ function upcoming_by_date(string $from, string $to, bool $mine): array
     }
     ksort($byDate);
     return $byDate;
-}
-
-function upcoming_date_label(string $date): string
-{
-    if ($date === today()) {
-        return t('today_label') . ' — ' . format_date($date);
-    }
-    if ($date === date('Y-m-d', strtotime(today() . ' +1 day'))) {
-        return t('tomorrow_label') . ' — ' . format_date($date);
-    }
-    return format_date($date);
 }
 
 /**
@@ -132,11 +119,7 @@ function calendar_entry_html(array $g): string
     return $html . '</li>';
 }
 
-// ---- List view: the next UPCOMING_DAYS days ----
-$windowEnd = date('Y-m-d', strtotime(today() . ' +' . UPCOMING_DAYS . ' days'));
-$byDate = upcoming_by_date(today(), $windowEnd, $mine);
-
-// ---- Calendar view: one month, Monday-first weeks ----
+// ---- One month, Monday-first weeks ----
 $thisMonth = date('Y-m');
 $monthMin = date('Y-m', strtotime($thisMonth . '-01 -' . CAL_MONTHS_BACK . ' months'));
 $monthMax = date('Y-m', strtotime($thisMonth . '-01 +' . CAL_MONTHS_AHEAD . ' months'));
@@ -156,107 +139,64 @@ $monthNames = explode(',', t('month_names'));
 $weekdays = explode(',', t('weekdays_short'));
 $monthUrl = fn (string $m) => lang_path('/upcoming') . '?month=' . $m;
 
-// An explicit month means the calendar; otherwise the remembered tab.
-$view = $monthParam !== '' || ($_COOKIE['upcoming_view'] ?? '') === 'calendar' ? 'calendar' : 'list';
-
 $pageTitle = t('pub_upcoming_title');
 $canonicalUrl = seo_base() . lang_path('/upcoming');
-$metaDescription = t('pub_upcoming_sub', UPCOMING_DAYS);
-$subtitle = $mine ? t('upcoming_sub_mine') : t('pub_upcoming_sub', UPCOMING_DAYS);
-$emptyMsg = $mine ? t('upcoming_none_mine') : t('pub_no_upcoming', UPCOMING_DAYS);
+$metaDescription = t('pub_upcoming_sub');
 
 require __DIR__ . '/includes/header.php';
 ?>
 <h1><?= t('pub_upcoming_title') ?></h1>
 
-<div id="upcoming-tabs">
-    <div class="filter-tabs" role="tablist">
-        <button type="button" class="filter-tab<?= $view === 'list' ? ' active' : '' ?>" data-tab="list"><?= t('upcoming_view_list') ?></button>
-        <button type="button" class="filter-tab<?= $view === 'calendar' ? ' active' : '' ?>" data-tab="calendar"><?= t('upcoming_view_calendar') ?></button>
-    </div>
-
-    <div class="filter-panel<?= $view === 'list' ? '' : ' hidden' ?>" data-panel="list">
-        <p class="muted"><?= htmlspecialchars($subtitle) ?></p>
-        <?php if (!$byDate): ?>
-            <div class="hero">
-                <p><?= htmlspecialchars($emptyMsg) ?></p>
-                <?php if ($mine): ?><p><a class="button" href="/search.php"><?= t('search_for_show') ?></a></p><?php endif; ?>
+<div class="cal-nav">
+    <?php if ($calMonth > $monthMin): ?>
+        <a class="cal-nav-btn" href="<?= htmlspecialchars($monthUrl($prevMonth)) ?>" title="<?= t('cal_prev_month') ?>" aria-label="<?= t('cal_prev_month') ?>">‹</a>
+    <?php else: ?>
+        <span class="cal-nav-btn disabled" aria-hidden="true">‹</span>
+    <?php endif; ?>
+    <h2><?= htmlspecialchars($monthNames[(int) substr($calMonth, 5) - 1] . ' ' . substr($calMonth, 0, 4)) ?></h2>
+    <?php if ($calMonth < $monthMax): ?>
+        <a class="cal-nav-btn" href="<?= htmlspecialchars($monthUrl($nextMonth)) ?>" title="<?= t('cal_next_month') ?>" aria-label="<?= t('cal_next_month') ?>">›</a>
+    <?php else: ?>
+        <span class="cal-nav-btn disabled" aria-hidden="true">›</span>
+    <?php endif; ?>
+    <?php if ($calMonth !== $thisMonth): ?>
+        <a class="button button-secondary button-small cal-nav-today" href="<?= htmlspecialchars($monthUrl($thisMonth)) ?>"><?= t('today_label') ?></a>
+    <?php endif; ?>
+</div>
+<?php if (!$monthHasEpisodes): ?>
+    <p class="muted"><?= t('cal_none_month') ?></p>
+<?php endif; ?>
+<div class="cal-month">
+    <?php foreach ($weekdays as $wd): ?>
+        <div class="cal-wd"><?= htmlspecialchars($wd) ?></div>
+    <?php endforeach; ?>
+    <?php for ($d = $gridStart; $d <= $gridEnd; $d = date('Y-m-d', strtotime($d . ' +1 day'))): ?>
+        <?php
+        [$visible, $hidden] = calendar_day_entries($calByDate[$d] ?? []);
+        $classes = 'cal-day'
+            . (str_starts_with($d, $calMonth) ? '' : ' cal-out')
+            . ($d === today() ? ' cal-today' : '')
+            . ($visible ? '' : ' cal-empty');
+        ?>
+        <div class="<?= $classes ?>">
+            <div class="cal-head">
+                <span class="cal-dow"><?= htmlspecialchars($weekdays[date('N', strtotime($d)) - 1]) ?></span>
+                <span class="cal-num"><?= (int) substr($d, 8) ?></span>
             </div>
-        <?php else: ?>
-            <?php foreach ($byDate as $date => $rows): ?>
-                <h2 class="date-head"><?= htmlspecialchars(upcoming_date_label($date)) ?></h2>
-                <ul class="episode-list episode-list-plain">
-                    <?php foreach ($rows as $ep): ?>
-                        <li><span class="ep-title">
-                            <?php if ($b = network_badge_info($ep['network'], $ep['primary_network'])): ?>
-                                <img class="net-inline" src="<?= htmlspecialchars($b[1]) ?>" alt="<?= htmlspecialchars($b[0]) ?>" loading="lazy">
-                            <?php endif; ?>
-                            <a class="cal-show" href="<?= htmlspecialchars(series_url($ep['imdb_id'])) ?>"><?= htmlspecialchars($ep['show_name']) ?></a>
-                            <?= episode_code((int) $ep['season'], (int) $ep['number']) ?>
-                            <?= episode_badge_html((int) $ep['season'], (int) $ep['number'], $ep['finale']) ?>
-                            <?= htmlspecialchars($ep['ep_name'] ?? '') ?>
-                            <?php if ($ep['local_time']): ?><span class="muted">· <?= $ep['local_time'] ?></span><?php endif; ?>
-                        </span></li>
-                    <?php endforeach; ?>
+            <?php if ($visible): ?>
+                <ul class="cal-eps">
+                    <?php foreach ($visible as $g): ?><?= calendar_entry_html($g) ?><?php endforeach; ?>
                 </ul>
-            <?php endforeach; ?>
-        <?php endif; ?>
-    </div>
-
-    <div class="filter-panel<?= $view === 'calendar' ? '' : ' hidden' ?>" data-panel="calendar" data-month="<?= $calMonth ?>" data-this-month="<?= $thisMonth ?>">
-        <div class="cal-nav">
-            <a class="button button-secondary button-small cal-nav-list" href="<?= lang_path('/upcoming') ?>"><?= t('upcoming_view_list') ?></a>
-            <?php if ($calMonth > $monthMin): ?>
-                <a class="cal-nav-btn" href="<?= htmlspecialchars($monthUrl($prevMonth)) ?>" title="<?= t('cal_prev_month') ?>" aria-label="<?= t('cal_prev_month') ?>">‹</a>
-            <?php else: ?>
-                <span class="cal-nav-btn disabled" aria-hidden="true">‹</span>
             <?php endif; ?>
-            <h2><?= htmlspecialchars($monthNames[(int) substr($calMonth, 5) - 1] . ' ' . substr($calMonth, 0, 4)) ?></h2>
-            <?php if ($calMonth < $monthMax): ?>
-                <a class="cal-nav-btn" href="<?= htmlspecialchars($monthUrl($nextMonth)) ?>" title="<?= t('cal_next_month') ?>" aria-label="<?= t('cal_next_month') ?>">›</a>
-            <?php else: ?>
-                <span class="cal-nav-btn disabled" aria-hidden="true">›</span>
-            <?php endif; ?>
-            <?php if ($calMonth !== $thisMonth): ?>
-                <a class="button button-secondary button-small cal-nav-today" href="<?= htmlspecialchars($monthUrl($thisMonth)) ?>"><?= t('today_label') ?></a>
+            <?php if ($hidden): ?>
+                <details class="cal-more">
+                    <summary><span class="cal-more-open"><?= t('cal_more', count($hidden)) ?></span><span class="cal-more-close"><?= t('cal_less') ?></span></summary>
+                    <ul class="cal-eps">
+                        <?php foreach ($hidden as $g): ?><?= calendar_entry_html($g) ?><?php endforeach; ?>
+                    </ul>
+                </details>
             <?php endif; ?>
         </div>
-        <?php if (!$monthHasEpisodes): ?>
-            <p class="muted"><?= t('cal_none_month') ?></p>
-        <?php endif; ?>
-        <div class="cal-month">
-            <?php foreach ($weekdays as $wd): ?>
-                <div class="cal-wd"><?= htmlspecialchars($wd) ?></div>
-            <?php endforeach; ?>
-            <?php for ($d = $gridStart; $d <= $gridEnd; $d = date('Y-m-d', strtotime($d . ' +1 day'))): ?>
-                <?php
-                [$visible, $hidden] = calendar_day_entries($calByDate[$d] ?? []);
-                $classes = 'cal-day'
-                    . (str_starts_with($d, $calMonth) ? '' : ' cal-out')
-                    . ($d === today() ? ' cal-today' : '')
-                    . ($visible ? '' : ' cal-empty');
-                ?>
-                <div class="<?= $classes ?>">
-                    <div class="cal-head">
-                        <span class="cal-dow"><?= htmlspecialchars($weekdays[date('N', strtotime($d)) - 1]) ?></span>
-                        <span class="cal-num"><?= (int) substr($d, 8) ?></span>
-                    </div>
-                    <?php if ($visible): ?>
-                        <ul class="cal-eps">
-                            <?php foreach ($visible as $g): ?><?= calendar_entry_html($g) ?><?php endforeach; ?>
-                        </ul>
-                    <?php endif; ?>
-                    <?php if ($hidden): ?>
-                        <details class="cal-more">
-                            <summary><span class="cal-more-open"><?= t('cal_more', count($hidden)) ?></span><span class="cal-more-close"><?= t('cal_less') ?></span></summary>
-                            <ul class="cal-eps">
-                                <?php foreach ($hidden as $g): ?><?= calendar_entry_html($g) ?><?php endforeach; ?>
-                            </ul>
-                        </details>
-                    <?php endif; ?>
-                </div>
-            <?php endfor; ?>
-        </div>
-    </div>
+    <?php endfor; ?>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>
