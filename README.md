@@ -120,11 +120,14 @@ includes/              db.php, auth.php, errors.php, i18n.php, http.php, importe
 scripts/               Command-line only: deploy.php (deploy.bat runs it), migrate.php,
                        refresh_worker.php (the cron worker: works off "Refresh all
                        shows" requests and re-imports shows that are due),
-                       admin.php (who is an admin), import_popular.php,
-                       import_watchlist.php, backfill_images.php,
-                       backfill_airstamps.php, backfill_names_tr.php. All but
-                       deploy.php work on the database of the checkout they run
-                       in: here, or on the server over SSH
+                       admin.php (who is an admin), backup_pull.php (copies the
+                       server's backups to this machine) and backup_check.php
+                       (on the server: mails when a backup is missing),
+                       import_popular.php, import_watchlist.php,
+                       backfill_images.php, backfill_airstamps.php,
+                       backfill_names_tr.php. All but deploy.php and the two
+                       backup scripts work on the database of the checkout they
+                       run in: here, or on the server over SSH
 migrations/            The MySQL schema as numbered migrations: 0001_baseline.sql
                        (users, shows, episodes, movies, user_shows, watched_episodes,
                        user_movies, remember_tokens, refresh_requests), then one
@@ -282,13 +285,16 @@ server belong to this arrangement:
 - **Files that exist only there**, which git ignores: `app/config.php` (mode 600),
   `app/includes/watch_base.php`, and Google's site-verification file
   `app/public/google….html`.
-- **Cron** runs the refresh worker by its path in the checkout
-  (`php …/app/scripts/refresh_worker.php`, `crontab -l`).
+- **Cron** runs the refresh worker and the nightly backup check by their paths in
+  the checkout (`php …/app/scripts/refresh_worker.php`, `…/backup_check.php`;
+  `crontab -l`).
 
 On a new server: clone the repository to `app`, replace the `public_html` the host
 created with the link (`ln -s app/public public_html`, in the domain's directory),
 write `app/config.php`, set the option above, run `php app/scripts/migrate.php`, and
-add the cron line.
+add the cron lines. When it replaces a server that is gone, the copy kept off it has
+the rest ("Backups and restoring"): the database dump to load before `migrate.php`,
+and in the newest archive `config.php`, the cron lines and the old host's settings.
 
 ### Session files
 
@@ -347,18 +353,85 @@ run. It also lists a directory's files unless told otherwise, which is what
 
 ## Backups and restoring
 
-The live database is backed up on the server, as whole-database dumps in `~/dbdumps`:
+The live database is dumped whole, on the server, into `~/dbdumps`:
 
 - every night at 04:15, by cron: `tvtakip-YYYYMMDD.sql.gz`;
 - by a deploy, just before it applies a migration:
   `tvtakip-<date>-before-<commit>.sql.gz`.
 
 The nightly job deletes every `tvtakip-*.sql.gz` there that is older than 14 days.
-The dumps are on the same server as the database, so copy one you need to keep
-somewhere else: `scp hostuno:dbdumps/tvtakip-YYYYMMDD.sql.gz .`
 
 In the commands below `<database>` is `DB_NAME` in live's `config.php`. They are
 written for cmd and PowerShell and work in both as typed.
+
+### The copy off the server
+
+Those dumps are on the same server as the database, in the same account: lose that
+and both are gone. So a scheduled task on the development machine copies them off
+the server once a day:
+
+```
+C:\xampp\php\php.exe scripts\backup_pull.php
+```
+
+It can be run by hand at any time, and fills `Backups\hostuno` in the user's profile
+(for another folder, name it as the argument):
+
+- `dbdumps\` — every dump the server has, each compared with the server's SHA-256.
+  Kept for 90 days.
+- `files\hostuno-YYYYMMDD.tar.gz` — one a day, kept as long: what exists on the
+  server alone. In it, `tvtakip/` holds the files git ignores in the live checkout
+  (`config.php`, `includes/watch_base.php`, Google's verification file), `cv/` the
+  akifuygun.com site, `mail/` the mailbox's forwarding rule, `crontab.txt` the cron
+  jobs and `host.txt` the host's settings as its `devil` tool lists them: the sites
+  with their options, the certificates, the databases, the DNS records, the
+  mailboxes. `tar -xzf <file>` unpacks one.
+- `pull.log` — a line per run, times in UTC.
+
+The code is on GitHub; with it, a dump and one of those archives, the site can be
+set up again on another server ("What the web server serves" has the steps).
+
+That folder is one disk in one machine. A folder that a cloud drive synchronises,
+given to the task as its argument, would be a third place — the dumps hold the
+accounts' password hashes, and `config.php` the API keys and the database password.
+
+The task is set up once per machine, in PowerShell (`ssh hostuno` has to work there
+without asking for anything):
+
+```powershell
+Register-ScheduledTask -TaskName 'TVTrack backup pull' `
+  -Action (New-ScheduledTaskAction -Execute 'conhost.exe' -Argument '--headless C:\xampp\php\php.exe C:\Users\Akif\Desktop\tvtakip\scripts\backup_pull.php') `
+  -Trigger (New-ScheduledTaskTrigger -Daily -At 10:00) `
+  -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -RunOnlyIfNetworkAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 30))
+```
+
+It runs at 10:00, or as soon after that as the machine is switched on and online.
+`conhost --headless` keeps a console window from opening; because of it Task
+Scheduler shows the result 0 whatever happened — how a run went is in `pull.log`.
+
+### When a backup is missing
+
+Each side watches the other:
+
+- **The pull** shows a message box on the development machine, and writes `PROBLEM`
+  to `pull.log`, when it could not copy everything, and when the server's newest
+  nightly dump is older than a day or not a whole dump.
+- **The server** runs `scripts/backup_check.php` by cron at 04:45, half an hour
+  after the dump, and mails `me@akifuygun.com`: every night the nightly dump is
+  missing or not whole, and when the last complete pull is four days back — that
+  night, then once a week, since the machine may simply be switched off. A pull that
+  copied everything leaves `~/dbdumps/off-site.txt` on the server, and that file's
+  age is what the check goes by. Its lines are in `~/logs/tvtakip-backup.log`.
+
+The check by hand prints the state as it is now and mails nobody:
+
+```
+ssh hostuno "php domains/tvtakip.akifuygun.com/app/scripts/backup_check.php"
+```
+
+When there is no nightly dump, `ssh hostuno "crontab -l"` has to list the
+`mysqldump` line, and "A dump right now" below shows the error it runs into. When a
+pull fails, run it by hand and read what it says.
 
 ### A dump right now
 
@@ -379,6 +452,8 @@ database goes back to the moment of the dump, and everything written since is lo
    ssh hostuno "ls -lh dbdumps"
    ssh hostuno "gunzip -c dbdumps/tvtakip-YYYYMMDD.sql.gz | tail -1"
    ```
+   One the server no longer has goes back up from the copy off the server first:
+   `scp <folder>\dbdumps\tvtakip-YYYYMMDD.sql.gz hostuno:dbdumps/`
 2. Dump the database as it is now (above), so that the restore itself can be undone.
 3. Load the dump:
    ```
@@ -395,9 +470,37 @@ database goes back to the moment of the dump, and everything written since is lo
    ssh hostuno "php domains/tvtakip.akifuygun.com/app/scripts/migrate.php"
    deploy.bat --check
    ```
+   A dump from before 2026-11-19, when the admin role moved into the database, comes
+   back without an admin: `admin.php` lists them and `admin.php add <email>` makes
+   one ("Admins").
 
-When only some rows are lost, don't put live back for them: load the dump into a
-local database (below) and copy those rows over.
+When only some rows are lost, don't put live back for them: load the dump into the
+scratch database on the server (next section) and copy those rows over — the live
+database's user reads both, so one statement can select from `m3558_drill.<table>`
+into the live table.
+
+### The restore drill
+
+A backup is worth what a restore from it gives. The server has a second, empty
+database to try that in, `m3558_drill`, open to the same MySQL user as the live one:
+
+```
+ssh hostuno "gunzip -c dbdumps/tvtakip-YYYYMMDD.sql.gz | mysql m3558_drill"
+ssh hostuno "mysql m3558_drill -e 'SELECT COUNT(*) FROM shows; SELECT COUNT(*) FROM watched_episodes; SELECT version FROM schema_migrations'"
+```
+
+Empty it afterwards — it is a copy of every account's data:
+
+```
+ssh hostuno "mysqldump --no-data --no-tablespaces m3558_drill | grep ^DROP | mysql --init-command='SET FOREIGN_KEY_CHECKS=0' m3558_drill"
+```
+
+Drilled on 2026-11-19 with that night's dump (7 MB; 36 MB of SQL, 1,160 shows,
+269,563 episodes): it loaded in 9 seconds, and a dump taken of `m3558_drill` right
+after was the nightly one line for line — but for the database's name, the time, and
+a `CHARACTER SET utf8mb4` that MySQL 8 spells out on the columns of a reloaded
+table. The three migrations made since that dump then applied in 0.1 seconds, and
+the copy had no admin until `admin.php add` (step 4 above, both).
 
 ### Live's data in the local database
 
