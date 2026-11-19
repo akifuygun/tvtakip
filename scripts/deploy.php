@@ -183,8 +183,8 @@ function fetch(string $path): array
 
 /**
  * The response headers a commit's public/.htaccess sets, name => value. Live
- * is asked for each of them: its server reads .htaccess with a parser of its
- * own, and a line that parser doesn't know is skipped without an error.
+ * is asked for each of them: its server honours .htaccess only in part, and a
+ * line it doesn't act on is skipped without an error.
  */
 function htaccess_headers(string $commit): array
 {

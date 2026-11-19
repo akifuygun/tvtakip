@@ -338,10 +338,12 @@ has no `includeSubDomains` and no `preload`: preloading works only from
 it, for months after a change of mind. To take the rule back, send `max-age=0` for
 a while — a browser drops it at its next visit.
 
-The host is nginx reading `.htaccess` with a parser of its own, not Apache: a
-directive it doesn't know is skipped without an error (`Header always set` is one —
-hence plain `Header set`). Try a new directive on live before relying on it; for
-the headers, the deploy's checks do that on every run.
+The host is not a plain Apache — nginx answers the requests — and it honours
+`.htaccess` only in part: a directive it doesn't act on is skipped without an error
+(`Header always set` is one — hence plain `Header set`). Try a new directive on
+live before relying on it; for the headers, the deploy's checks do that on every
+run. It also lists a directory's files unless told otherwise, which is what
+`Options -Indexes` in `public/.htaccess` is for.
 
 ## Backups and restoring
 

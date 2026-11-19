@@ -6,7 +6,7 @@ RewriteCond %{HTTPS} off
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Sent with every response except a refusal (403), which is the server's own
-# error page. Plain "Header set": hostUNO's nginx reads this file itself and
+# error page. Plain "Header set": hostUNO honours this file only in part, and
 # skips "Header always set" without a word.
 # HTTPS only, for a year, and for this host name alone — no includeSubDomains,
 # no preload: the other akifuygun.com sites are not this file's to bind.
