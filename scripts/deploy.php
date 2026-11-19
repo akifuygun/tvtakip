@@ -261,13 +261,14 @@ function check_live(string $commit): array
     foreach (["/sw.js?v=$version", '/manifest.php', '/sitemap.xml'] as $path) {
         $check($path);
     }
-    // A directory's file list is refused.
-    foreach (['/api/', '/assets/'] as $path) {
+    // Refused: a directory's file list — and a /.git path, which the host's
+    // server turns away by itself, whether or not there is such a file.
+    foreach (['/api/', '/assets/', '/.git/HEAD'] as $path) {
         $check($path, 403);
     }
     // The web root is public/ alone: what the checkout holds beside it has no
     // URL. Nor has public/ itself — it would, were the checkout the web root.
-    foreach (['/.git/HEAD', '/includes/auth.php', '/scripts/deploy.php', '/migrations/0001_baseline.sql', '/router.php', '/public/index.php'] as $path) {
+    foreach (['/includes/auth.php', '/scripts/deploy.php', '/migrations/0001_baseline.sql', '/router.php', '/public/index.php'] as $path) {
         $check($path, 404);
     }
     return [$checks, $failed];

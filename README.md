@@ -221,9 +221,10 @@ with `DEPLOY FAILED` and exit code 1 at the first thing that is wrong:
    it out from its own files, so that also says those are the commit's), the
    login-gated ones turn a guest away, the assets and the service worker are
    served, a directory doesn't list its files (403), and nothing beside `public/`
-   has a URL (`.git/`, `includes/`, `scripts/`, `migrations/`: 404). Every answer
-   but a 403 must carry the response headers the commit's `public/.htaccess` sets
-   (see "HTTPS and response headers").
+   has a URL (`includes/`, `scripts/`, `migrations/`: 404; a `/.git` path is a 403
+   from the host itself, which refuses that name wherever it is asked for). Every
+   answer but a 403 must carry the response headers the commit's
+   `public/.htaccess` sets (see "HTTPS and response headers").
 
 `deploy.bat --check` runs only step 3, against whatever commit live is on. Deploying
 again when live is current changes nothing and repeats the checks. Pages behind the
