@@ -29,8 +29,20 @@ function initTvMark() {
     e.preventDefault();
     form.querySelector('button').disabled = true;
     try {
-      const res = await fetch(form.action, { method: 'POST', body: new FormData(form) });
-      if (res.ok && swapTv(await res.text())) return;
+      const body = new FormData(form);
+      let res = await fetch(form.action, { method: 'POST', body });
+      let html = await res.text();
+      // A page left open outlives its session, and its form token with it:
+      // the server then answers with a fresh page saying so — post once more
+      // with that page's token.
+      const token = res.url.includes('expired=')
+        && new DOMParser().parseFromString(html, 'text/html').querySelector('input[name="csrf_token"]')?.value;
+      if (token) {
+        body.set('csrf_token', token);
+        res = await fetch(form.action, { method: 'POST', body });
+        html = await res.text();
+      }
+      if (res.ok && swapTv(html)) return;
     } catch {
       // network hiccup: fall through to the plain post
     }

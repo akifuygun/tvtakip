@@ -29,9 +29,16 @@ function today(): string
     return date('Y-m-d');
 }
 
-const SESSION_LIFETIME = 60 * 60 * 24 * 30;   // 30 days
+// A session ends after this long without a request, or when the browser
+// closes. A browser that asked to be remembered is then logged back in by its
+// remember-me token (attempt_remember_login()).
+const SESSION_LIFETIME = 60 * 60 * 2;         // 2 hours
 const REMEMBER_COOKIE = 'tvtrack_remember';
 const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
+// Seconds the validator a remember-me token had before its last rotation still
+// logs in: requests sent together (tabs restored at browser start) all carry
+// the old cookie, and only the first of them finds it current.
+const REMEMBER_GRACE = 60;
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  a TLS-terminating proxy), so cookies can carry the Secure flag. */
@@ -57,18 +64,53 @@ function app_layout(): string
     return ($_COOKIE['layout'] ?? '') === 'side' ? 'side' : 'top';
 }
 
-if (session_status() === PHP_SESSION_NONE) {
-    // Long-lived session so users aren't logged out during normal use; the
-    // remember-me token below restores it if the shared host GCs it early.
+/** Start the visitor's session; a failure ends the request (logins and form
+ *  tokens need it). */
+function start_session(): void
+{
+    // config SESSION_DIR: a directory of the site's own for the session files.
+    // PHP's default is the server's temp directory, where on a shared host
+    // every account can list the file names — and a name is the session id.
+    if (defined('SESSION_DIR') && SESSION_DIR !== '') {
+        if (!is_dir(SESSION_DIR) && !@mkdir(SESSION_DIR, 0700, true) && !is_dir(SESSION_DIR)) {
+            throw new RuntimeException('SESSION_DIR is not a directory PHP can reach or create: ' . SESSION_DIR);
+        }
+        // Refused when open_basedir doesn't include it; PHP would then go on
+        // with its default directory.
+        if (ini_set('session.save_path', SESSION_DIR) === false) {
+            throw new RuntimeException('SESSION_DIR was refused as session.save_path: ' . SESSION_DIR);
+        }
+    }
+    // An id the server didn't issue (or whose session is gone) gets a new one.
+    ini_set('session.use_strict_mode', '1');
+    // Nothing else cleans the directory: one request in a hundred deletes the
+    // files unused for longer than the lifetime.
     ini_set('session.gc_maxlifetime', (string) SESSION_LIFETIME);
+    ini_set('session.gc_probability', '1');
+    ini_set('session.gc_divisor', '100');
     session_set_cookie_params([
-        'lifetime' => SESSION_LIFETIME,
+        'lifetime' => 0,
         'path' => '/',
         'httponly' => true,
         'samesite' => 'Lax',
         'secure' => request_is_https(),
     ]);
-    session_start();
+    if (!session_start()) {
+        throw new RuntimeException('The session could not be started');
+    }
+    // The clean-up above only runs now and then, so the idle limit is kept
+    // here: a session left for longer starts over empty, under a new id.
+    $now = time();
+    if ($now - ($_SESSION['seen'] ?? $now) > SESSION_LIFETIME) {
+        $_SESSION = [];
+        session_regenerate_id(true);
+    }
+    $_SESSION['seen'] = $now;
+}
+
+// The command-line scripts (the cron worker, the importers) have no visitor.
+if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
+    start_session();
 }
 
 // If the session lapsed but a valid remember-me cookie is present, log back in.
@@ -200,7 +242,12 @@ function forget_user(): void
     ]);
 }
 
-/** Restore a session from a valid remember-me cookie, rotating the validator. */
+/**
+ * Restore a session from a valid remember-me cookie, rotating the validator.
+ * Of several requests arriving with the same cookie, one rotates it and sends
+ * the new one; the others log in on the validator it just replaced
+ * (REMEMBER_GRACE) and leave the cookie alone.
+ */
 function attempt_remember_login(): void
 {
     if (is_logged_in() || empty($_COOKIE[REMEMBER_COOKIE])) {
@@ -214,7 +261,9 @@ function attempt_remember_login(): void
 
     try {
         $stmt = db()->prepare(
-            'SELECT rt.id, rt.user_id, rt.validator_hash, rt.expires_at, u.display_name
+            'SELECT rt.id, rt.user_id, rt.validator_hash, rt.prev_validator_hash, rt.expires_at,
+                    (rt.rotated_at > NOW() - INTERVAL ' . REMEMBER_GRACE . ' SECOND) AS in_grace,
+                    u.display_name
              FROM remember_tokens rt JOIN users u ON u.id = rt.user_id WHERE rt.selector = ?'
         );
         $stmt->execute([$selector]);
@@ -224,9 +273,12 @@ function attempt_remember_login(): void
             forget_user();
             return;
         }
-        // Constant-time compare; drop the token if expired or the validator is wrong.
-        if (strtotime($row['expires_at']) < time()
-            || !hash_equals($row['validator_hash'], hash('sha256', $validator))) {
+        // Constant-time compares; drop the token if expired or the validator is wrong.
+        $hash = hash('sha256', $validator);
+        $current = hash_equals($row['validator_hash'], $hash);
+        $previous = !$current && $row['in_grace']
+            && hash_equals((string) $row['prev_validator_hash'], $hash);
+        if (strtotime($row['expires_at']) < time() || (!$current && !$previous)) {
             $del = db()->prepare('DELETE FROM remember_tokens WHERE id = ?');
             $del->execute([$row['id']]);
             forget_user();
@@ -234,12 +286,24 @@ function attempt_remember_login(): void
         }
 
         login_user((int) $row['user_id'], $row['display_name']);
+        if (!$current) {
+            return;
+        }
 
-        // Rotate the validator so a stolen cookie is single-use.
+        // Rotate the validator so a stolen cookie is single-use. Only while it
+        // is still the one this request came with: a request that rotated it
+        // in between sends the new cookie.
         $newValidator = bin2hex(random_bytes(32));
         $expires = time() + REMEMBER_LIFETIME;
-        $upd = db()->prepare('UPDATE remember_tokens SET validator_hash = ?, expires_at = ? WHERE id = ?');
-        $upd->execute([hash('sha256', $newValidator), date('Y-m-d H:i:s', $expires), $row['id']]);
+        $upd = db()->prepare(
+            'UPDATE remember_tokens
+             SET validator_hash = ?, prev_validator_hash = ?, rotated_at = NOW(), expires_at = ?
+             WHERE id = ? AND validator_hash = ?'
+        );
+        $upd->execute([hash('sha256', $newValidator), $hash, date('Y-m-d H:i:s', $expires), $row['id'], $hash]);
+        if ($upd->rowCount() === 0) {
+            return;
+        }
         setcookie(REMEMBER_COOKIE, $selector . ':' . $newValidator, [
             'expires' => $expires,
             'path' => '/',
@@ -738,7 +802,11 @@ function read_json_post(): array
         json_response(['error' => 'POST required'], 405);
     }
     if (!verify_csrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null)) {
-        json_response(['error' => 'Invalid CSRF token'], 403);
+        // A page outlives its session (idle limit; remember-me then starts a
+        // new one), and its token with it: the refusal names the current one,
+        // for app.js to repeat the request with. Like the token in a page,
+        // only a page of this site can read it.
+        json_response(['error' => 'Invalid CSRF token', 'csrf_token' => csrf_token()], 403);
     }
     $data = json_decode(file_get_contents('php://input'), true);
     if (!is_array($data)) {

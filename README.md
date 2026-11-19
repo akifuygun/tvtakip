@@ -62,8 +62,10 @@ watched, and keep a movie watchlist.
   release date. Public movie pages at `/movie/ttNNN` and a public catalog at
   `/movies`.
 - **Accounts:** email login, display name shown in the header, self-service
-  change-password. 30-day sessions plus a 60-day "remember me" token so a shared
-  host's short session GC doesn't force frequent logins.
+  change-password. A session ends after two hours without a request, or when the
+  browser closes; "remember me" (a 60-day token, ticked by default on the login
+  form) then logs the browser back in unnoticed. Without it, logging in lasts
+  for that browser session only.
 - **Admin** (an account with the `admin` role — see "Admins" below): can
   set/remove a show's poster and set its primary network (shared cache) — the
   "no image" placeholder is admin-only. Everyone else is refused server-side.
@@ -119,7 +121,7 @@ migrations/        The MySQL schema as numbered migrations: 0001_baseline.sql
                    user_movies, remember_tokens, refresh_requests), then one
                    file per change — applied by scripts/migrate.php
 config.sample.php  Copy to config.php: DB credentials, TMDB_API_KEY, TVDB_API_KEY
-                   (optional)
+                   (optional), SESSION_DIR (on a server)
 ```
 
 ## Local development
@@ -230,6 +232,26 @@ then mentions a migration it has no file for — harmless). When the schema chan
 itself is the problem, undo it with a new migration, or restore the dump the deploy
 took just before migrating (next section) — that loses everything written since.
 The dump carries `schema_migrations`, so the next deploy applies the migration again.
+
+### Session files
+
+PHP keeps sessions as files named after the session id. Its default place for them
+is the server's `/tmp`, which every account on a shared server can list — so live
+keeps them in a directory of its own, outside the web root and closed to everyone
+else (mode 700):
+
+- `SESSION_DIR` in live's `config.php` names it:
+  `/usr/home/akifuygun/domains/tvtakip.akifuygun.com/sessions`.
+- The host limits PHP to the web root (`open_basedir`), so the directory is added to
+  that list — a per-domain option, shown by `devil www list -v`:
+  `ssh hostuno "devil www options tvtakip.akifuygun.com php_openbasedir /usr/home/akifuygun/domains/tvtakip.akifuygun.com/sessions"`
+  (`devil` puts its own defaults — the web root, `/tmp`, … — in front of what it is
+  given; PHP picks the change up a minute or two later).
+
+When the directory can't be used, every page answers 500 with the reason in the
+error log; the site never falls back to `/tmp`. Deleting the files in it logs
+nobody out who ticked "remember me". Locally `SESSION_DIR` stays empty: XAMPP's own
+session directory is on a machine with one user.
 
 ## Backups and restoring
 

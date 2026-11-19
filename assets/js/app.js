@@ -3,7 +3,9 @@
 // api/search.php, and imports happen inside api/episodes.php / api/track.php —
 // the browser only ever sends a title's id and reads our own cache. That id is
 // its IMDB id; a title IMDB doesn't list goes by a provisional id (tm…/mz…).
-const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+// The token of the session this page was rendered in; apiPost() takes the
+// current one once that session has ended.
+let csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 const IS_ADMIN = document.querySelector('meta[name="is-admin"]')?.content === '1';
 
 // Report the browser's timezone so server-rendered dates ("aired today",
@@ -73,13 +75,19 @@ function airstampDate(airstamp) {
   return new Date(airstamp.replace(' ', 'T') + 'Z');
 }
 
-async function apiPost(url, body) {
+async function apiPost(url, body, retry = true) {
   const res = await fetch(apiUrl(url), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN },
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
+  // A page left open outlives its session, and its token with it: the refusal
+  // names the current session's token — repeat the request once with that.
+  if (res.status === 403 && data.csrf_token && retry) {
+    csrfToken = data.csrf_token;
+    return apiPost(url, body, false);
+  }
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }
