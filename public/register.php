@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 if (is_logged_in()) {
     header('Location: index.php');
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $pageTitle = t('register_title');
 $noindex = true;
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 <div class="auth-card">
     <h1><?= t('register_title') ?></h1>
@@ -69,4 +69,4 @@ require __DIR__ . '/includes/header.php';
     </form>
     <p><?= t('have_account') ?> <a href="/login.php"><?= t('login') ?></a></p>
 </div>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

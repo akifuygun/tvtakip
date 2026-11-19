@@ -11,7 +11,7 @@
 // merged with TMDB's first page, every later page ("More results") TMDB's
 // alone. `more` says whether TMDB has another page. A show can come back on a
 // later page — the client skips what it already shows.
-require_once __DIR__ . '/../includes/importer.php';
+require_once __DIR__ . '/../../includes/importer.php';
 
 $q = trim((string) ($_GET['q'] ?? ''));
 if ($q === '' || mb_strlen($q) > 100) {

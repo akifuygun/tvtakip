@@ -2,7 +2,7 @@
 // PUBLIC movie catalog (no login) — every cached movie, newest release first,
 // plus an on-page TMDB search. Search results link straight to /movie/ttNNN,
 // which imports on first visit for anyone. Pretty URL /movies rewrites here.
-require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $movies = db()->query(
     'SELECT imdb_id, name, image_url, status, released, rating FROM movies
@@ -13,7 +13,7 @@ $pageTitle = t('pub_movies_title');
 $canonicalUrl = seo_base() . lang_path('/movies');
 $metaDescription = t('pub_movies_sub', count($movies));
 
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 <h1><?= t('pub_movies_title') ?></h1>
 <p class="muted"><?= t('pub_movies_sub', count($movies)) ?></p>
@@ -54,4 +54,4 @@ require __DIR__ . '/includes/header.php';
         </div>
     <?php endforeach; ?>
 </div>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

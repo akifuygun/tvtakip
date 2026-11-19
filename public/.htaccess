@@ -5,9 +5,9 @@ RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# Sent with every response except the refusals below, which are the server's
-# own error page. Plain "Header set": hostUNO's nginx reads this file itself
-# and skips "Header always set" without a word.
+# Sent with every response except a refusal (403), which is the server's own
+# error page. Plain "Header set": hostUNO's nginx reads this file itself and
+# skips "Header always set" without a word.
 # HTTPS only, for a year, and for this host name alone — no includeSubDomains,
 # no preload: the other akifuygun.com sites are not this file's to bind.
 Header set Strict-Transport-Security "max-age=31536000"
@@ -19,10 +19,11 @@ Header set Referrer-Policy "strict-origin-when-cross-origin"
 Header set X-Frame-Options "DENY"
 Header set Content-Security-Policy "frame-ancestors 'none'"
 
-# The docroot is a git checkout: keep repo internals and dev-only files out of
-# reach (the CLI scripts also refuse non-CLI SAPIs on their own).
-RewriteRule ^(?:\.git|scripts|migrations|deploy)(?:/|$) - [F,L]
-RewriteRule ^(?:\.gitignore|README\.md|CLAUDE\.md|config\.sample\.php|router\.php|start-dev\.bat|deploy\.bat)$ - [F,L]
+# This directory is the web root, and everything in it is meant to be served.
+# The rest of the checkout (includes/, scripts/, migrations/, config.php, .git)
+# is beside it, where no URL leads. A directory's file list is not content:
+# /api/ and /assets/ answer 403 instead of listing what they hold.
+Options -Indexes
 
 # Pretty URLs for the public SEO pages (mirrored by router.php for local dev).
 # Each public page also exists under /tr/ for crawlable Turkish content.

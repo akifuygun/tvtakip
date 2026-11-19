@@ -1,7 +1,7 @@
 <?php
 // Dynamic sitemap: the public pages plus every cached show's series page.
 // Served as /sitemap.xml via rewrite.
-require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 header('Content-Type: application/xml; charset=utf-8');
 $base = seo_base();

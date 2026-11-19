@@ -4,7 +4,7 @@
 // for shows that site lists under another title. An empty slug — or the one
 // the title gives anyway — clears it. Stored in shows.watch_slug as JSON
 // {site: slug}; imports never touch it.
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../../includes/auth.php';
 require_login_json();
 
 if (!watch_enabled()) {

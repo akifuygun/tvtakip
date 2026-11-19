@@ -2,7 +2,7 @@
 // POST {action: "track"|"untrack", imdb_id: "ttNNNNNNN"}
 // The client sends only the id — show metadata comes from the providers,
 // imported server-side when the cache doesn't have the show yet.
-require_once __DIR__ . '/../includes/importer.php';
+require_once __DIR__ . '/../../includes/importer.php';
 require_login_json();
 $data = read_json_post();
 

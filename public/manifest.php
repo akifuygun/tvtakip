@@ -3,7 +3,7 @@
 // (TVTrack / TVTakip) rather than the old static English-only manifest.
 // Only i18n is needed — avoid auth.php so a manifest fetch doesn't start a
 // session or run the remember-me flow.
-require_once __DIR__ . '/includes/i18n.php';
+require_once __DIR__ . '/../includes/i18n.php';
 
 header('Content-Type: application/manifest+json; charset=utf-8');
 

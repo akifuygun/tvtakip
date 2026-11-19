@@ -3,8 +3,8 @@
 // Set a show's primary network (shared cache): the poster badge and the first
 // network listed, e.g. the Turkish distributor TMDB doesn't know about. An
 // empty network clears it. Imports never touch shows.primary_network.
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/network_logos.php';
+require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/network_logos.php';
 require_login_json();
 
 if (!is_admin()) {

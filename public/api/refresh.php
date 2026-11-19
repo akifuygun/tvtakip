@@ -7,8 +7,8 @@
 //   POST {}  (login + CSRF)  file a request; a no-op while one is still open
 //   GET      (login)         read its progress
 //     -> {active, started, done, total, changed}   see refresh_request_state()
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/refresh.php';
+require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/refresh.php';
 require_login_json();
 $userId = current_user_id();
 

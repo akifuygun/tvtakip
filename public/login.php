@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 // The TV view sends visitors here with ?next=tv to come back to it.
 $next = ($_GET['next'] ?? '') === 'tv' ? '/tv' : 'index.php';
@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $pageTitle = t('login_title');
 $noindex = true;
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 <div class="auth-card">
     <h1><?= t('login_title') ?></h1>
@@ -67,4 +67,4 @@ require __DIR__ . '/includes/header.php';
     </form>
     <p><?= t('no_account') ?> <a href="/register.php"><?= t('register') ?></a></p>
 </div>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

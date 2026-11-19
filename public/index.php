@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/calendar.php';
+require_once __DIR__ . '/../includes/calendar.php';
 
 $items = [];
 $unsynced = [];
@@ -50,7 +50,7 @@ if (is_logged_in()) {
 } else {
     $pageTitle = t('welcome_h1'); // public landing — the one indexable page
 }
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 <?php if (!is_logged_in()): ?>
     <div class="hero">
@@ -222,4 +222,4 @@ require __DIR__ . '/includes/header.php';
         </div>
     <?php endif; ?>
 <?php endif; ?>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

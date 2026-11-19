@@ -1,8 +1,8 @@
 <?php
 // PUBLIC show directory (no login) — the crawl hub linking every series page.
 // Pretty URL /browse rewrites here.
-require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/network_logos.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/network_logos.php';
 
 // Running first, then upcoming, then finished (canceled/ended); alphabetical within.
 $shows = db()->query(
@@ -122,7 +122,7 @@ $pageTitle = t('pub_browse_title');
 $canonicalUrl = seo_base() . lang_path('/browse');
 $metaDescription = t('pub_browse_sub', count($shows));
 
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 <h1><?= t('pub_browse_title') ?></h1>
 <p class="muted"><?= t('pub_browse_sub', count($shows)) ?></p>
@@ -204,4 +204,4 @@ require __DIR__ . '/includes/header.php';
 <div class="show-more-wrap">
     <button type="button" id="show-more" class="button button-secondary" style="display:none"><?= t('show_more') ?></button>
 </div>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

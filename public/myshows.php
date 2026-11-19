@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/refresh.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/refresh.php';
 require_login();
 
 // The next unaired episode's exact airstamp (and airdate) — same not-yet-aired
@@ -126,7 +126,7 @@ $refreshLabel = match (true) {
 
 $pageTitle = t('myshows_title');
 $noindex = true;
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 <?php if (!$shows): ?>
     <div class="hero">
@@ -180,4 +180,4 @@ require __DIR__ . '/includes/header.php';
         <?php endforeach; ?>
     </div>
 <?php endif; ?>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

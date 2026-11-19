@@ -21,7 +21,8 @@ if errorlevel 1 (
 
 echo Starting PHP dev server at http://localhost:8000 ...
 start http://localhost:8000
+rem public\ is the web root; router.php, beside it, adds the pretty URLs.
 rem cd first: %~dp0 ends with a backslash which would escape a closing quote
 rem when passed as "-t" argument, mangling PHP's command line.
 cd /d "%~dp0"
-C:\xampp\php\php.exe -S localhost:8000 router.php
+C:\xampp\php\php.exe -S localhost:8000 -t public router.php

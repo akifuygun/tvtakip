@@ -1,9 +1,13 @@
 <?php
 // The version on the CSS/JS URLs (?v=…) — what makes their one-year browser
-// caching (.htaccess) safe. Nothing else happens in this file:
+// caching (public/.htaccess) safe. Nothing else happens in this file:
 // scripts/deploy.php loads it as well, to work out the version of a commit.
 
-// Every CSS/JS file a page loads. They share one version.
+// The web root, from the checkout's root: the one directory the web server
+// serves. A file's path below it is its URL.
+const PUBLIC_DIR = 'public';
+
+// Every CSS/JS file a page loads, by its path in PUBLIC_DIR. They share one version.
 const VERSIONED_ASSETS = ['assets/css/style.css', 'assets/css/tv.css', 'assets/js/app.js', 'assets/js/tv.js'];
 
 /**
@@ -15,7 +19,7 @@ const VERSIONED_ASSETS = ['assets/css/style.css', 'assets/css/tv.css', 'assets/j
 function asset_version(): string
 {
     static $version = null;
-    return $version ??= assets_hash(fn (string $path): string => (string) file_get_contents(dirname(__DIR__) . "/$path"));
+    return $version ??= assets_hash(fn (string $path): string => (string) file_get_contents(dirname(__DIR__) . '/' . PUBLIC_DIR . "/$path"));
 }
 
 /** The version of the VERSIONED_ASSETS as $contents returns them, asked by path. */

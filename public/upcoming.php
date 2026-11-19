@@ -1,8 +1,8 @@
 <?php
 // PUBLIC upcoming-episodes page (no login) — fresh, regularly changing content.
 // Pretty URL /upcoming rewrites here. A month calendar; ?month=YYYY-MM navigates it.
-require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/network_logos.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/network_logos.php';
 
 const CAL_MONTHS_BACK = 12;   // navigable range, so crawlers can't walk months forever
 const CAL_MONTHS_AHEAD = 12;
@@ -143,7 +143,7 @@ $pageTitle = t('pub_upcoming_title');
 $canonicalUrl = seo_base() . lang_path('/upcoming');
 $metaDescription = t('pub_upcoming_sub');
 
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 <h1><?= t('pub_upcoming_title') ?></h1>
 
@@ -199,4 +199,4 @@ require __DIR__ . '/includes/header.php';
         </div>
     <?php endfor; ?>
 </div>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

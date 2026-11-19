@@ -1,7 +1,7 @@
 <?php
 // POST {imdb_id: "ttNNNNNNN", image_url: "https://..."}
 // Set a show's poster (shared cache). Used when a provider gave us no image.
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../../includes/auth.php';
 require_login_json();
 
 // Posters are a shared resource — only admins may set or remove them.

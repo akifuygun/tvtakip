@@ -1,8 +1,8 @@
 <?php
-// Router for PHP's built-in dev server — mirrors the .htaccess rewrites so
-// pretty URLs (including the /tr/ language prefix) work locally too.
-// Production never uses this file.
-// Usage: php -S localhost:8000 router.php
+// Router for PHP's built-in dev server — mirrors the rewrites of
+// public/.htaccess so pretty URLs (including the /tr/ language prefix) work
+// locally too. Production never uses this file.
+// Usage, from this directory: php -S localhost:8000 -t public router.php
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 // The response headers .htaccess sets, so a browser applies the same limits
@@ -15,7 +15,7 @@ header("Content-Security-Policy: frame-ancestors 'none'");
 
 if (preg_match('#^(?:/tr)?/series/(tt\d{6,10}|(?:tm|mz)\d{1,9})/?$#', $path, $m)) {
     $_GET['id'] = $m[1];
-    require __DIR__ . '/series.php';
+    require __DIR__ . '/public/series.php';
     return true;
 }
 if (preg_match('#^(?:/tr)?/series(/|$)#', $path)) {
@@ -27,11 +27,11 @@ if (preg_match('#^(?:/tr)?/series(/|$)#', $path)) {
 }
 if (preg_match('#^(?:/tr)?/movie/(tt\d{6,10}|tm\d{1,9})/?$#', $path, $m)) {
     $_GET['id'] = $m[1];
-    require __DIR__ . '/movie.php';
+    require __DIR__ . '/public/movie.php';
     return true;
 }
 if (preg_match('#^(?:/tr)?/movies/?$#', $path)) {
-    require __DIR__ . '/movies.php';
+    require __DIR__ . '/public/movies.php';
     return true;
 }
 if (preg_match('#^(?:/tr)?/movie(/|$)#', $path)) {
@@ -40,24 +40,24 @@ if (preg_match('#^(?:/tr)?/movie(/|$)#', $path)) {
     return true;
 }
 if (preg_match('#^(?:/tr)?/browse/?$#', $path)) {
-    require __DIR__ . '/browse.php';
+    require __DIR__ . '/public/browse.php';
     return true;
 }
 if (preg_match('#^(?:/tr)?/upcoming/?$#', $path)) {
-    require __DIR__ . '/upcoming.php';
+    require __DIR__ . '/public/upcoming.php';
     return true;
 }
 if (preg_match('#^/tr/?$#', $path)) {
-    require __DIR__ . '/index.php';
+    require __DIR__ . '/public/index.php';
     return true;
 }
 if ($path === '/sitemap.xml') {
-    require __DIR__ . '/sitemap.php';
+    require __DIR__ . '/public/sitemap.php';
     return true;
 }
 if (preg_match('#^/tv/?$#', $path)) {
-    require __DIR__ . '/tv.php';
+    require __DIR__ . '/public/tv.php';
     return true;
 }
 
-return false; // serve the requested file/script as-is
+return false; // serve the requested file/script of public/ as-is

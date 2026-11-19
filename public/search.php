@@ -1,7 +1,7 @@
 <?php
 // PUBLIC search page — guests search too (results are link-only cards; the
 // series pages import on first visit). Logged-in users get Track buttons.
-require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 // IMDB ids of already-tracked shows so search results can show the right button state.
 $trackedIds = [];
@@ -13,7 +13,7 @@ if (is_logged_in()) {
 
 $pageTitle = t('search_title');
 $noindex = true;
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 <h1><?= t('search_title') ?></h1>
 <form id="search-form" class="search-form" autocomplete="off">
@@ -26,4 +26,4 @@ require __DIR__ . '/includes/header.php';
 window.TRACKED_IDS = <?= json_encode($trackedIds) ?>;
 window.CAN_TRACK = <?= is_logged_in() ? 'true' : 'false' ?>;
 </script>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

@@ -5,7 +5,7 @@
 // events reach the page), so it's built for pointing: big buttons and hover
 // highlights. Marking watched is a plain form POST that tv.js upgrades to an
 // in-place update.
-require_once __DIR__ . '/includes/calendar.php';
+require_once __DIR__ . '/../includes/calendar.php';
 
 if (!is_logged_in()) {
     header('Location: /login.php?next=tv');

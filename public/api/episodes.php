@@ -8,7 +8,7 @@
 //         returns the same payload as GET. No provider data is accepted
 //         from the client. show.imdb_id differs from show_id when the import
 //         moved a provisional show to the IMDB id it has by now.
-require_once __DIR__ . '/../includes/importer.php';
+require_once __DIR__ . '/../../includes/importer.php';
 require_login_json();
 
 function cache_payload(string $imdbId): array

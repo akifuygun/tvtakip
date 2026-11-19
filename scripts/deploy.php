@@ -16,14 +16,15 @@
 //   3. From here: the public pages answer 200 and carry the asset version of
 //      the commit's CSS/JS (live works it out from its own files, so that also
 //      says those are the commit's), the login-gated ones turn a guest away,
-//      the assets and the service worker are served, the repository's
-//      internals are refused. Every answer but those refusals carries the
-//      response headers the commit's .htaccess sets (HSTS and the like).
+//      the assets and the service worker are served, a directory does not
+//      list its files, and nothing beside public/ (the web root) has a URL.
+//      Every answer but a refusal (403) carries the response headers the
+//      commit's public/.htaccess sets (HSTS and the like).
 //
 // Deploying again when live is current changes nothing and repeats the checks.
 //
 // Rolling back: put the commit live ran before (the deploy names it) back with
-//   ssh hostuno "git -C domains/tvtakip.akifuygun.com/public_html reset --hard <commit>"
+//   ssh hostuno "git -C domains/tvtakip.akifuygun.com/app reset --hard <commit>"
 // and run --check. Migrations are not undone: README.md, "Deployment".
 
 if (PHP_SAPI !== 'cli') {
@@ -33,7 +34,9 @@ if (PHP_SAPI !== 'cli') {
 require __DIR__ . '/../includes/assets.php';
 
 const SSH_HOST = 'hostuno';  // a Host alias in ~/.ssh/config
-const LIVE_DIR = 'domains/tvtakip.akifuygun.com/public_html';  // the live checkout, from the SSH user's home
+// The live checkout, from the SSH user's home. The web server is given its
+// public/ alone: the site's public_html, beside it, is a link to app/public.
+const LIVE_DIR = 'domains/tvtakip.akifuygun.com/app';
 const LIVE_URL = 'https://tvtakip.akifuygun.com';
 // Live's opcache looks at a file's timestamp at most this often
 // (opcache.revalidate_freq), so for that long it may answer with the old code.
@@ -179,13 +182,13 @@ function fetch(string $path): array
 }
 
 /**
- * The response headers a commit's .htaccess sets, name => value. Live is asked
- * for each of them: its server reads .htaccess with a parser of its own, and
- * a line that parser doesn't know is skipped without an error.
+ * The response headers a commit's public/.htaccess sets, name => value. Live
+ * is asked for each of them: its server reads .htaccess with a parser of its
+ * own, and a line that parser doesn't know is skipped without an error.
  */
 function htaccess_headers(string $commit): array
 {
-    preg_match_all('/^[ \t]*Header set (\S+) "([^"]*)"[ \t]*\r?$/m', committed_file($commit, '.htaccess'), $lines, PREG_SET_ORDER);
+    preg_match_all('/^[ \t]*Header set (\S+) "([^"]*)"[ \t]*\r?$/m', committed_file($commit, PUBLIC_DIR . '/.htaccess'), $lines, PREG_SET_ORDER);
     return array_column($lines, 2, 1);
 }
 
@@ -196,7 +199,7 @@ function htaccess_headers(string $commit): array
 function check_live(string $commit): array
 {
     // What asset_version() answers on live when its CSS/JS are this commit's.
-    $version = assets_hash(fn (string $path): string => committed_file($commit, $path));
+    $version = assets_hash(fn (string $path): string => committed_file($commit, PUBLIC_DIR . "/$path"));
     $css = "/assets/css/style.css?v=$version";
     $js = "/assets/js/app.js?v=$version";
     $headers = htaccess_headers($commit);
@@ -258,9 +261,14 @@ function check_live(string $commit): array
     foreach (["/sw.js?v=$version", '/manifest.php', '/sitemap.xml'] as $path) {
         $check($path);
     }
-    // The docroot is a git checkout: its internals must stay out of reach.
-    foreach (['/.git/HEAD', '/scripts/deploy.php', '/migrations/0001_baseline.sql'] as $path) {
+    // A directory's file list is refused.
+    foreach (['/api/', '/assets/'] as $path) {
         $check($path, 403);
+    }
+    // The web root is public/ alone: what the checkout holds beside it has no
+    // URL. Nor has public/ itself — it would, were the checkout the web root.
+    foreach (['/.git/HEAD', '/includes/auth.php', '/scripts/deploy.php', '/migrations/0001_baseline.sql', '/router.php', '/public/index.php'] as $path) {
+        $check($path, 404);
     }
     return [$checks, $failed];
 }

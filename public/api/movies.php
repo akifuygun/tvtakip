@@ -11,7 +11,7 @@
 // POST {action: "watch", imdb_id, watched: bool}
 //      -> sets the watched flag. Marking watched auto-adds the movie to the
 //         list (upsert), and is gated on the release date like episode airing.
-require_once __DIR__ . '/../includes/importer.php';
+require_once __DIR__ . '/../../includes/importer.php';
 
 // GET (search) is public — the guest movies page searches too, and results
 // only link to public pages. Mutations below stay login-gated.

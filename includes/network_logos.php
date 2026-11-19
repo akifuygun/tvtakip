@@ -1,6 +1,6 @@
 <?php
 // Curated network branding: the brand groups (browse filter chips) and the
-// self-hosted logo map. To add a network: drop a PNG into assets/networks/,
+// self-hosted logo map. To add a network: drop a PNG into public/assets/networks/,
 // add a map entry below, and (if it's a new brand) a group entry.
 
 /**

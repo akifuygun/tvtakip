@@ -3,7 +3,7 @@
 // POST {show_id: "ttNNNNNNN", all: true}             -> mark every cached episode of the show watched
 // POST {show_id: "ttNNNNNNN", all: true, season: N}  -> mark one season watched
 // POST {..., all: true, watched: false}              -> same scopes, unwatch instead
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../../includes/auth.php';
 require_login_json();
 $data = read_json_post();
 

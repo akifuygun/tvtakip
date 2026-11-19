@@ -3,7 +3,7 @@
 // Set one Watch site's origin (scheme + host), for when it moves domains —
 // the footer ❤. Paths stay its WATCH_SITES template's. Saved to
 // includes/watch_base.php (not in git); an empty base reverts to the template's.
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../../includes/auth.php';
 require_login_json();
 
 if (!watch_enabled()) {

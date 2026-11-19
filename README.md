@@ -16,7 +16,7 @@ watched, and keep a movie watchlist.
 - **All provider access is server-side** (`includes/importer.php`): the browser only
   ever sends IMDB ids to our JSON endpoints. The TMDB API key never leaves the server,
   and no provider data is accepted from clients (the shared cache can't be poisoned).
-- **Search** (`api/search.php`) queries [TVmaze](https://www.tvmaze.com/api) (free, no
+- **Search** (`public/api/search.php`) queries [TVmaze](https://www.tvmaze.com/api) (free, no
   key, fuzzy) and [TMDB](https://developer.themoviedb.org/) (free API key) and merges
   results by IMDB id, so shows missing from either provider still appear. Search is
   **public** (shows and movies), and visiting any not-yet-cached `/series/ttNNN` or
@@ -75,53 +75,63 @@ watched, and keep a movie watchlist.
 
 ## Project structure
 
+The web server is given `public/` and nothing else. Everything a visitor must not
+reach — the configuration, the include files, the scripts, the migrations, `.git` —
+is beside it and so has no URL.
+
 ```
-index.php          Calendar — each tracked show's next unwatched episode airing
-                   today or earlier (guests get the public landing page)
-myshows.php        Tracked shows in tabs (Running / Upcoming + Cancelled / Ended),
-                   most-behind first
-mymovies.php       Movie list: on-page search to add, To watch / Watched tabs
-search.php         Search both providers (public; Track buttons when logged in)
-series.php         Unified show page (/series/ttNNN): public SEO for guests,
-                   interactive app when logged in; uncached ids import on visit
-                   (show.php 301-redirects here)
-movie.php          Public movie page (/movie/ttNNN) + add/watched buttons;
-                   uncached ids import on visit
-browse.php         Public show catalog: provider search bar + network/genre/
-                   status/name filter tabs, network logo badges on posters
-movies.php         Public movie catalog (/movies) with guest search
-upcoming.php       Upcoming episodes (public catalog; tracked-only when logged in)
-change-password.php  Self-service password change
-login.php / register.php / logout.php   (email login, display name in header)
-api/search.php     GET merged TVmaze+TMDB show search (server-side, public)
-api/track.php      POST: track/untrack by IMDB id (imports server-side if uncached)
-api/episodes.php   GET cached show+episodes+watched; POST imports/refreshes server-side
-api/watch.php      POST toggle episode watched; bulk (un)watch per show or season
-api/movies.php     GET movie search; POST add/remove/watch (single endpoint)
-api/refresh.php    POST files a "Refresh all shows" request; GET reads its progress
-scripts/refresh_worker.php  Cron worker: works off those requests and re-imports
-                   shows that are due a refresh
-api/image.php      POST set/remove a show poster (admin only)
-includes/          db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
-                   refresh.php, network_logos.php, assets.php, header.php
-                   (+ site_footer.php), footer.php
-assets/            css/style.css, js/app.js, icons/ (PWA + logo). CSS/JS URLs carry
-                   ?v=<hash of the files' contents> (includes/assets.php), so an
-                   edit is a new URL by itself — there is no version to bump
-manifest.php, sw.js   Localized PWA manifest + service worker (static-asset cache,
-                   named after that same version)
-sitemap.php        Dynamic sitemap (shows + movies, en + tr)
-scripts/           CLI utilities: deploy.php (deploy.bat runs it), migrate.php,
-                   admin.php (who is an admin), import_popular.php, import_watchlist.php, backfill_images.php,
-                   backfill_airstamps.php, backfill_names_tr.php. The import and
-                   backfill ones work on the database of the checkout they run
-                   in: here, or on the server over SSH
-migrations/        The MySQL schema as numbered migrations: 0001_baseline.sql
-                   (users, shows, episodes, movies, user_shows, watched_episodes,
-                   user_movies, remember_tokens, refresh_requests), then one
-                   file per change — applied by scripts/migrate.php
-config.sample.php  Copy to config.php: DB credentials, TMDB_API_KEY, TVDB_API_KEY
-                   (optional), SESSION_DIR (on a server)
+public/                The web root: a file's path in here is its URL
+  index.php            Calendar — each tracked show's next unwatched episode airing
+                       today or earlier (guests get the public landing page)
+  myshows.php          Tracked shows in tabs (Running / Upcoming + Cancelled / Ended),
+                       most-behind first
+  mymovies.php         Movie list: on-page search to add, To watch / Watched tabs
+  search.php           Search both providers (public; Track buttons when logged in)
+  series.php           Unified show page (/series/ttNNN): public SEO for guests,
+                       interactive app when logged in; uncached ids import on visit
+                       (show.php 301-redirects here)
+  movie.php            Public movie page (/movie/ttNNN) + add/watched buttons;
+                       uncached ids import on visit
+  browse.php           Public show catalog: provider search bar + network/genre/
+                       status/name filter tabs, network logo badges on posters
+  movies.php           Public movie catalog (/movies) with guest search
+  upcoming.php         Upcoming episodes (public catalog; tracked-only when logged in)
+  tv.php               The calendar's TV view (/tv)
+  change-password.php  Self-service password change
+  login.php / register.php / logout.php   (email login, display name in header)
+  api/search.php       GET merged TVmaze+TMDB show search (server-side, public)
+  api/track.php        POST: track/untrack by IMDB id (imports server-side if uncached)
+  api/episodes.php     GET cached show+episodes+watched; POST imports/refreshes server-side
+  api/watch.php        POST toggle episode watched; bulk (un)watch per show or season
+  api/movies.php       GET movie search; POST add/remove/watch (single endpoint)
+  api/refresh.php      POST files a "Refresh all shows" request; GET reads its progress
+  api/image.php        POST set/remove a show poster (admin only)
+  assets/              css/style.css, js/app.js, icons/ (PWA + logo), networks/ (logos).
+                       CSS/JS URLs carry ?v=<hash of the files' contents>
+                       (includes/assets.php), so an edit is a new URL by itself —
+                       there is no version to bump
+  manifest.php, sw.js  Localized PWA manifest + service worker (static-asset cache,
+                       named after that same version)
+  sitemap.php          Dynamic sitemap (shows + movies, en + tr)
+  .htaccess            HTTPS redirect, response headers, pretty URLs, asset caching
+includes/              db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
+                       refresh.php, calendar.php, network_logos.php, assets.php,
+                       header.php (+ site_footer.php), footer.php
+scripts/               Command-line only: deploy.php (deploy.bat runs it), migrate.php,
+                       refresh_worker.php (the cron worker: works off "Refresh all
+                       shows" requests and re-imports shows that are due),
+                       admin.php (who is an admin), import_popular.php,
+                       import_watchlist.php, backfill_images.php,
+                       backfill_airstamps.php, backfill_names_tr.php. All but
+                       deploy.php work on the database of the checkout they run
+                       in: here, or on the server over SSH
+migrations/            The MySQL schema as numbered migrations: 0001_baseline.sql
+                       (users, shows, episodes, movies, user_shows, watched_episodes,
+                       user_movies, remember_tokens, refresh_requests), then one
+                       file per change — applied by scripts/migrate.php
+router.php             The pretty URLs for PHP's built-in server (local development)
+config.sample.php      Copy to config.php, here beside public/: DB credentials,
+                       TMDB_API_KEY, TVDB_API_KEY (optional), SESSION_DIR (on a server)
 ```
 
 ## Local development
@@ -139,7 +149,8 @@ Requires XAMPP (installed at `C:\xampp`, PHP 8.2 + MariaDB). One-time setup:
 3. Create the tables: `C:\xampp\php\php.exe scripts\migrate.php`
 
 Then run `start-dev.bat` — it starts MySQL if needed and serves the site at
-http://localhost:8000.
+http://localhost:8000: PHP's built-in server with `public/` as its web root
+(`php -S localhost:8000 -t public router.php`, run in the checkout's root).
 
 ## Admins
 
@@ -157,7 +168,7 @@ account's next request, without a new login. On the live site the same script ru
 over SSH:
 
 ```
-ssh hostuno "php domains/tvtakip.akifuygun.com/public_html/scripts/admin.php"
+ssh hostuno "php domains/tvtakip.akifuygun.com/app/scripts/admin.php"
 ```
 
 ## Schema changes
@@ -188,7 +199,8 @@ code — and never edit one that has been applied:
 
 ## Deployment
 
-The live site is a git checkout of `main` on the server. Commit, push, then run
+The live site is a git checkout of `main` on the server, of which the web server is
+given only `public/` (see "What the web server serves"). Commit, push, then run
 
 ```
 deploy.bat             (.\deploy in PowerShell; = C:\xampp\php\php.exe scripts\deploy.php)
@@ -204,12 +216,13 @@ with `DEPLOY FAILED` and exit code 1 at the first thing that is wrong:
    old code still serves, after a dump of the database to
    `~/dbdumps/tvtakip-<date>-before-<commit>.sql.gz`. Only then the code is switched;
    if a migration fails, the old code stays live.
-3. **From here** — about twenty requests to the live site as a guest: the public
+3. **From here** — about thirty requests to the live site as a guest: the public
    pages answer 200 and carry the asset version of the commit's CSS/JS (live works
    it out from its own files, so that also says those are the commit's), the
    login-gated ones turn a guest away, the assets and the service worker are
-   served, and `.git/`, `scripts/` and `migrations/` are refused. Every answer but
-   those refusals must carry the response headers the commit's `.htaccess` sets
+   served, a directory doesn't list its files (403), and nothing beside `public/`
+   has a URL (`.git/`, `includes/`, `scripts/`, `migrations/`: 404). Every answer
+   but a 403 must carry the response headers the commit's `public/.htaccess` sets
    (see "HTTPS and response headers").
 
 `deploy.bat --check` runs only step 3, against whatever commit live is on. Deploying
@@ -223,7 +236,7 @@ The deploy names the commit live ran before (`Deploying to live, which runs …`
 
 1. Put that commit back — it takes a second, and files git doesn't track there
    (`config.php`) are left alone:
-   `ssh hostuno "git -C domains/tvtakip.akifuygun.com/public_html reset --hard <commit>"`
+   `ssh hostuno "git -C domains/tvtakip.akifuygun.com/app reset --hard <commit>"`
 2. `deploy.bat --check` confirms the site is healthy on it.
 3. `main` still holds the bad commit, and the next deploy would put it back:
    `git revert` it (or fix it), push, deploy.
@@ -235,6 +248,47 @@ itself is the problem, undo it with a new migration, or restore the dump the dep
 took just before migrating (next section) — that loses everything written since.
 The dump carries `schema_migrations`, so the next deploy applies the migration again.
 
+Not this way to a commit from before `public/` existed (2026-11-19): the web root
+would lose its pages and the whole site answer 404.
+
+### What the web server serves
+
+The host serves `~/domains/<domain>/public_html` for a domain. For this site that
+is a link into the checkout, which sits beside it:
+
+```
+~/domains/tvtakip.akifuygun.com/
+    app/               the git checkout — config.php, includes/, scripts/, .git, …
+    app/public/        the pages, api/ and assets/
+    public_html  ->  app/public
+    sessions/          session files (below)
+    logs/              the host's access and error logs
+```
+
+So a request can only ever reach a file of `public/`; that `config.php` or `.git`
+stay private no longer depends on a deny rule being read. Three things on the
+server belong to this arrangement:
+
+- **`open_basedir`.** The host lets PHP open files only below the directories on a
+  per-domain list, which names `public_html` — but through the link the files are
+  elsewhere, and the includes are outside it anyway. So the checkout is on the list,
+  next to the session directory (`devil www list -v` shows it; `devil` puts its own
+  defaults — `public_html`, `/tmp`, … — in front of what it is given, and PHP picks
+  a change up a minute or two later):
+  `ssh hostuno "devil www options tvtakip.akifuygun.com php_openbasedir /usr/home/akifuygun/domains/tvtakip.akifuygun.com/app:/usr/home/akifuygun/domains/tvtakip.akifuygun.com/sessions"`
+  The option replaces the whole list each time: leave a directory out and every
+  page answers 500.
+- **Files that exist only there**, which git ignores: `app/config.php` (mode 600),
+  `app/includes/watch_base.php`, and Google's site-verification file
+  `app/public/google….html`.
+- **Cron** runs the refresh worker by its path in the checkout
+  (`php …/app/scripts/refresh_worker.php`, `crontab -l`).
+
+On a new server: clone the repository to `app`, replace the `public_html` the host
+created with the link (`ln -s app/public public_html`, in the domain's directory),
+write `app/config.php`, set the option above, run `php app/scripts/migrate.php`, and
+add the cron line.
+
 ### Session files
 
 PHP keeps sessions as files named after the session id. Its default place for them
@@ -244,11 +298,9 @@ else (mode 700):
 
 - `SESSION_DIR` in live's `config.php` names it:
   `/usr/home/akifuygun/domains/tvtakip.akifuygun.com/sessions`.
-- The host limits PHP to the web root (`open_basedir`), so the directory is added to
-  that list — a per-domain option, shown by `devil www list -v`:
-  `ssh hostuno "devil www options tvtakip.akifuygun.com php_openbasedir /usr/home/akifuygun/domains/tvtakip.akifuygun.com/sessions"`
-  (`devil` puts its own defaults — the web root, `/tmp`, … — in front of what it is
-  given; PHP picks the change up a minute or two later).
+- PHP may only open what is on the domain's `open_basedir` list, so the directory
+  is on it, together with the checkout — the command is under "What the web server
+  serves" above.
 
 When the directory can't be used, every page answers 500 with the reason in the
 error log; the site never falls back to `/tmp`. Deleting the files in it logs
@@ -263,7 +315,7 @@ requests and the cron worker. Deleting it costs one new login at the next import
 
 The site is HTTPS-only. The host's front-end server answers every plain-HTTP
 request with a redirect (the domain's "Force SSL" option, `devil www list -v`), and
-`.htaccess` has the same redirect for a server without that option. Whether a
+`public/.htaccess` has the same redirect for a server without that option. Whether a
 request came over HTTPS is the server's own word (`HTTPS=on`) and nothing else: an
 `X-Forwarded-Proto` header is not believed, because any client can send one. So
 behind a proxy that ends TLS and hands the request on as plain HTTP, the server
@@ -327,7 +379,7 @@ database goes back to the moment of the dump, and everything written since is lo
 2. Dump the database as it is now (above), so that the restore itself can be undone.
 3. Load the dump:
    ```
-   ssh hostuno "lockf -k -t 600 domains/tvtakip.akifuygun.com/public_html/scripts/refresh_worker.lock sh -c 'gunzip -c dbdumps/tvtakip-YYYYMMDD.sql.gz | mysql <database>'"
+   ssh hostuno "lockf -k -t 600 domains/tvtakip.akifuygun.com/app/scripts/refresh_worker.lock sh -c 'gunzip -c dbdumps/tvtakip-YYYYMMDD.sql.gz | mysql <database>'"
    ```
    `lockf` holds the refresh worker's lock while the dump loads, so the worker
    doesn't import into half-restored tables: it waits up to ten minutes for a run
@@ -337,7 +389,7 @@ database goes back to the moment of the dump, and everything written since is lo
 4. A dump from before a migration also brings back the older schema. Apply what the
    live code needs, then check the site:
    ```
-   ssh hostuno "php domains/tvtakip.akifuygun.com/public_html/scripts/migrate.php"
+   ssh hostuno "php domains/tvtakip.akifuygun.com/app/scripts/migrate.php"
    deploy.bat --check
    ```
 

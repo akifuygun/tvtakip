@@ -1,5 +1,6 @@
 <?php
-// Copy this file to config.php and fill in your credentials.
+// Copy this file to config.php, here beside public/ (the web root — never into
+// it), and fill in your credentials.
 // Production (hostUNO) values: `devil mysql db list` or the DevilWEB panel.
 
 define('DB_HOST', 'localhost');        // e.g. mysql2.hostuno.com

@@ -5,7 +5,7 @@
 // Unlike series.php there is nothing to hydrate client-side (no episodes), so
 // the page is fully server-rendered for everyone; logged-in users just get an
 // actions row (#movie-actions) whose buttons app.js wires.
-require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 // The pretty-URL path id always wins over ?id= (same reasoning as series.php).
 $movieId = is_string($_GET['id'] ?? null) ? $_GET['id'] : '';
@@ -29,7 +29,7 @@ if (!$movie) {
     // Import on first visit (two TMDB calls) for anyone — search results and
     // even hand-typed /movie/ttNNN links resolve if TMDB knows the id; each
     // visit enriches the shared cache. Unknown ids fall through to the 404.
-    require_once __DIR__ . '/includes/importer.php';
+    require_once __DIR__ . '/../includes/importer.php';
     try {
         $storedAs = import_movie(db(), $movieId);
         if ($storedAs !== $movieId) {
@@ -48,14 +48,14 @@ if (!$movie) {
     http_response_code(404);
     $pageTitle = t('movie_not_found');
     $noindex = true;
-    require __DIR__ . '/includes/header.php';
+    require __DIR__ . '/../includes/header.php';
     ?>
     <div class="hero">
         <h1><?= t('movie_not_found') ?></h1>
         <p><a class="button" href="/browse"><?= t('browse_all_shows') ?></a></p>
     </div>
     <?php
-    require __DIR__ . '/includes/footer.php';
+    require __DIR__ . '/../includes/footer.php';
     exit;
 }
 $movie['overview'] = localized_overview($movie);
@@ -113,7 +113,7 @@ if (is_logged_in()) {
     }
 }
 
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 <article class="show-header">
     <?php if ($movie['image_url']): ?>
@@ -162,4 +162,4 @@ require __DIR__ . '/includes/header.php';
         <?php endif; ?>
     </div>
 </article>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

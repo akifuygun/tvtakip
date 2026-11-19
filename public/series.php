@@ -2,8 +2,8 @@
 // PUBLIC, server-rendered show page (no login) — the site's indexable content.
 // Pretty URL /series/ttNNNNNNN rewrites here (.htaccess / router.php); a show
 // IMDB doesn't list has its provisional id there (valid_show_id()).
-require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/network_logos.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/network_logos.php';
 
 // The pretty-URL path id always wins: Apache's QSA rewrite appends any
 // visitor-supplied ?id= after the path's id (PHP would keep the last one),
@@ -28,7 +28,7 @@ $show = $stmt->fetch();
 if (!$show && !valid_imdb_id($showId)) {
     // A provisional id that isn't cached is either a show new here, or an old
     // link to one that moved to its IMDB id since: that link moves along.
-    require_once __DIR__ . '/includes/importer.php';
+    require_once __DIR__ . '/../includes/importer.php';
     if ($imdbId = promoted_show_id($showId)) {
         header('Location: ' . series_url($imdbId), true, 301);
         exit;
@@ -43,13 +43,13 @@ if (!$show) {
     if (is_logged_in()) {
         $pageTitle = $showId;
         $noindex = true;
-        require __DIR__ . '/includes/header.php';
+        require __DIR__ . '/../includes/header.php';
         ?>
         <div id="show-detail" data-show-id="<?= htmlspecialchars($showId) ?>" data-tracked="0">
             <p class="loading"><?= t('loading_show') ?></p>
         </div>
         <?php
-        require __DIR__ . '/includes/footer.php';
+        require __DIR__ . '/../includes/footer.php';
         exit;
     }
     // Guests enrich the cache too: import inline on first visit (no authed API
@@ -59,7 +59,7 @@ if (!$show) {
     // adds within about a minute (WEB_ID_LOOKUPS).
     if (db()->query("SELECT GET_LOCK('tvtrack_guest_import', 0)")->fetchColumn()) {
         try {
-            require_once __DIR__ . '/includes/importer.php';
+            require_once __DIR__ . '/../includes/importer.php';
             import_show(db(), $showId);
             $stmt->execute([$showId]);
             $show = $stmt->fetch();
@@ -76,14 +76,14 @@ if (!$show) {
         http_response_code(404);
         $pageTitle = t('series_not_found');
         $noindex = true;
-        require __DIR__ . '/includes/header.php';
+        require __DIR__ . '/../includes/header.php';
         ?>
         <div class="hero">
             <h1><?= t('series_not_found') ?></h1>
             <p><a class="button" href="/browse"><?= t('browse_all_shows') ?></a></p>
         </div>
         <?php
-        require __DIR__ . '/includes/footer.php';
+        require __DIR__ . '/../includes/footer.php';
         exit;
     }
 }
@@ -170,7 +170,7 @@ if (is_logged_in()) {
     $isTracked = (bool) $t->fetch();
 }
 
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 <?php if (is_logged_in()): ?>
     <!-- Interactive app view — app.js fills this. The static markup below is
@@ -246,4 +246,4 @@ require __DIR__ . '/includes/header.php';
 <?php if (is_logged_in()): ?>
     </noscript>
 <?php endif; ?>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

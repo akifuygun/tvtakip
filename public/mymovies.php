@@ -4,7 +4,7 @@
 // ("To watch" / "Watched") whose counts update live. app.js (initMovies)
 // wires search, tab switching, and the card buttons via event delegation,
 // and builds cards client-side so adds appear without a reload.
-require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/auth.php';
 require_login();
 
 $stmt = db()->prepare(
@@ -48,7 +48,7 @@ function movie_card_html(array $m): string
 
 $pageTitle = t('mymovies_title');
 $noindex = true;
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 <h1><?= t('mymovies_title') ?></h1>
 
@@ -89,4 +89,4 @@ require __DIR__ . '/includes/header.php';
     </div>
 </div>
 <script>window.MY_MOVIE_IDS = <?= json_encode(array_column($movies, 'imdb_id')) ?>;</script>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>
