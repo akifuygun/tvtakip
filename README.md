@@ -106,8 +106,8 @@ includes/          db.php, auth.php, errors.php, i18n.php, http.php, importer.ph
 assets/            css/style.css, js/app.js, icons/ (PWA + logo)
 manifest.php, sw.js   Localized PWA manifest + service worker (static-asset cache)
 sitemap.php        Dynamic sitemap (shows + movies, en + tr)
-scripts/           CLI utilities: migrate.php, import_popular.php,
-                   import_watchlist.php, backfill_images.php,
+scripts/           CLI utilities: deploy.php (deploy.bat runs it), migrate.php,
+                   import_popular.php, import_watchlist.php, backfill_images.php,
                    backfill_airstamps.php, make_sync.php, make_restore.php
 migrations/        The MySQL schema as numbered migrations: 0001_baseline.sql
                    (users, shows, episodes, movies, user_shows, watched_episodes,
@@ -155,6 +155,60 @@ code — and never edit one that has been applied:
   auto-named and differ from database to database, so a migration that drops one
   has to look its name up in `information_schema` first.
 - No "down" migrations: undo with a new migration, or restore a dump.
+- **Live gets a migration before the code that came with it** (see Deployment), so
+  it has to leave the code that is live at that moment working: add first; drop or
+  rename in a later deploy, once nothing deployed uses the old shape. For the same
+  reason a `.php` migration uses the connection and `config.php`, not code that
+  arrives in the same commit.
+
+## Deployment
+
+The live site is a git checkout of `main` on the server. Commit, push, then run
+
+```
+deploy.bat             (.\deploy in PowerShell; = C:\xampp\php\php.exe scripts\deploy.php)
+```
+
+It reaches the server as `ssh hostuno` (a `Host` alias in `~/.ssh/config`) and stops
+with `DEPLOY FAILED` and exit code 1 at the first thing that is wrong:
+
+1. **Here** — the checkout must be on `main` with nothing uncommitted (an untracked
+   file counts: it would be missing on live) and nothing unpushed. If CSS/JS changed
+   since the commit live runs, `ASSET_VERSION` and the `CACHE` name in `sw.js` must
+   have changed too.
+2. **On the server** — the live checkout must have no changes of its own and be able
+   to fast-forward to exactly this commit. Pending migrations run first, while the
+   old code still serves, after a dump of the database to
+   `~/dbdumps/tvtakip-<date>-before-<commit>.sql.gz`. Only then the code is switched;
+   if a migration fails, the old code stays live.
+3. **From here** — about twenty requests to the live site as a guest: the public
+   pages answer 200 and carry the commit's asset version, the login-gated ones turn
+   a guest away, the assets and the service worker are served, and `.git/`,
+   `scripts/` and `migrations/` are refused.
+
+`deploy.bat --check` runs only step 3, against whatever commit live is on. Deploying
+again when live is current changes nothing and repeats the checks. Pages behind the
+login are not requested — look at those yourself after a deploy that touches them.
+
+### Rolling back
+
+The deploy names the commit live ran before (`Deploying to live, which runs …`);
+`git reflog` in the live checkout lists the earlier ones.
+
+1. Put that commit back — it takes a second, and files git doesn't track there
+   (`config.php`) are left alone:
+   `ssh hostuno "git -C domains/tvtakip.akifuygun.com/public_html reset --hard <commit>"`
+2. `deploy.bat --check` confirms the site is healthy on it.
+3. `main` still holds the bad commit, and the next deploy would put it back:
+   `git revert` it (or fix it), push, deploy.
+
+Migrations are not undone by this. They don't need to be: a migration has to leave
+older code working, so the commit before runs on the newer schema (`migrate.php`
+then mentions a migration it has no file for — harmless). When the schema change
+itself is the problem, undo it with a new migration, or restore the dump the deploy
+took just before migrating — that loses everything written since:
+`ssh hostuno 'gunzip -c ~/dbdumps/<dump> | mysql <database>'`. The dump carries
+`schema_migrations`, so the next deploy applies the migration again.
 
 ## Data sources
 

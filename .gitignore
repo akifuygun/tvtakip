@@ -6,5 +6,6 @@ scripts/refresh_worker.lock
 .claude/
 CLAUDE.md
 google*.html
+/*.sql*
 Thumbs.db
 .DS_Store
