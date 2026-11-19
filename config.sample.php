@@ -14,10 +14,8 @@ define('TMDB_API_KEY', '');
 // Fills air times TVmaze lacks (streaming drops). Leave empty to skip TheTVDB.
 define('TVDB_API_KEY', '');
 
-// Comma-separated emails that get admin controls (e.g. removing posters).
-define('ADMIN_EMAILS', '');
-
-// Optional, admins only: per-episode "Watch" badges, one per site, in this
+// Optional, admins only (an admin is an account given the role with
+// `php scripts/admin.php add <email>`): per-episode "Watch" badges, one per site, in this
 // order; the key is the badge label. Empty array = no badges.
 //   url    — episode link template: {slug} = show slug, {season} / {episode} = numbers
 //   finale — optional: the same for Turkish productions' season/series finales

@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = db()->prepare('INSERT INTO users (email, display_name, password_hash) VALUES (?, ?, ?)');
             $stmt->execute([$email, $displayName, password_hash($password, PASSWORD_DEFAULT)]);
             $userId = (int) db()->lastInsertId();
-            login_user($userId, $displayName, $email);
+            login_user($userId, $displayName);
             remember_user($userId);
             header('Location: index.php');
             exit;

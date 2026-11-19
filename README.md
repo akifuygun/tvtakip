@@ -64,9 +64,9 @@ watched, and keep a movie watchlist.
 - **Accounts:** email login, display name shown in the header, self-service
   change-password. 30-day sessions plus a 60-day "remember me" token so a shared
   host's short session GC doesn't force frequent logins.
-- **Admin** (emails listed in `ADMIN_EMAILS`): can set/remove a show's poster
-  (shared cache) — the "no image" placeholder is admin-only. Everyone else is
-  refused server-side.
+- **Admin** (an account with the `admin` role — see "Admins" below): can
+  set/remove a show's poster and set its primary network (shared cache) — the
+  "no image" placeholder is admin-only. Everyone else is refused server-side.
 - **i18n:** all strings live in one dictionary (`includes/i18n.php`), also handed
   to the frontend as `window.I18N`; language kept in a `lang` cookie, and public
   pages are crawlable per language under a `/tr/` prefix.
@@ -110,7 +110,7 @@ manifest.php, sw.js   Localized PWA manifest + service worker (static-asset cach
                    named after that same version)
 sitemap.php        Dynamic sitemap (shows + movies, en + tr)
 scripts/           CLI utilities: deploy.php (deploy.bat runs it), migrate.php,
-                   import_popular.php, import_watchlist.php, backfill_images.php,
+                   admin.php (who is an admin), import_popular.php, import_watchlist.php, backfill_images.php,
                    backfill_airstamps.php, backfill_names_tr.php. The import and
                    backfill ones work on the database of the checkout they run
                    in: here, or on the server over SSH
@@ -119,7 +119,7 @@ migrations/        The MySQL schema as numbered migrations: 0001_baseline.sql
                    user_movies, remember_tokens, refresh_requests), then one
                    file per change — applied by scripts/migrate.php
 config.sample.php  Copy to config.php: DB credentials, TMDB_API_KEY, TVDB_API_KEY
-                   (optional), ADMIN_EMAILS
+                   (optional)
 ```
 
 ## Local development
@@ -129,9 +129,8 @@ Requires XAMPP (installed at `C:\xampp`, PHP 8.2 + MariaDB). One-time setup:
 1. Create the database:
    `C:\xampp\mysql\bin\mysql.exe -u root -e "CREATE DATABASE tvtakip CHARACTER SET utf8mb4"`
 2. `copy config.sample.php config.php` (defaults already match XAMPP: root, no password),
-   set `TMDB_API_KEY` (free key from https://www.themoviedb.org/settings/api), and add
-   your email to `ADMIN_EMAILS` if you want admin controls. Optionally set
-   `TVDB_API_KEY` (https://thetvdb.com/dashboard/account/apikey — free under $50k/yr
+   and set `TMDB_API_KEY` (free key from https://www.themoviedb.org/settings/api).
+   Optionally set `TVDB_API_KEY` (https://thetvdb.com/dashboard/account/apikey — free under $50k/yr
    revenue, attribution required and shown in the footer) for streaming air times,
    early announced episodes, series-finale badges and extra Turkish descriptions;
    without it the site works on TMDB + TVmaze alone.
@@ -139,6 +138,25 @@ Requires XAMPP (installed at `C:\xampp`, PHP 8.2 + MariaDB). One-time setup:
 
 Then run `start-dev.bat` — it starts MySQL if needed and serves the site at
 http://localhost:8000.
+
+## Admins
+
+Who is an admin is stored with the account (`users.role`) and changed only from the
+command line — there is no page for it, and nothing in `config.php`:
+
+```
+C:\xampp\php\php.exe scripts\admin.php                   list the admins
+C:\xampp\php\php.exe scripts\admin.php add <email>       make that account an admin
+C:\xampp\php\php.exe scripts\admin.php remove <email>    back to a regular user
+```
+
+The account has to exist first (register on the site). A change applies at that
+account's next request, without a new login. On the live site the same script runs
+over SSH:
+
+```
+ssh hostuno "php domains/tvtakip.akifuygun.com/public_html/scripts/admin.php"
+```
 
 ## Schema changes
 

@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $stmt->fetch();
 
         if ($user && password_verify($password, $user['password_hash'])) {
-            login_user((int) $user['id'], $user['display_name'], $email);
+            login_user((int) $user['id'], $user['display_name']);
             if (!empty($_POST['remember'])) {
                 remember_user((int) $user['id']);
             }

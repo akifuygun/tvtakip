@@ -92,12 +92,11 @@ function is_logged_in(): bool
 }
 
 /** Establish a logged-in session for a user. */
-function login_user(int $userId, string $displayName, string $email): void
+function login_user(int $userId, string $displayName): void
 {
     session_regenerate_id(true);
     $_SESSION['user_id'] = $userId;
     $_SESSION['display_name'] = $displayName;
-    $_SESSION['email'] = $email;
     $_SESSION['session_version'] = user_session_version($userId);
 }
 
@@ -215,7 +214,7 @@ function attempt_remember_login(): void
 
     try {
         $stmt = db()->prepare(
-            'SELECT rt.id, rt.user_id, rt.validator_hash, rt.expires_at, u.display_name, u.email
+            'SELECT rt.id, rt.user_id, rt.validator_hash, rt.expires_at, u.display_name
              FROM remember_tokens rt JOIN users u ON u.id = rt.user_id WHERE rt.selector = ?'
         );
         $stmt->execute([$selector]);
@@ -234,7 +233,7 @@ function attempt_remember_login(): void
             return;
         }
 
-        login_user((int) $row['user_id'], $row['display_name'], $row['email']);
+        login_user((int) $row['user_id'], $row['display_name']);
 
         // Rotate the validator so a stolen cookie is single-use.
         $newValidator = bin2hex(random_bytes(32));
@@ -253,15 +252,22 @@ function attempt_remember_login(): void
     }
 }
 
-/** True if the logged-in user's email is listed in ADMIN_EMAILS. */
+/** True if the logged-in user has the admin role (users.role, changed only by
+ *  scripts/admin.php). Read from the database by user id, once per request:
+ *  the session carries nothing about it, so a change applies at once. */
 function is_admin(): bool
 {
-    $email = strtolower(trim($_SESSION['email'] ?? ''));
-    if ($email === '' || !defined('ADMIN_EMAILS') || ADMIN_EMAILS === '') {
+    static $roles = [];
+    $userId = current_user_id();
+    if ($userId === null) {
         return false;
     }
-    $admins = array_map('trim', explode(',', strtolower(ADMIN_EMAILS)));
-    return in_array($email, $admins, true);
+    if (!isset($roles[$userId])) {
+        $stmt = db()->prepare('SELECT role FROM users WHERE id = ?');
+        $stmt->execute([$userId]);
+        $roles[$userId] = (string) $stmt->fetchColumn();
+    }
+    return $roles[$userId] === 'admin';
 }
 
 /** Redirect to login for pages that require a session. */
