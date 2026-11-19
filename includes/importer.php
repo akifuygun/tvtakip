@@ -385,12 +385,16 @@ function early_release(?string $early, ?string $date): bool
 
 /**
  * TheTVDB bearer token (valid a month), kept in memory per request and in a
- * temp file across requests. $fresh forces a new login (stale token).
+ * file across requests, shared by the web requests and the cron worker. The
+ * file is for the site's account alone: in config SESSION_DIR, the site's
+ * private directory — or, where none is set (a development machine), in the
+ * system's temp directory. $fresh forces a new login (stale token).
  */
 function tvdb_token(bool $fresh = false): ?string
 {
     static $token = null;
-    $file = sys_get_temp_dir() . '/tvtrack_tvdb_' . md5(TVDB_API_KEY);
+    $dir = defined('SESSION_DIR') && SESSION_DIR !== '' ? SESSION_DIR : sys_get_temp_dir();
+    $file = $dir . '/tvtrack_tvdb_' . md5(TVDB_API_KEY);
     if (!$fresh) {
         if ($token === null && @filemtime($file) > time() - 25 * 86400) {
             $token = @file_get_contents($file) ?: null;
@@ -401,7 +405,10 @@ function tvdb_token(bool $fresh = false): ?string
     }
     $token = http_post_json(TVDB_BASE . '/login', ['apikey' => TVDB_API_KEY])['data']['token'] ?? null;
     if ($token !== null) {
+        // Created closed to every other account, whatever the directory.
+        $umask = umask(0077);
         @file_put_contents($file, $token);
+        umask($umask);
     }
     return $token;
 }

@@ -14,9 +14,10 @@ define('TMDB_API_KEY', '');
 // Fills air times TVmaze lacks (streaming drops). Leave empty to skip TheTVDB.
 define('TVDB_API_KEY', '');
 
-// Directory for the session files: outside the web root, readable by the
-// site's own account only (created with mode 700 when missing; PHP's
-// open_basedir must include it). '' = PHP's own session.save_path — fine on a
+// The site's private directory, for the session files and the cached TheTVDB
+// login token: outside the web root, readable by the site's own account only
+// (created with mode 700 when missing; PHP's open_basedir must include it).
+// '' = PHP's own session.save_path and the system's temp directory — fine on a
 // development machine, not on a shared server, where that is a temp directory
 // every account can list, session ids included.
 define('SESSION_DIR', '');             // e.g. /usr/home/<login>/domains/<domain>/sessions

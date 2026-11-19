@@ -253,6 +253,10 @@ error log; the site never falls back to `/tmp`. Deleting the files in it logs
 nobody out who ticked "remember me". Locally `SESSION_DIR` stays empty: XAMPP's own
 session directory is on a machine with one user.
 
+The same directory holds the one other file the site used to keep in `/tmp`:
+`tvtrack_tvdb_…`, the login token TheTVDB issues for a month, shared by the web
+requests and the cron worker. Deleting it costs one new login at the next import.
+
 ## Backups and restoring
 
 The live database is backed up on the server, as whole-database dumps in `~/dbdumps`:
