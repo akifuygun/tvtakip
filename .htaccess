@@ -1,10 +1,23 @@
-# Force HTTPS. Redirect only when neither the server (HTTPS) nor a
-# TLS-terminating proxy (X-Forwarded-Proto) reports a secure request — checking
-# just one loops forever on hosts that set only the other.
+# Plain HTTP goes to HTTPS. Only the server's own word counts: a client can
+# send any X-Forwarded-Proto it likes. hostUNO's front-end server redirects
+# before this file is read ("Force SSL"), so the rule acts where that is off.
 RewriteEngine On
 RewriteCond %{HTTPS} off
-RewriteCond %{HTTP:X-Forwarded-Proto} !https
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Sent with every response except the refusals below, which are the server's
+# own error page. Plain "Header set": hostUNO's nginx reads this file itself
+# and skips "Header always set" without a word.
+# HTTPS only, for a year, and for this host name alone — no includeSubDomains,
+# no preload: the other akifuygun.com sites are not this file's to bind.
+Header set Strict-Transport-Security "max-age=31536000"
+Header set X-Content-Type-Options "nosniff"
+# The browsers' default, spelled out: another site learns the origin, never the
+# page. Not stricter — YouTube's player refuses a request without a referrer.
+Header set Referrer-Policy "strict-origin-when-cross-origin"
+# No page may show this site in a frame.
+Header set X-Frame-Options "DENY"
+Header set Content-Security-Policy "frame-ancestors 'none'"
 
 # The docroot is a git checkout: keep repo internals and dev-only files out of
 # reach (the CLI scripts also refuse non-CLI SAPIs on their own).

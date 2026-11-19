@@ -40,12 +40,12 @@ const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
 // the old cookie, and only the first of them finds it current.
 const REMEMBER_GRACE = 60;
 
-/** True when the current request reached us over HTTPS (directly or via the
- *  a TLS-terminating proxy), so cookies can carry the Secure flag. */
+/** True when the server reports the request as HTTPS, so cookies can carry the
+ *  Secure flag. An X-Forwarded-Proto header is not believed: any client can
+ *  send one. */
 function request_is_https(): bool
 {
-    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    return !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
 }
 
 /** User's colour theme from the `theme` cookie ('light' or 'dark'), defaulting

@@ -17,7 +17,8 @@
 //      the commit's CSS/JS (live works it out from its own files, so that also
 //      says those are the commit's), the login-gated ones turn a guest away,
 //      the assets and the service worker are served, the repository's
-//      internals are refused.
+//      internals are refused. Every answer but those refusals carries the
+//      response headers the commit's .htaccess sets (HSTS and the like).
 //
 // Deploying again when live is current changes nothing and repeats the checks.
 //
@@ -150,20 +151,42 @@ function committed_file(string $commit, string $path): string
     return $contents;
 }
 
-/** GET a path of the live site, redirects not followed: [status, body] — status 0 with the reason when there was no answer. */
+/**
+ * GET a path of the live site, redirects not followed: [status, body, response
+ * headers by lower-case name] — status 0 with the reason when there was no answer.
+ */
 function fetch(string $path): array
 {
     static $ch = null;
     $ch ??= curl_init();
+    $headers = [];
     curl_setopt_array($ch, [
         CURLOPT_URL => LIVE_URL . $path,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 30,
         CURLOPT_ENCODING => '',
         CURLOPT_USERAGENT => 'tvtrack-deploy-check',
+        CURLOPT_HEADERFUNCTION => function ($ch, string $line) use (&$headers): int {
+            if (str_contains($line, ':')) {
+                [$name, $value] = explode(':', $line, 2);
+                $headers[strtolower(trim($name))] = trim($value);
+            }
+            return strlen($line);
+        },
     ]);
     $body = curl_exec($ch);
-    return $body === false ? [0, curl_error($ch)] : [curl_getinfo($ch, CURLINFO_RESPONSE_CODE), $body];
+    return $body === false ? [0, curl_error($ch), []] : [curl_getinfo($ch, CURLINFO_RESPONSE_CODE), $body, $headers];
+}
+
+/**
+ * The response headers a commit's .htaccess sets, name => value. Live is asked
+ * for each of them: its server reads .htaccess with a parser of its own, and
+ * a line that parser doesn't know is skipped without an error.
+ */
+function htaccess_headers(string $commit): array
+{
+    preg_match_all('/^[ \t]*Header set (\S+) "([^"]*)"[ \t]*\r?$/m', committed_file($commit, '.htaccess'), $lines, PREG_SET_ORDER);
+    return array_column($lines, 2, 1);
 }
 
 /**
@@ -176,15 +199,18 @@ function check_live(string $commit): array
     $version = assets_hash(fn (string $path): string => committed_file($commit, $path));
     $css = "/assets/css/style.css?v=$version";
     $js = "/assets/js/app.js?v=$version";
+    $headers = htaccess_headers($commit);
     $checks = $failed = 0;
     $report = function (string $path, int|string $status, array $problems) use (&$checks, &$failed): void {
         printf("  %-4s  %3s  %s%s\n", $problems ? 'FAIL' : 'ok', $status, $path, $problems ? ' — ' . implode(', ', $problems) : '');
         $checks++;
         $failed += $problems ? 1 : 0;
     };
-    // One path: the status, and the texts its body must contain. Returns the body.
-    $check = function (string $path, int $expect = 200, string ...$needles) use ($report): string {
-        [$status, $body] = fetch($path);
+    // One path: the status, the texts its body must contain, and .htaccess's
+    // response headers — not on a refusal, which is the server's own error
+    // page. Returns the body.
+    $check = function (string $path, int $expect = 200, string ...$needles) use ($report, $headers): string {
+        [$status, $body, $sent] = fetch($path);
         if ($status === 0) {
             $report($path, '---', [$body]);
             return '';
@@ -195,11 +221,20 @@ function check_live(string $commit): array
                 $problems[] = "no $needle in it";
             }
         }
+        $missing = [];
+        foreach ($expect === 403 ? [] : $headers as $name => $value) {
+            if (($sent[strtolower($name)] ?? null) !== $value) {
+                $missing[] = $name;
+            }
+        }
+        if ($missing) {
+            $problems[] = 'not sent as .htaccess sets it: ' . implode(', ', $missing);
+        }
         $report($path, $status, $problems);
         return $body;
     };
 
-    echo 'Checking ' . LIVE_URL . " (asset version $version)\n";
+    echo 'Checking ' . LIVE_URL . " (asset version $version, " . count($headers) . " response headers from .htaccess)\n";
     // A page's last tag is the script: finding it also says the page was rendered to its end.
     foreach (['/', '/tr/', '/upcoming', '/search.php', '/login.php'] as $path) {
         $check($path, 200, $css, $js);

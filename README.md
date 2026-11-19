@@ -208,7 +208,9 @@ with `DEPLOY FAILED` and exit code 1 at the first thing that is wrong:
    pages answer 200 and carry the asset version of the commit's CSS/JS (live works
    it out from its own files, so that also says those are the commit's), the
    login-gated ones turn a guest away, the assets and the service worker are
-   served, and `.git/`, `scripts/` and `migrations/` are refused.
+   served, and `.git/`, `scripts/` and `migrations/` are refused. Every answer but
+   those refusals must carry the response headers the commit's `.htaccess` sets
+   (see "HTTPS and response headers").
 
 `deploy.bat --check` runs only step 3, against whatever commit live is on. Deploying
 again when live is current changes nothing and repeats the checks. Pages behind the
@@ -256,6 +258,37 @@ session directory is on a machine with one user.
 The same directory holds the one other file the site used to keep in `/tmp`:
 `tvtrack_tvdb_…`, the login token TheTVDB issues for a month, shared by the web
 requests and the cron worker. Deleting it costs one new login at the next import.
+
+### HTTPS and response headers
+
+The site is HTTPS-only. The host's front-end server answers every plain-HTTP
+request with a redirect (the domain's "Force SSL" option, `devil www list -v`), and
+`.htaccess` has the same redirect for a server without that option. Whether a
+request came over HTTPS is the server's own word (`HTTPS=on`) and nothing else: an
+`X-Forwarded-Proto` header is not believed, because any client can send one. So
+behind a proxy that ends TLS and hands the request on as plain HTTP, the server
+must be set up to report HTTPS itself — otherwise the redirect loops and the
+cookies lose their `Secure` flag.
+
+`.htaccess` also sends these with every response (pages, API answers, assets):
+
+| Header | Value | What it does |
+| --- | --- | --- |
+| `Strict-Transport-Security` | `max-age=31536000` | A browser that has visited once uses HTTPS only for the next year, and offers no way past a certificate error. |
+| `X-Content-Type-Options` | `nosniff` | A response is only ever treated as the type it declares. |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Another site is told the address of this site, never the page. |
+| `X-Frame-Options`, `Content-Security-Policy` | `DENY`, `frame-ancestors 'none'` | No page may show this site in a frame. |
+
+`Strict-Transport-Security` deliberately covers `tvtakip.akifuygun.com` alone. It
+has no `includeSubDomains` and no `preload`: preloading works only from
+`akifuygun.com` itself and would force HTTPS on every present and future name under
+it, for months after a change of mind. To take the rule back, send `max-age=0` for
+a while — a browser drops it at its next visit.
+
+The host is nginx reading `.htaccess` with a parser of its own, not Apache: a
+directive it doesn't know is skipped without an error (`Header always set` is one —
+hence plain `Header set`). Try a new directive on live before relying on it; for
+the headers, the deploy's checks do that on every run.
 
 ## Backups and restoring
 
