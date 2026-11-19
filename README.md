@@ -111,7 +111,9 @@ manifest.php, sw.js   Localized PWA manifest + service worker (static-asset cach
 sitemap.php        Dynamic sitemap (shows + movies, en + tr)
 scripts/           CLI utilities: deploy.php (deploy.bat runs it), migrate.php,
                    import_popular.php, import_watchlist.php, backfill_images.php,
-                   backfill_airstamps.php, make_sync.php, make_restore.php
+                   backfill_airstamps.php, backfill_names_tr.php. The import and
+                   backfill ones work on the database of the checkout they run
+                   in: here, or on the server over SSH
 migrations/        The MySQL schema as numbered migrations: 0001_baseline.sql
                    (users, shows, episodes, movies, user_shows, watched_episodes,
                    user_movies, remember_tokens, refresh_requests), then one
@@ -208,9 +210,74 @@ Migrations are not undone by this. They don't need to be: a migration has to lea
 older code working, so the commit before runs on the newer schema (`migrate.php`
 then mentions a migration it has no file for — harmless). When the schema change
 itself is the problem, undo it with a new migration, or restore the dump the deploy
-took just before migrating — that loses everything written since:
-`ssh hostuno 'gunzip -c ~/dbdumps/<dump> | mysql <database>'`. The dump carries
-`schema_migrations`, so the next deploy applies the migration again.
+took just before migrating (next section) — that loses everything written since.
+The dump carries `schema_migrations`, so the next deploy applies the migration again.
+
+## Backups and restoring
+
+The live database is backed up on the server, as whole-database dumps in `~/dbdumps`:
+
+- every night at 04:15, by cron: `tvtakip-YYYYMMDD.sql.gz`;
+- by a deploy, just before it applies a migration:
+  `tvtakip-<date>-before-<commit>.sql.gz`.
+
+The nightly job deletes every `tvtakip-*.sql.gz` there that is older than 14 days.
+The dumps are on the same server as the database, so copy one you need to keep
+somewhere else: `scp hostuno:dbdumps/tvtakip-YYYYMMDD.sql.gz .`
+
+In the commands below `<database>` is `DB_NAME` in live's `config.php`. They are
+written for cmd and PowerShell and work in both as typed.
+
+### A dump right now
+
+Before changing data on live by hand, and before a restore:
+
+```
+ssh hostuno "mysqldump --single-transaction --no-tablespaces <database> | gzip > dbdumps/tvtakip-YYYYMMDD-manual.sql.gz"
+```
+
+### Restoring live
+
+A dump holds every table, and loading it drops and recreates each one: the whole
+database goes back to the moment of the dump, and everything written since is lost.
+
+1. Choose the dump and check that it is complete — its last line must read
+   `-- Dump completed on …`:
+   ```
+   ssh hostuno "ls -lh dbdumps"
+   ssh hostuno "gunzip -c dbdumps/tvtakip-YYYYMMDD.sql.gz | tail -1"
+   ```
+2. Dump the database as it is now (above), so that the restore itself can be undone.
+3. Load the dump:
+   ```
+   ssh hostuno "lockf -k -t 600 domains/tvtakip.akifuygun.com/public_html/scripts/refresh_worker.lock sh -c 'gunzip -c dbdumps/tvtakip-YYYYMMDD.sql.gz | mysql <database>'"
+   ```
+   `lockf` holds the refresh worker's lock while the dump loads, so the worker
+   doesn't import into half-restored tables: it waits up to ten minutes for a run
+   in progress to end (`already locked` means it gave up — nothing was changed, run
+   it again), and the runs cron starts meanwhile exit at once. The site itself
+   stays up; a page that reads a table being reloaded answers an error.
+4. A dump from before a migration also brings back the older schema. Apply what the
+   live code needs, then check the site:
+   ```
+   ssh hostuno "php domains/tvtakip.akifuygun.com/public_html/scripts/migrate.php"
+   deploy.bat --check
+   ```
+
+When only some rows are lost, don't put live back for them: load the dump into a
+local database (below) and copy those rows over.
+
+### Live's data in the local database
+
+```
+cmd /c "ssh hostuno gunzip -c dbdumps/tvtakip-YYYYMMDD.sql.gz | C:\xampp\mysql\bin\mysql.exe -u root tvtakip"
+```
+
+This replaces the local `tvtakip` database with the dump, accounts included — log in
+with the live password afterwards. The `cmd /c "…"` is there for PowerShell, whose
+own pipe turns every non-ASCII character into `?` on the way from one program to the
+next. The dump is MySQL 8's and loads into the local MariaDB 10.4 because every
+table is `utf8mb4_general_ci`.
 
 ## Data sources
 
