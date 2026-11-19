@@ -101,10 +101,13 @@ scripts/refresh_worker.php  Cron worker: works off those requests and re-imports
                    shows that are due a refresh
 api/image.php      POST set/remove a show poster (admin only)
 includes/          db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
-                   refresh.php, network_logos.php, header.php (+ site_footer.php),
-                   footer.php
-assets/            css/style.css, js/app.js, icons/ (PWA + logo)
-manifest.php, sw.js   Localized PWA manifest + service worker (static-asset cache)
+                   refresh.php, network_logos.php, assets.php, header.php
+                   (+ site_footer.php), footer.php
+assets/            css/style.css, js/app.js, icons/ (PWA + logo). CSS/JS URLs carry
+                   ?v=<hash of the files' contents> (includes/assets.php), so an
+                   edit is a new URL by itself — there is no version to bump
+manifest.php, sw.js   Localized PWA manifest + service worker (static-asset cache,
+                   named after that same version)
 sitemap.php        Dynamic sitemap (shows + movies, en + tr)
 scripts/           CLI utilities: deploy.php (deploy.bat runs it), migrate.php,
                    import_popular.php, import_watchlist.php, backfill_images.php,
@@ -173,18 +176,17 @@ It reaches the server as `ssh hostuno` (a `Host` alias in `~/.ssh/config`) and s
 with `DEPLOY FAILED` and exit code 1 at the first thing that is wrong:
 
 1. **Here** — the checkout must be on `main` with nothing uncommitted (an untracked
-   file counts: it would be missing on live) and nothing unpushed. If CSS/JS changed
-   since the commit live runs, `ASSET_VERSION` and the `CACHE` name in `sw.js` must
-   have changed too.
+   file counts: it would be missing on live) and nothing unpushed.
 2. **On the server** — the live checkout must have no changes of its own and be able
    to fast-forward to exactly this commit. Pending migrations run first, while the
    old code still serves, after a dump of the database to
    `~/dbdumps/tvtakip-<date>-before-<commit>.sql.gz`. Only then the code is switched;
    if a migration fails, the old code stays live.
 3. **From here** — about twenty requests to the live site as a guest: the public
-   pages answer 200 and carry the commit's asset version, the login-gated ones turn
-   a guest away, the assets and the service worker are served, and `.git/`,
-   `scripts/` and `migrations/` are refused.
+   pages answer 200 and carry the asset version of the commit's CSS/JS (live works
+   it out from its own files, so that also says those are the commit's), the
+   login-gated ones turn a guest away, the assets and the service worker are
+   served, and `.git/`, `scripts/` and `migrations/` are refused.
 
 `deploy.bat --check` runs only step 3, against whatever commit live is on. Deploying
 again when live is current changes nothing and repeats the checks. Pages behind the

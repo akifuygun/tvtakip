@@ -1,7 +1,12 @@
 // Service worker: stale-while-revalidate for same-origin STATIC assets only.
 // HTML pages and /api/* pass straight through to the network so authenticated,
 // per-user content is never served stale or to the wrong session.
-const CACHE = 'tvtrack-v84';
+//
+// The cache is named after the asset version the page registered this worker
+// under (/sw.js?v=…, in app.js). A CSS/JS change gives the pages a new
+// version, so they register a new worker, and its activation drops the caches
+// of the versions before it.
+const CACHE = 'tvtrack-' + (new URL(location.href).searchParams.get('v') || 'unversioned');
 const STATIC = /\.(css|js|png|svg|webmanifest|woff2?|ico)$/;
 
 self.addEventListener('install', () => self.skipWaiting());

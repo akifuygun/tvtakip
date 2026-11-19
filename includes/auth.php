@@ -2,6 +2,7 @@
 require_once __DIR__ . '/errors.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/i18n.php';
+require_once __DIR__ . '/assets.php';
 
 /**
  * The user's timezone, reported by the browser via the 'tz' cookie
@@ -31,10 +32,6 @@ function today(): string
 const SESSION_LIFETIME = 60 * 60 * 24 * 30;   // 30 days
 const REMEMBER_COOKIE = 'tvtrack_remember';
 const REMEMBER_LIFETIME = 60 * 60 * 24 * 60;  // 60 days
-
-// Cache-buster appended to CSS/JS URLs so far-future caching (.htaccess) is
-// safe: bump this on any CSS/JS change, alongside the CACHE const in sw.js.
-const ASSET_VERSION = '84';
 
 /** True when the current request reached us over HTTPS (directly or via the
  *  a TLS-terminating proxy), so cookies can carry the Secure flag. */

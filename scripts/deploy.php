@@ -7,18 +7,17 @@
 //
 // Three steps; the first failure ends the run with "DEPLOY FAILED" and exit 1:
 //   1. Here: the checkout is on main with nothing uncommitted (an untracked
-//      file counts — it would be missing on live) and nothing unpushed. When
-//      CSS/JS changed since the commit live runs, the asset version
-//      (ASSET_VERSION and the CACHE name in sw.js) must have changed with it,
-//      or browsers keep their cached copies.
+//      file counts — it would be missing on live) and nothing unpushed.
 //   2. On the server, over SSH: the live checkout has no changes of its own
 //      and fast-forwards to this very commit. Pending migrations go first,
 //      while the old code still serves, after a dump of the database — so a
 //      migration has to leave the code before it working, and one that fails
 //      leaves that code live. Only then the code is switched.
-//   3. From here: the public pages answer 200 and carry the commit's asset
-//      version, the login-gated ones turn a guest away, the assets and the
-//      service worker are served, the repository's internals are refused.
+//   3. From here: the public pages answer 200 and carry the asset version of
+//      the commit's CSS/JS (live works it out from its own files, so that also
+//      says those are the commit's), the login-gated ones turn a guest away,
+//      the assets and the service worker are served, the repository's
+//      internals are refused.
 //
 // Deploying again when live is current changes nothing and repeats the checks.
 //
@@ -29,6 +28,8 @@
 if (PHP_SAPI !== 'cli') {
     exit("CLI only\n");
 }
+
+require __DIR__ . '/../includes/assets.php';
 
 const SSH_HOST = 'hostuno';  // a Host alias in ~/.ssh/config
 const LIVE_DIR = 'domains/tvtakip.akifuygun.com/public_html';  // the live checkout, from the SSH user's home
@@ -88,12 +89,12 @@ function fail(string $message): never
 
 /**
  * Run a command without a shell in between: [exit code, its output without
- * the trailing newline]. Its error output goes straight to ours; with
- * $capture off so does its output, as it comes. The child inherits those
- * streams by not being given any: passing STDOUT/STDERR instead loses what
- * was written before whenever the output is a file.
+ * the trailing newline — byte for byte with $trim off]. Its error output goes
+ * straight to ours; with $capture off so does its output, as it comes. The
+ * child inherits those streams by not being given any: passing STDOUT/STDERR
+ * instead loses what was written before whenever the output is a file.
  */
-function run(array $command, string $stdin = '', bool $capture = true): array
+function run(array $command, string $stdin = '', bool $capture = true, bool $trim = true): array
 {
     $process = proc_open($command, $capture ? [['pipe', 'r'], ['pipe', 'w']] : [['pipe', 'r']], $pipes);
     if (!is_resource($process)) {
@@ -103,7 +104,8 @@ function run(array $command, string $stdin = '', bool $capture = true): array
     fclose($pipes[0]);
     $output = '';
     if ($capture) {
-        $output = rtrim(stream_get_contents($pipes[1]), "\r\n");
+        $output = stream_get_contents($pipes[1]);
+        $output = $trim ? rtrim($output, "\r\n") : $output;
         fclose($pipes[1]);
     }
     return [proc_close($process), $output];
@@ -135,14 +137,17 @@ function live_commit(): string
     return $output;
 }
 
-/** [ASSET_VERSION, the service worker's CACHE name] as of a commit. */
-function asset_version(string $commit): array
+/**
+ * A file as a commit has it, byte for byte — also where this checkout's copy
+ * has Windows line ends (core.autocrlf), which live's doesn't.
+ */
+function committed_file(string $commit, string $path): string
 {
-    if (!preg_match("/^const ASSET_VERSION = '([^']+)';/m", git('show', "$commit:includes/auth.php"), $version)
-        || !preg_match("/^const CACHE = '([^']+)';/m", git('show', "$commit:sw.js"), $cache)) {
-        fail("could not read the asset version of $commit (ASSET_VERSION in includes/auth.php, CACHE in sw.js)");
+    [$code, $contents] = run(['git', 'show', "$commit:$path"], trim: false);
+    if ($code !== 0) {
+        fail("could not read $path as of $commit");
     }
-    return [$version[1], $cache[1]];
+    return $contents;
 }
 
 /** GET a path of the live site, redirects not followed: [status, body] — status 0 with the reason when there was no answer. */
@@ -167,7 +172,8 @@ function fetch(string $path): array
  */
 function check_live(string $commit): array
 {
-    [$version, $cache] = asset_version($commit);
+    // What asset_version() answers on live when its CSS/JS are this commit's.
+    $version = assets_hash(fn (string $path): string => committed_file($commit, $path));
     $css = "/assets/css/style.css?v=$version";
     $js = "/assets/js/app.js?v=$version";
     $checks = $failed = 0;
@@ -210,10 +216,13 @@ function check_live(string $commit): array
     $check('/myshows.php', 302);
     $check('/tv', 302);
     $check('/api/refresh.php', 401);
-    foreach ([$css, $js, "/assets/css/tv.css?v=$version", "/assets/js/tv.js?v=$version", '/manifest.php', '/sitemap.xml'] as $path) {
+    foreach (VERSIONED_ASSETS as $path) {
+        $check("/$path?v=$version");
+    }
+    // The service worker as app.js registers it.
+    foreach (["/sw.js?v=$version", '/manifest.php', '/sitemap.xml'] as $path) {
         $check($path);
     }
-    $check('/sw.js', 200, "'$cache'");
     // The docroot is a git checkout: its internals must stay out of reach.
     foreach (['/.git/HEAD', '/scripts/deploy.php', '/migrations/0001_baseline.sql'] as $path) {
         $check($path, 403);
@@ -262,15 +271,6 @@ if ($live === $new) {
 } else {
     echo 'Deploying to live, which runs ' . describe($live) . ":\n  "
         . str_replace("\n", "\n  ", git('log', '--format=%h %s', "$live..$new")) . "\n";
-    $assets = git('diff', '--name-only', $live, $new, '--', 'assets/css', 'assets/js');
-    [$wasVersion, $wasCache] = asset_version($live);
-    [$version, $cache] = asset_version($new);
-    if ($assets !== '' && ($version === $wasVersion || $cache === $wasCache)) {
-        fail("CSS/JS changed since the commit live runs, but the asset version did not move with it:\n  "
-            . str_replace("\n", "\n  ", $assets)
-            . "\nBump both ASSET_VERSION in includes/auth.php (" . ($version === $wasVersion ? 'still' : 'now') . " '$version')"
-            . ' and CACHE in sw.js (' . ($cache === $wasCache ? 'still' : 'now') . " '$cache'), or browsers keep their cached copies.");
-    }
 }
 
 // 2. On the server.

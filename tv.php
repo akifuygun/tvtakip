@@ -88,7 +88,7 @@ function tv_info(array $ep, bool $withDay): string
     <meta name="robots" content="noindex, follow">
     <meta name="theme-color" content="<?= app_theme() === 'light' ? '#eef1f6' : '#0f1218' ?>">
     <title><?= htmlspecialchars(app_name() . ' — ' . t('calendar_title')) ?></title>
-    <link rel="stylesheet" href="/assets/css/tv.css?v=<?= ASSET_VERSION ?>">
+    <link rel="stylesheet" href="/assets/css/tv.css?v=<?= asset_version() ?>">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
 </head>
 <body class="tv-<?= $view ?>">
@@ -163,6 +163,6 @@ function tv_info(array $ep, bool $withDay): string
     <a href="https://www.tvmaze.com" rel="noopener">TVmaze</a> ·
     <a href="https://thetvdb.com" rel="noopener">TheTVDB</a>
 </footer>
-<script src="/assets/js/tv.js?v=<?= ASSET_VERSION ?>"></script>
+<script src="/assets/js/tv.js?v=<?= asset_version() ?>"></script>
 </body>
 </html>

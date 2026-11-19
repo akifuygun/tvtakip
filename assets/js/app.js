@@ -1531,9 +1531,12 @@ initCalendar();
 initCalendarMovies();
 initShowDetail();
 
-// PWA: register the service worker (HTTPS only — it silently no-ops on http).
+// PWA: register the service worker (HTTPS only — it silently no-ops on http)
+// under the asset version this script was loaded with (?v=…): the worker names
+// its cache after it, so a new version brings a new worker and a fresh cache.
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  const version = new URL(document.currentScript.src).searchParams.get('v') ?? '';
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(version)}`).catch(() => {});
   });
 }
