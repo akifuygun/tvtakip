@@ -240,7 +240,7 @@ function check_live(string $commit): array
 
     echo 'Checking ' . LIVE_URL . " (asset version $version, " . count($headers) . " response headers from .htaccess)\n";
     // A page's last tag is the script: finding it also says the page was rendered to its end.
-    foreach (['/', '/tr/', '/upcoming', '/search.php', '/login.php'] as $path) {
+    foreach (['/', '/tr/', '/upcoming', '/search.php', '/login.php', '/forgot-password.php', '/reset-password.php'] as $path) {
         $check($path, 200, $css, $js);
     }
     // The catalogs, and the first show and movie they list.

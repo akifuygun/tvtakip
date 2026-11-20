@@ -25,6 +25,13 @@ define('TVDB_API_KEY', '');
 // an error log the site's account may not get to read.
 define('SESSION_DIR', '');             // e.g. /usr/home/<login>/domains/<domain>/sessions
 
+// The address the site's mail to its users comes from (the password reset
+// link), handed to the server's mail system by PHP's mail(). An address of a
+// domain whose SPF record names the server and that it signs with DKIM, or the
+// mail is likely filed as spam. '' = no mail leaves: each one is written to
+// PHP's error log instead — the dev server's console, on a development machine.
+define('MAIL_FROM', '');               // e.g. noreply@example.com
+
 // Optional, admins only (an admin is an account given the role with
 // `php scripts/admin.php add <email>`): per-episode "Watch" badges, one per site, in this
 // order; the key is the badge label. Empty array = no badges.

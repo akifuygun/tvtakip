@@ -10,9 +10,13 @@ if (is_logged_in()) {
 }
 
 $errors = [];
-// logout.php lands here after "Log out on all devices", saying how it went.
+// logout.php lands here after "Log out on all devices", saying how it went,
+// and reset-password.php after a new password was set.
 $out = $_GET['out'] ?? '';
 $notice = $out === 'all' ? t('logout_all_done') : null;
+if (($_GET['reset'] ?? '') === 'done') {
+    $notice = t('reset_done');
+}
 if ($out === 'err') {
     $errors[] = t('logout_all_failed');
 }
@@ -65,6 +69,7 @@ require __DIR__ . '/../includes/header.php';
         </label>
         <button type="submit" class="button"><?= t('login_title') ?></button>
     </form>
+    <p><a href="/forgot-password.php"><?= t('forgot_password') ?></a></p>
     <p><?= t('no_account') ?> <a href="/register.php"><?= t('register') ?></a></p>
 </div>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

@@ -92,7 +92,11 @@ watched, and keep a movie watchlist. Live at https://tvtakip.akifuygun.com.
   page. A session ends after two hours without a request, or when the
   browser closes; "remember me" (a 60-day token, ticked by default on the login
   form) then logs the browser back in unnoticed. Without it, logging in lasts
-  for that browser session only. There is no password reset by e-mail.
+  for that browser session only. A forgotten password is reset by e-mail
+  ("Forgot your password?" on the login and change-password pages): the link
+  works once, for 60 minutes, and saving the new password logs the account out
+  on all devices. The page never says whether an address has an account; one
+  client gets 10 requests an hour, one account 3 links an hour.
 - **Admin** (an account with the `admin` role — see "Admins" below): can
   set/remove a show's poster and set its primary network (shared cache) — the
   "no image" placeholder is admin-only. Everyone else is refused server-side.
@@ -131,6 +135,9 @@ public/                The web root: a file's path in here is its URL
                        and assets/js/tv.js
   change-password.php  Self-service password change; "Log out on all devices"
   login.php / register.php / logout.php   (email login, display name in header)
+  forgot-password.php  Mails a link to set a new password (includes/password_reset.php)
+  reset-password.php   Where that link leads: the new password, then every device
+                       of the account is logged out
   api/search.php       GET merged TVmaze+TMDB show search, in pages (public)
   api/track.php        POST: track/untrack by id (imports server-side if uncached)
   api/episodes.php     GET cached show+episodes+watched; POST imports/refreshes server-side
@@ -154,6 +161,7 @@ public/                The web root: a file's path in here is its URL
   .htaccess            HTTPS redirect, response headers, pretty URLs, asset caching
 includes/              db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
                        refresh.php, calendar.php, network_logos.php, assets.php,
+                       mail.php, password_reset.php,
                        header.php (+ site_footer.php), footer.php
 scripts/               Command-line only: deploy.php (deploy.bat runs it), migrate.php,
                        refresh_worker.php (the cron worker: works off "Refresh all
@@ -174,8 +182,8 @@ migrations/            The MySQL schema as numbered migrations: 0001_baseline.sq
 router.php             The pretty URLs for PHP's built-in server (local development)
 start-dev.bat          Starts the local site (below); deploy.bat deploys ("Deployment")
 config.sample.php      Copy to config.php, here beside public/: DB credentials,
-                       TMDB_API_KEY, TVDB_API_KEY (optional), SESSION_DIR (on a
-                       server), WATCH_SITES (optional)
+                       TMDB_API_KEY, TVDB_API_KEY (optional), SESSION_DIR and
+                       MAIL_FROM (on a server), WATCH_SITES (optional)
 ```
 
 ## Local development
@@ -196,6 +204,10 @@ Then run `start-dev.bat` — it starts MySQL and Apache (for phpMyAdmin at
 http://localhost/phpmyadmin) if needed and serves the site at
 http://localhost:8000: PHP's built-in server with `public/` as its web root
 (`php -S localhost:8000 -t public router.php`, run in the checkout's root).
+
+No mail leaves the local site: with `MAIL_FROM` empty, as `config.sample.php` has
+it, a mail (the password reset link) is written to the console of the dev server
+instead, link and all.
 
 Register on the local site, then make that account an admin ("Admins"). Nothing
 runs the refresh worker here — there is no cron — so shows are only as fresh as
@@ -409,6 +421,21 @@ The host is not a plain Apache — nginx answers the requests — and it honours
 live before relying on it; for the headers, the deploy's checks do that on every
 run. It also lists a directory's files unless told otherwise, which is what
 `Options -Indexes` in `public/.htaccess` is for.
+
+### Mail
+
+The site mails one thing to its users, the password reset link. PHP's `mail()`
+hands it to the server's mail system (Exim), which signs it with the domain's DKIM
+key and sends it from an address the SPF record of `akifuygun.com` names.
+`MAIL_FROM` in live's `config.php` is the sender, `noreply@akifuygun.com`. Replies
+and bounces go to that address, so they land in the `me@akifuygun.com` mailbox
+(catch-all); its forwarding rule passes the replies on to Gmail and keeps the
+bounces in the hostUNO inbox.
+
+Arriving is another matter: Gmail filed the first backup alerts from this server
+as spam. When someone says the mail never came, have them search their spam folder
+first. A mail the server could not hand over is a line in PHP's error log, so it
+shows up in the next morning's error report ("Monitoring").
 
 ## Backups and restoring
 

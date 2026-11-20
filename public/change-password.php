@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/password_reset.php';
 require_login();
 
 $errors = [];
@@ -34,6 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Throwable $e) {
                 // remember_tokens may be absent on older installs — ignore
             }
+            // A reset link mailed before is for the old password.
+            revoke_password_resets(current_user_id());
             $success = true;
         }
     }
@@ -56,6 +58,7 @@ require __DIR__ . '/../includes/header.php';
         <label><?= t('current_password') ?>
             <input type="password" name="current_password" required>
         </label>
+        <p class="field-hint"><a href="/forgot-password.php"><?= t('forgot_password') ?></a></p>
         <label><?= t('new_password') ?>
             <input type="password" name="new_password" required minlength="8">
         </label>
