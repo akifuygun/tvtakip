@@ -1,11 +1,12 @@
 <?php
 // Copy this file to config.php, here beside public/ (the web root — never into
 // it), and fill in your credentials.
-// Production (hostUNO) values: `devil mysql db list` or the DevilWEB panel.
+// The database values below are what setup-dev.bat creates on a development
+// machine. Production (hostUNO) values: `devil mysql db list` or the DevilWEB panel.
 
 define('DB_HOST', 'localhost');        // e.g. mysql2.hostuno.com
 define('DB_NAME', 'tvtakip');          // e.g. m1234_tvtakip
-define('DB_USER', 'root');             // e.g. m1234
+define('DB_USER', 'tvtakip');          // e.g. m1234
 define('DB_PASS', '');
 
 // TMDB API key (v3) — https://www.themoviedb.org/settings/api

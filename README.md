@@ -170,7 +170,8 @@ scripts/               Command-line only: deploy.php (deploy.bat runs it), migra
                        server's backups to this machine) and backup_check.php
                        (on the server: mails when a backup is missing),
                        error_report.php (on the server: mails what is new in the
-                       error logs), import_popular.php, import_watchlist.php,
+                       error logs), load_live.php (live's newest backup into this
+                       machine's database), import_popular.php, import_watchlist.php,
                        backfill_images.php, backfill_airstamps.php,
                        backfill_names_tr.php. All but deploy.php, the two backup
                        scripts and error_report.php work on the database of the
@@ -179,8 +180,12 @@ migrations/            The MySQL schema as numbered migrations: 0001_baseline.sq
                        (users, shows, episodes, movies, user_shows, watched_episodes,
                        user_movies, remember_tokens, refresh_requests), then one
                        file per change — applied by scripts/migrate.php
+dev/                   Local development: setup.ps1 (setup-dev.bat runs it) installs
+                       live's PHP and MySQL versions in C:\tvtakip-dev, with php.ini
+                       and my.ini, live's settings
 router.php             The pretty URLs for PHP's built-in server (local development)
-start-dev.bat          Starts the local site (below); deploy.bat deploys ("Deployment")
+start-dev.bat          Starts the local site (below), on what setup-dev.bat installs;
+                       deploy.bat deploys ("Deployment")
 config.sample.php      Copy to config.php, here beside public/: DB credentials,
                        TMDB_API_KEY, TVDB_API_KEY (optional), SESSION_DIR and
                        MAIL_FROM (on a server), WATCH_SITES (optional)
@@ -188,31 +193,82 @@ config.sample.php      Copy to config.php, here beside public/: DB credentials,
 
 ## Local development
 
-Requires XAMPP (installed at `C:\xampp`, PHP 8.2 + MariaDB). One-time setup:
+The site runs here on the PHP and MySQL versions live runs, set up like live's (PHP
+8.3 and MySQL 8.0 at the moment), so code that would behave differently on live
+does so here first. They are installed in `C:\tvtakip-dev`, beside XAMPP, which
+only serves phpMyAdmin now. One-time setup:
 
-1. Create the database:
-   `C:\xampp\mysql\bin\mysql.exe -u root -e "CREATE DATABASE tvtakip CHARACTER SET utf8mb4"`
-2. `copy config.sample.php config.php` (defaults already match XAMPP: root, no password),
-   and set `TMDB_API_KEY` (free key from https://www.themoviedb.org/settings/api).
+1. `setup-dev.bat` asks live for its versions over `ssh hostuno` and installs them
+   in `C:\tvtakip-dev` (about 1 GB):
+   - `php\`: PHP for Windows from php.net, checked against the SHA-256 php.net
+     publishes, with `dev\php.ini` copied in. That file has live's settings.
+   - `mysql\`: MySQL from mysql.com, checked against MySQL's signature with the
+     GnuPG that comes with Git for Windows, with `dev\my.ini` copied in. That file
+     has live's server settings (a `sql_mode` that is not strict, the collations,
+     and others). The server listens on this machine only.
+   - `data\`: the database `tvtakip`, with live's default collation, and the
+     account `tvtakip@localhost` (no password), which has every right on that
+     database and none elsewhere, like live's account.
+
+   Without SSH, name the versions: `setup-dev.bat -PhpVersion 8.3.37 -MysqlVersion 8.0.43`.
+2. `copy config.sample.php config.php`. Its database settings are the ones step 1
+   created. Set `TMDB_API_KEY` (free key from https://www.themoviedb.org/settings/api).
    Optionally set `TVDB_API_KEY` (https://thetvdb.com/dashboard/account/apikey — free under $50k/yr
    revenue, attribution required and shown in the footer) for streaming air times,
    early announced episodes, series-finale badges and extra Turkish descriptions;
    without it the site works on TMDB + TVmaze alone.
-3. Create the tables: `C:\xampp\php\php.exe scripts\migrate.php`
+3. `setup-dev.bat` again. Now that `config.php` exists, it creates the tables
+   (`scripts\migrate.php`).
 
-Then run `start-dev.bat` — it starts MySQL and Apache (for phpMyAdmin at
-http://localhost/phpmyadmin) if needed and serves the site at
-http://localhost:8000: PHP's built-in server with `public/` as its web root
-(`php -S localhost:8000 -t public router.php`, run in the checkout's root).
+Then run `start-dev.bat`. It starts MySQL in a minimized window of its own, which
+keeps running until that window is closed, and starts XAMPP's Apache, when there is
+one, for phpMyAdmin at http://localhost/phpmyadmin. Then it serves the site at
+http://localhost:8000 with PHP's built-in server: `public/` is the web root and
+`router.php` adds the pretty URLs. The server also gets the limits live's web PHP
+(PHP-FPM) adds to its php.ini: `exec()`, `proc_open()` and similar functions are
+disabled, files outside the checkout and `C:\tvtakip-dev\tmp` are out of reach, a
+request may take 300 s, and output is buffered. The command-line scripts run without
+those limits, there as here.
+
+**Live's data:** `C:\tvtakip-dev\php\php.exe scripts\load_live.php` replaces the local
+database with live's newest backup: the newest dump in the server's `~/dbdumps`,
+either the nightly one or one a deploy made before a migration. It copies the dump
+and compares it with the server's SHA-256, asks before it empties the database,
+loads the dump, and then applies this checkout's pending migrations, as a deploy
+would. This takes about 20 seconds. The accounts come along with their password
+hashes: log in with the live password. To load another dump, name one from the
+server or a `.sql.gz` on this machine, such as an off-site copy; `--yes` skips the
+question. It only replaces a database on this machine: run on the server by mistake,
+it refuses.
+
+**When live's versions change** (hostUNO updates PHP when it sees fit), a deploy ends
+with a `NOTE:` line. Stop the site and run `setup-dev.bat` again. It replaces `php\`
+or `mysql\` and keeps `data\`, and a newer MySQL upgrades the data directory when it
+starts. An older MySQL can't use that directory: delete `C:\tvtakip-dev\data`, then
+run `setup-dev.bat` and `load_live.php`. After changing `dev\php.ini` or `dev\my.ini`,
+run `setup-dev.bat` again too: it copies them, and a running MySQL reads its file
+at the next start.
+
+What stays different from live: Windows stores table names in lower case
+(`lower_case_table_names` is 0 on live, so keep table names lower case there too);
+MySQL's clock here is Windows' time zone, live's is CET (harmless while stored
+times are compared with the database's own `NOW()` and `CURDATE()`); the PECL
+extensions live has and PHP for Windows doesn't (APCu, Imagick, Redis and others,
+none of which the site uses), and `pcntl` and `posix`; and PHP's built-in server in
+place of live's nginx + Apache + PHP-FPM, which read `.htaccess` (router.php repeats
+its rewrites and headers). XAMPP's MariaDB isn't used anymore, and its data stays in
+`C:\xampp\mysql\data`. It mustn't run alongside: both want port 3306, and
+`start-dev.bat` stops when it finds MariaDB there.
 
 No mail leaves the local site: with `MAIL_FROM` empty, as `config.sample.php` has
 it, a mail (the password reset link) is written to the console of the dev server
 instead, link and all.
 
-Register on the local site, then make that account an admin ("Admins"). Nothing
-runs the refresh worker here — there is no cron — so shows are only as fresh as
-their last import until `C:\xampp\php\php.exe scripts\refresh_worker.php` is run by
-hand; it also completes the imports that left their episode IMDB ids to it.
+Register on the local site, then make that account an admin ("Admins"); a database
+loaded from live has live's admins already. Nothing runs the refresh worker here —
+there is no cron — so shows are only as fresh as their last import until
+`C:\tvtakip-dev\php\php.exe scripts\refresh_worker.php` is run by hand; it also
+completes the imports that left their episode IMDB ids to it.
 
 There is no test suite and no linter: a change is checked by using the running
 site. `node --check public\assets\js\app.js` catches a syntax error in the script.
@@ -223,9 +279,9 @@ Who is an admin is stored with the account (`users.role`) and changed only from 
 command line — there is no page for it, and nothing in `config.php`:
 
 ```
-C:\xampp\php\php.exe scripts\admin.php                   list the admins
-C:\xampp\php\php.exe scripts\admin.php add <email>       make that account an admin
-C:\xampp\php\php.exe scripts\admin.php remove <email>    back to a regular user
+C:\tvtakip-dev\php\php.exe scripts\admin.php                   list the admins
+C:\tvtakip-dev\php\php.exe scripts\admin.php add <email>       make that account an admin
+C:\tvtakip-dev\php\php.exe scripts\admin.php remove <email>    back to a regular user
 ```
 
 The account has to exist first (register on the site). A change applies at that
@@ -249,9 +305,10 @@ code — and never edit one that has been applied:
 
 - **One schema change per file.** MySQL commits each on the spot, so a file that
   fails halfway can't be rolled back (a file that only changes rows can, and is).
-- **It must run on both MySQL 8.0 (live) and MariaDB 10.4 (local):** no
-  `ADD COLUMN IF NOT EXISTS`; new tables end in
-  `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`.
+- **New tables end in `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`.**
+  The existing columns are `utf8mb4_general_ci`, and a foreign key needs the same
+  collation on both sides. Without the clause a table gets the database's default,
+  which is `utf8mb4_unicode_ci` on live (and locally, set up the same way).
 - **Name new foreign keys** (`CONSTRAINT fk_… FOREIGN KEY …`). The baseline's are
   auto-named and differ from database to database, so a migration that drops one
   has to look its name up in `information_schema` first.
@@ -270,7 +327,7 @@ web server is given only `public/` (see "What the web server serves"). Commit, p
 then run
 
 ```
-deploy.bat             (.\deploy in PowerShell; = C:\xampp\php\php.exe scripts\deploy.php)
+deploy.bat             (.\deploy in PowerShell; = C:\tvtakip-dev\php\php.exe scripts\deploy.php)
 ```
 
 It reaches the server as `ssh hostuno` (a `Host` alias in `~/.ssh/config`) and stops
@@ -297,6 +354,9 @@ with `DEPLOY FAILED` and exit code 1 at the first thing that is wrong:
 `deploy.bat --check` runs only step 3, against whatever commit live is on. Deploying
 again when live is current changes nothing and repeats the checks. Pages behind the
 login are not requested — look at those yourself after a deploy that touches them.
+Both end with a line comparing live's PHP and MySQL versions with this machine's.
+It starts with `NOTE:` when they differ: then run `setup-dev.bat` ("Local
+development").
 
 ### Rolling back
 
@@ -380,7 +440,8 @@ When the directory can't be used, every page answers 500; the site never falls b
 to `/tmp`. The reason is then not to be read anywhere — PHP's error log is a file in
 this very directory ("Monitoring") — so look at the two things above. Deleting the
 `sess_…` files logs nobody out who ticked "remember me". Locally `SESSION_DIR` stays
-empty: XAMPP's own session directory is on a machine with one user.
+empty: the sessions are then in `C:\tvtakip-dev\tmp` (`dev\php.ini`), on a machine
+with one user.
 
 The same directory holds what else the site keeps for itself:
 
@@ -459,7 +520,7 @@ and both are gone. So a scheduled task on the development machine copies them of
 the server once a day:
 
 ```
-C:\xampp\php\php.exe scripts\backup_pull.php
+C:\tvtakip-dev\php\php.exe scripts\backup_pull.php
 ```
 
 It can be run by hand at any time, and fills `Backups\hostuno` in the user's profile
@@ -488,7 +549,7 @@ without asking for anything):
 
 ```powershell
 Register-ScheduledTask -TaskName 'TVTrack backup pull' `
-  -Action (New-ScheduledTaskAction -Execute 'conhost.exe' -Argument '--headless C:\xampp\php\php.exe C:\Users\Akif\Desktop\tvtakip\scripts\backup_pull.php') `
+  -Action (New-ScheduledTaskAction -Execute 'conhost.exe' -Argument '--headless C:\tvtakip-dev\php\php.exe C:\Users\Akif\Desktop\tvtakip\scripts\backup_pull.php') `
   -Trigger (New-ScheduledTaskTrigger -Daily -At 10:00) `
   -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -RunOnlyIfNetworkAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 30))
 ```
@@ -600,14 +661,15 @@ the copy had no admin until `admin.php add` (step 4 above, both).
 ### Live's data in the local database
 
 ```
-cmd /c "ssh hostuno gunzip -c dbdumps/tvtakip-YYYYMMDD.sql.gz | C:\xampp\mysql\bin\mysql.exe -u root tvtakip"
+C:\tvtakip-dev\php\php.exe scripts\load_live.php [--yes] [<dump>]
 ```
 
-This replaces the local `tvtakip` database with the dump, accounts included — log in
-with the live password afterwards. The `cmd /c "…"` is there for PowerShell, whose
-own pipe turns every non-ASCII character into `?` on the way from one program to the
-next. The dump is MySQL 8's and loads into the local MariaDB 10.4 because every
-table is `utf8mb4_general_ci`.
+This replaces the local database with live's newest dump, or with the one named,
+and then applies this checkout's pending migrations ("Local development"). Accounts
+come along, so log in with the live password afterwards. Don't pipe a dump through
+PowerShell 5.1 into `mysql.exe` instead: its pipe turns every non-ASCII character
+into `?` on the way from one program to the next. The script passes the bytes on
+unchanged.
 
 ## Monitoring
 

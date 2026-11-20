@@ -1,0 +1,3 @@
+# Batch files with Windows line ends wherever they are checked out: cmd.exe
+# can miss a label (goto, call) in a file with Unix ones.
+*.bat text eol=crlf

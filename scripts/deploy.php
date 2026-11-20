@@ -23,6 +23,7 @@
 //      commit's public/.htaccess sets (HSTS and the like).
 //
 // Deploying again when live is current changes nothing and repeats the checks.
+// Last, a note when live's PHP or MySQL is another version than this machine's.
 //
 // Rolling back: put the commit live ran before (the deploy names it) back with
 //   ssh hostuno "git -C domains/tvtakip.akifuygun.com/app reset --hard <commit>"
@@ -277,6 +278,30 @@ function check_live(string $commit): array
     return [$checks, $failed];
 }
 
+/**
+ * Whether this machine develops on what live runs: the PHP this script runs
+ * on (deploy.bat's, from C:\tvtakip-dev) and the MySQL beside it, against
+ * live's. A note, never a failure — the host updates its versions when it
+ * sees fit, and setup-dev.bat then installs the new ones here.
+ */
+function versions_note(): void
+{
+    [$code, $output] = run(['ssh', SSH_HOST, "php -r 'echo PHP_VERSION, PHP_EOL;' && mysql -N -e 'SELECT VERSION()'"]);
+    $live = explode("\n", str_replace("\r", '', $output));
+    if ($code !== 0 || count($live) !== 2) {
+        echo "Could not ask live for its PHP and MySQL versions.\n";
+        return;
+    }
+    $mysqld = dirname(PHP_BINARY, 2) . '/mysql/bin/mysqld' . (PHP_OS_FAMILY === 'Windows' ? '.exe' : '');
+    $here = [PHP_VERSION, is_file($mysqld) && preg_match('/ Ver (\S+)/', run([$mysqld, '--no-defaults', '--version'])[1], $m) ? $m[1] : 'none beside this PHP'];
+    if ($here === $live) {
+        echo "This machine has live's versions: PHP $live[0], MySQL $live[1].\n";
+        return;
+    }
+    echo "NOTE: live runs PHP $live[0] and MySQL $live[1], this machine PHP $here[0] and MySQL $here[1]"
+        . " — setup-dev.bat installs live's versions.\n";
+}
+
 $args = array_slice($argv, 1);
 if (array_diff($args, ['--check'])) {
     fwrite(STDERR, 'Unknown argument: ' . implode(' ', array_diff($args, ['--check'])) . "\nUsage: php scripts/deploy.php [--check]\n");
@@ -292,6 +317,7 @@ if ($args) {
         fail("$failed of $checks checks failed.");
     }
     echo "All $checks checks passed.\n";
+    versions_note();
     exit(0);
 }
 
@@ -340,3 +366,4 @@ if ($failed) {
         . "\nthen check it with: php scripts/deploy.php --check"));
 }
 echo "All $checks checks passed.\n";
+versions_note();
