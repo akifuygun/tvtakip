@@ -423,6 +423,12 @@ Each side watches the other:
   copied everything leaves `~/dbdumps/off-site.txt` on the server, and that file's
   age is what the check goes by. Its lines are in `~/logs/tvtakip-backup.log`.
 
+That mail is forwarded to Gmail like everything sent to the address, and Gmail put
+the first ones into Spam (2026-11-20) — although the server signs them (DKIM) and
+sends them from an address the SPF record names. So the Gmail account needs a
+filter, or an alert goes unseen: From `me@akifuygun.com`, Subject
+`TVTrack backups`, "Never send it to Spam".
+
 The check by hand prints the state as it is now and mails nobody:
 
 ```
