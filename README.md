@@ -432,9 +432,11 @@ and bounces go to that address, so they land in the `me@akifuygun.com` mailbox
 (catch-all); its forwarding rule passes the replies on to Gmail and keeps the
 bounces in the hostUNO inbox.
 
-Arriving is another matter: Gmail filed the first backup alerts from this server
-as spam. When someone says the mail never came, have them search their spam folder
-first. A mail the server could not hand over is a line in PHP's error log, so it
+The domain also publishes a DMARC record (`_dmarc.akifuygun.com`, `v=DMARC1; p=none`,
+since 2026-11-20): receivers see a policy, none is enforced, and no reports are
+asked for. Arriving is still another matter: Gmail filed the first backup alerts
+from this server as spam, though the first reset mail reached the inbox. When
+someone says the mail never came, have them search their spam folder first. A mail the server could not hand over is a line in PHP's error log, so it
 shows up in the next morning's error report ("Monitoring").
 
 ## Backups and restoring
