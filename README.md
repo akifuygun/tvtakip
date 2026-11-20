@@ -1,11 +1,12 @@
 # TVTrack
 
 A web app to track TV series and movies: search, follow shows, mark episodes as
-watched, and keep a movie watchlist.
+watched, and keep a movie watchlist. Live at https://tvtakip.akifuygun.com.
 (English name TVTrack, Turkish name TVTakip; the `tvtakip` name persists in the domain, repo, and DB.)
 
-- **Stack:** Plain PHP 8 + MySQL, vanilla JS/CSS
-- **Canonical ids:** IMDB ids for shows, episodes, and movies — no third-party ids in the DB
+- **Stack:** Plain PHP 8 + MySQL, vanilla JS/CSS — no Composer, no Node, no build step
+- **Canonical ids:** IMDB ids for shows, episodes, and movies. A title IMDB doesn't
+  list goes by a provisional id until it does (below)
 - **Installable PWA**, mobile-friendly (hamburger nav), and **bilingual** — English
   (TVTrack) / Turkish (TVTakip), switchable via footer flags.
 - **Footer switches:** light/dark theme, and on wide screens a top-bar or
@@ -14,39 +15,60 @@ watched, and keep a movie watchlist.
 ## How it works
 
 - **All provider access is server-side** (`includes/importer.php`): the browser only
-  ever sends IMDB ids to our JSON endpoints. The TMDB API key never leaves the server,
-  and no provider data is accepted from clients (the shared cache can't be poisoned).
-- **Search** (`public/api/search.php`) queries [TVmaze](https://www.tvmaze.com/api) (free, no
+  ever sends a title's id to our JSON endpoints. The TMDB API key never leaves the
+  server, and no provider data is accepted from clients (the shared cache can't be
+  poisoned).
+- **Search is public** (`public/api/search.php` for shows, `public/api/movies.php`
+  for movies). A show search asks [TVmaze](https://www.tvmaze.com/api) (free, no
   key, fuzzy) and [TMDB](https://developer.themoviedb.org/) (free API key) and merges
-  results by IMDB id, so shows missing from either provider still appear. Search is
-  **public** (shows and movies), and visiting any not-yet-cached `/series/ttNNN` or
+  the results by IMDB id, so shows missing from either provider still appear; "More
+  results" loads TMDB's further pages, 20 titles each. Nothing is cached — every
+  search asks the providers. Visiting any not-yet-cached `/series/ttNNN` or
   `/movie/ttNNN` imports it on first visit — every visitor grows the shared catalog;
   tracking/watching stays login-only.
+- **Titles IMDB doesn't list** can be tracked too. They are stored under a
+  provisional id — `tm` + the TMDB id, or `mz` + the TVmaze id for a show only
+  TVmaze has — in the same column and on the same addresses (`/series/tm12345`).
+  Every import asks the provider whether it links an IMDB id by now; once it does,
+  the title moves to that id together with its tracking and watched marks, and the
+  old address redirects.
 - **Freshness is scheduled:** a cron worker (`scripts/refresh_worker.php`, every
   minute) re-imports shows that are due — synced more than 12 h ago while an episode
   airs within two weeks, otherwise 48 h, or a week once ended or canceled (so renewals
-  and status corrections still arrive); tracked and airing shows first.
+  and status corrections still arrive); tracked and airing shows first. No page view
+  triggers a refresh. A movie is imported once and not refreshed — except, daily,
+  one still under a provisional id.
+- **The "Refresh" button on a show page** re-imports that one show at once, and is
+  the only thing that also removes episodes the providers no longer list (never
+  one marked watched).
 - **"Refresh all shows"** (My Shows) is a background job: the button files a request
   in `refresh_requests`, the same worker re-imports every show the user tracks, and
   the page shows the progress from the database — closing the tab doesn't stop it.
-- **Episode data** comes from TMDB, including each episode's IMDB id via its
-  `external_ids` endpoint, with TVmaze as fallback for shows TMDB doesn't know
-  (their episode IMDB ids stay empty and are backfilled on refresh once TMDB has them).
-  Imports run when a show is tracked or first opened and land in the `shows` /
+- **Episode data** comes from TMDB, with TVmaze as fallback for shows TMDB doesn't
+  know. Imports run when a show is tracked or first opened and land in the `shows` /
   `episodes` cache tables — everyone after reads our DB. Episodes are identified by
-  show IMDB id + season + number; episode IMDB ids are deliberately not unique
-  (IMDB lists two-part episodes under one id).
+  show id + season + number; episode IMDB ids are deliberately not unique (IMDB
+  lists two-part episodes under one id).
+- **Episode IMDB ids** cost one TMDB call per episode (its `external_ids` endpoint;
+  there is no bulk one). An import started by a page view looks up at most 120 and
+  leaves a larger show's ids to the cron worker, which completes it at its next
+  run. That TMDB has no id for an episode is remembered too, so it is asked again
+  only now and then.
 - **Three providers, combined** — each fills what the others lack:
   - *Air times:* TVmaze's exact per-episode times; for episodes it has none for
     (most streaming drops) the show's regular air time from
     [TheTVDB](https://thetvdb.com) (optional API key), in the show's home timezone.
+    An episode a streaming service releases a day or two ahead of its broadcast is
+    dated by that earlier release.
   - *Announced episodes:* TheTVDB often lists upcoming episodes before TMDB does;
     those are added until TMDB lists them, and kept after they air.
   - *Episode numbering:* a few curated shows whose TMDB numbering is wrong (e.g. a
     skipped season) take their regular episodes from TheTVDB instead.
   - *Premiere / finale badges* on the calendar and Upcoming: finales from TMDB's
     episode type, with TheTVDB marking which one is the series finale.
-  - *Turkish descriptions* for Turkish pages: TMDB translations, TheTVDB as fallback.
+  - *Turkish descriptions and episode names* for Turkish pages: TMDB's
+    translations (TheTVDB as fallback for a show's description); where there is
+    none, the English text.
   - *Poster slider:* clicking a poster opens the poster plus up to 9 large backdrops
     (TMDB, text-free first; TheTVDB backgrounds top up shows with few), loaded one
     slide ahead as you browse.
@@ -54,21 +76,28 @@ watched, and keep a movie watchlist.
     trailer in an overlay (Turkish one on Turkish pages when available; TMDB,
     TheTVDB filling missing languages), via the privacy-enhanced player, loaded
     only on click.
-- **Rules:** unaired episodes can't be marked watched; untracking keeps watched
-  history; show statuses are normalized to running/upcoming/ended/canceled.
+- **Rules:** unaired episodes can't be marked watched — by the exact air time where
+  a provider gives one, else by the date, in the viewer's own time zone (the browser
+  reports it; Istanbul until it has); untracking keeps watched history; show
+  statuses are normalized to running/upcoming/ended/canceled.
 - **Movies:** a single per-user list with a watched flag (a movie is one watchable
   unit — no per-episode state). TMDB-only import; search + add live on the
   My Movies page; marking watched auto-adds to the list and is gated on the
-  release date. Public movie pages at `/movie/ttNNN` and a public catalog at
-  `/movies`.
-- **Accounts:** email login, display name shown in the header, self-service
-  change-password. A session ends after two hours without a request, or when the
+  release date. Public movie pages at `/movie/ttNNN` and a public catalog with
+  its own search at `/movies`.
+- **TV view:** `/tv` is the calendar for a television's browser, where the remote
+  moves a pointer: big posters as tiles or a list, marked watched in place.
+- **Accounts:** anyone can register; email login, display name shown in the
+  header, self-service change-password and "Log out on all devices" on the same
+  page. A session ends after two hours without a request, or when the
   browser closes; "remember me" (a 60-day token, ticked by default on the login
   form) then logs the browser back in unnoticed. Without it, logging in lasts
-  for that browser session only.
+  for that browser session only. There is no password reset by e-mail.
 - **Admin** (an account with the `admin` role — see "Admins" below): can
   set/remove a show's poster and set its primary network (shared cache) — the
   "no image" placeholder is admin-only. Everyone else is refused server-side.
+  Admins alone also get per-episode "Watch" links, when `WATCH_SITES` in
+  `config.php` names sites for them (`config.sample.php` has the format).
 - **i18n:** all strings live in one dictionary (`includes/i18n.php`), also handed
   to the frontend as `window.I18N`; language kept in a `lang` cookie, and public
   pages are crawlable per language under a `/tr/` prefix.
@@ -82,9 +111,10 @@ is beside it and so has no URL.
 ```
 public/                The web root: a file's path in here is its URL
   index.php            Calendar — each tracked show's next unwatched episode airing
-                       today or earlier (guests get the public landing page)
+                       today or earlier; when there is none, what comes next
+                       (guests get the public landing page)
   myshows.php          Tracked shows in tabs (Running / Upcoming + Cancelled / Ended),
-                       most-behind first
+                       most-behind first; the "Refresh all shows" button
   mymovies.php         Movie list: on-page search to add, To watch / Watched tabs
   search.php           Search both providers (public; Track buttons when logged in)
   series.php           Unified show page (/series/ttNNN): public SEO for guests,
@@ -92,27 +122,34 @@ public/                The web root: a file's path in here is its URL
                        (show.php 301-redirects here)
   movie.php            Public movie page (/movie/ttNNN) + add/watched buttons;
                        uncached ids import on visit
-  browse.php           Public show catalog: provider search bar + network/genre/
-                       status/name filter tabs, network logo badges on posters
+  browse.php           Public show catalog (/browse): provider search bar + network/
+                       genre/status/name filter tabs, network logo badges on posters
   movies.php           Public movie catalog (/movies) with guest search
-  upcoming.php         Upcoming episodes (public catalog; tracked-only when logged in)
-  tv.php               The calendar's TV view (/tv)
-  change-password.php  Self-service password change
+  upcoming.php         Upcoming episodes as a month calendar (/upcoming): every
+                       cached show's for a guest, the tracked shows' when logged in
+  tv.php               The calendar's TV view (/tv), with its own assets/css/tv.css
+                       and assets/js/tv.js
+  change-password.php  Self-service password change; "Log out on all devices"
   login.php / register.php / logout.php   (email login, display name in header)
-  api/search.php       GET merged TVmaze+TMDB show search (server-side, public)
-  api/track.php        POST: track/untrack by IMDB id (imports server-side if uncached)
+  api/search.php       GET merged TVmaze+TMDB show search, in pages (public)
+  api/track.php        POST: track/untrack by id (imports server-side if uncached)
   api/episodes.php     GET cached show+episodes+watched; POST imports/refreshes server-side
   api/watch.php        POST toggle episode watched; bulk (un)watch per show or season
-  api/movies.php       GET movie search; POST add/remove/watch (single endpoint)
+  api/movies.php       GET movie search, in pages (public); POST add/remove/watch
   api/refresh.php      POST files a "Refresh all shows" request; GET reads its progress
   api/image.php        POST set/remove a show poster (admin only)
-  assets/              css/style.css, js/app.js, icons/ (PWA + logo), networks/ (logos).
-                       CSS/JS URLs carry ?v=<hash of the files' contents>
-                       (includes/assets.php), so an edit is a new URL by itself —
-                       there is no version to bump
+  api/network.php      POST set a show's primary network (admin only)
+  api/watch_slug.php, api/watch_base.php
+                       POST a show's name, or a site's address, for the Watch links
+                       (admin only)
+  assets/              css/ (style.css, tv.css), js/ (app.js, tv.js), icons/ (PWA +
+                       logo), networks/ (logos). CSS/JS URLs carry
+                       ?v=<hash of the files' contents> (includes/assets.php), so an
+                       edit is a new URL by itself — there is no version to bump
   manifest.php, sw.js  Localized PWA manifest + service worker (static-asset cache,
                        named after that same version)
-  sitemap.php          Dynamic sitemap (shows + movies, en + tr)
+  sitemap.php          Dynamic sitemap (/sitemap.xml: shows + movies, en + tr)
+  robots.txt           Everything but /api/ may be crawled
   health.php           /health — what the uptime monitor asks ("Monitoring")
   .htaccess            HTTPS redirect, response headers, pretty URLs, asset caching
 includes/              db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
@@ -135,8 +172,10 @@ migrations/            The MySQL schema as numbered migrations: 0001_baseline.sq
                        user_movies, remember_tokens, refresh_requests), then one
                        file per change — applied by scripts/migrate.php
 router.php             The pretty URLs for PHP's built-in server (local development)
+start-dev.bat          Starts the local site (below); deploy.bat deploys ("Deployment")
 config.sample.php      Copy to config.php, here beside public/: DB credentials,
-                       TMDB_API_KEY, TVDB_API_KEY (optional), SESSION_DIR (on a server)
+                       TMDB_API_KEY, TVDB_API_KEY (optional), SESSION_DIR (on a
+                       server), WATCH_SITES (optional)
 ```
 
 ## Local development
@@ -153,9 +192,18 @@ Requires XAMPP (installed at `C:\xampp`, PHP 8.2 + MariaDB). One-time setup:
    without it the site works on TMDB + TVmaze alone.
 3. Create the tables: `C:\xampp\php\php.exe scripts\migrate.php`
 
-Then run `start-dev.bat` — it starts MySQL if needed and serves the site at
+Then run `start-dev.bat` — it starts MySQL and Apache (for phpMyAdmin at
+http://localhost/phpmyadmin) if needed and serves the site at
 http://localhost:8000: PHP's built-in server with `public/` as its web root
 (`php -S localhost:8000 -t public router.php`, run in the checkout's root).
+
+Register on the local site, then make that account an admin ("Admins"). Nothing
+runs the refresh worker here — there is no cron — so shows are only as fresh as
+their last import until `C:\xampp\php\php.exe scripts\refresh_worker.php` is run by
+hand; it also completes the imports that left their episode IMDB ids to it.
+
+There is no test suite and no linter: a change is checked by using the running
+site. `node --check public\assets\js\app.js` catches a syntax error in the script.
 
 ## Admins
 
@@ -204,8 +252,10 @@ code — and never edit one that has been applied:
 
 ## Deployment
 
-The live site is a git checkout of `main` on the server, of which the web server is
-given only `public/` (see "What the web server serves"). Commit, push, then run
+The site is hosted at hostUNO, a shared host with SSH and cron (PHP 8.3 as PHP-FPM,
+MySQL 8.0). The live site is a git checkout of `main` on the server, of which the
+web server is given only `public/` (see "What the web server serves"). Commit, push,
+then run
 
 ```
 deploy.bat             (.\deploy in PowerShell; = C:\xampp\php\php.exe scripts\deploy.php)
@@ -555,9 +605,9 @@ one of them stops answering `200`, and again when it is back:
 | `https://tvtakip.akifuygun.com/health` | PHP or the database is down — or, when the other one alerts too, the server, its network, the DNS or the certificate. |
 | `https://tvtakip.akifuygun.com/` | A visitor doesn't get the home page. With `/health` still fine, it is the code: look at the error log. |
 
-Any uptime service does it; the free plan of [UptimeRobot](https://uptimerobot.com/)
-is enough (HTTP checks every 5 minutes). It is set up once, in an account of the
-site owner's:
+That service is [UptimeRobot](https://uptimerobot.com/), on its free plan (a `HEAD`
+request to each address every 5 minutes), in an account of the site owner's since
+2026-11-20. Any uptime service would do; setting it up again takes two steps:
 
 1. Sign up with the Gmail address — not `me@akifuygun.com`: that mailbox, and the
    DNS it is found by, are at the same host as the site, so an alert about the host
