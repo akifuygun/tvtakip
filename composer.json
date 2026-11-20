@@ -1,0 +1,27 @@
+{
+    "name": "akifuygun/tvtakip",
+    "description": "TVTrack: a TV-series tracker (tvtakip.akifuygun.com).",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "ext-curl": "*",
+        "ext-mbstring": "*",
+        "ext-pdo_mysql": "*"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2.3",
+        "phpunit/phpunit": "^12.5"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tvtrack\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        },
+        "sort-packages": true
+    }
+}

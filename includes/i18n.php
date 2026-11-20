@@ -511,7 +511,7 @@ $GLOBALS['I18N'] = [
 ];
 
 /** Translate a key for the current language, with optional sprintf args. */
-function t(string $key, ...$args): string
+function t(string $key, mixed ...$args): string
 {
     $lang = current_lang();
     $s = $GLOBALS['I18N'][$lang][$key] ?? $GLOBALS['I18N']['en'][$key] ?? $key;

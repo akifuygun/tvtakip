@@ -7,7 +7,9 @@
 //
 // Three steps; the first failure ends the run with "DEPLOY FAILED" and exit 1:
 //   1. Here: the checkout is on main with nothing uncommitted (an untracked
-//      file counts — it would be missing on live) and nothing unpushed.
+//      file counts — it would be missing on live) and nothing unpushed, and
+//      the static analysis and the tests pass on it (scripts/check.php; the
+//      tests need the local MySQL running).
 //   2. On the server, over SSH: the live checkout has no changes of its own
 //      and fast-forwards to this very commit. Pending migrations go first,
 //      while the old code still serves, after a dump of the database — so a
@@ -334,6 +336,11 @@ if (($unpushed = git('rev-list', '--count', 'origin/main..HEAD')) !== '0') {
 }
 if ($new !== git('rev-parse', 'origin/main')) {
     fail('this checkout is behind origin/main — pull first.');
+}
+echo "Static analysis and tests (scripts/check.php):\n";
+[$code] = run([PHP_BINARY, __DIR__ . '/check.php'], capture: false);
+if ($code !== 0) {
+    fail('the static analysis or the tests failed — the output is above. Nothing was deployed.');
 }
 $live = live_commit();
 if (run(['git', 'merge-base', '--is-ancestor', $live, $new])[0] !== 0) {

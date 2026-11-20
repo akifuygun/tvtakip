@@ -1,5 +1,8 @@
 <?php
-require_once __DIR__ . '/../config.php';
+// The test suite sets the configuration itself (tests/bootstrap.php).
+if (!defined('TVTRACK_TESTS')) {
+    require_once __DIR__ . '/../config.php';
+}
 
 /**
  * A new connection. $timeout: the seconds the server is given to accept it

@@ -8,3 +8,5 @@ google*.html
 /*.sql*
 Thumbs.db
 .DS_Store
+/vendor/
+/.phpunit.cache/

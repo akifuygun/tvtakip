@@ -13,7 +13,10 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../config.php';
+// The test suite sets the configuration itself (tests/bootstrap.php).
+if (!defined('TVTRACK_TESTS')) {
+    require_once __DIR__ . '/../config.php';
+}
 
 // Local dev sees full errors; production logs them and shows a generic message.
 // Keyed off the SAPI (CLI or the built-in `php -S` dev server), never the

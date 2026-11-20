@@ -360,7 +360,7 @@ function tvmaze_lookup(?string $imdbId, ?int $tvdbId = null): ?array
  * has no air times, so this is the only source. $dates receives TVmaze's air
  * dates under the same keys.
  */
-function tvmaze_airstamps(int $tvmazeId, ?array &$dates = null): array
+function tvmaze_airstamps(int $tvmazeId, array &$dates = []): array
 {
     $dates = [];
     $map = [];

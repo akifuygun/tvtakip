@@ -47,7 +47,7 @@ function fail(string $message): never
  * it comes. Its error output goes to ours. (A stream the child is not given
  * it inherits from this process.)
  */
-function run(array $command, string $stdin = '', ?string $toFile = null, bool $passthru = false): array
+function run_piped(array $command, string $stdin = '', ?string $toFile = null, bool $passthru = false): array
 {
     $streams = [['pipe', 'r']];
     if ($toFile !== null) {
@@ -112,7 +112,7 @@ if (isset($args[0]) && is_file($args[0])) {
     $dump = $args[0];
     $name = basename($dump);
 } else {
-    [$code, $list] = run([...SSH, 'bash -s'], str_replace("\r", '', REMOTE_LIST));
+    [$code, $list] = run_piped([...SSH, 'bash -s'], str_replace("\r", '', REMOTE_LIST));
     preg_match_all('/^dump (tvtakip-[A-Za-z0-9._-]+\.sql\.gz) (\d+) (\d+) ([0-9a-f]{64})$/m', $list, $dumps, PREG_SET_ORDER);
     if ($code !== 0 || !$dumps) {
         fail("could not list the server's dumps over SSH (exit $code).");
@@ -128,7 +128,7 @@ if (isset($args[0]) && is_file($args[0])) {
     echo "Copying $name (" . number_format($size / 1048576, 1) . ' MB, made ' . date('Y-m-d H:i', (int) $modified) . ") from the server ...\n";
     $dump = $temporary = tempnam(sys_get_temp_dir(), 'tvtakip-dump-');
     register_shutdown_function(fn () => @unlink($temporary));
-    [$code] = run([...SSH, "cat dbdumps/$name"], toFile: $dump);
+    [$code] = run_piped([...SSH, "cat dbdumps/$name"], toFile: $dump);
     clearstatcache();
     if ($code !== 0 || filesize($dump) !== (int) $size || hash_file('sha256', $dump) !== $sha256) {
         fail("$name did not arrive as the server has it.");
@@ -184,7 +184,7 @@ if (($code = proc_close($process)) !== 0) {
 printf("Loaded in %.0f s.\n", microtime(true) - $started);
 
 // 4. What this checkout has and live hasn't had yet.
-[$code] = run([PHP_BINARY, __DIR__ . '/migrate.php'], passthru: true);
+[$code] = run_piped([PHP_BINARY, __DIR__ . '/migrate.php'], passthru: true);
 if ($code !== 0) {
     fail("scripts/migrate.php failed (exit $code).");
 }

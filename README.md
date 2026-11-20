@@ -4,7 +4,9 @@ A web app to track TV series and movies: search, follow shows, mark episodes as
 watched, and keep a movie watchlist. Live at https://tvtakip.akifuygun.com.
 (English name TVTrack, Turkish name TVTakip; the `tvtakip` name persists in the domain, repo, and DB.)
 
-- **Stack:** Plain PHP 8 + MySQL, vanilla JS/CSS — no Composer, no Node, no build step
+- **Stack:** Plain PHP 8 + MySQL, vanilla JS/CSS — no Node, no build step, and no
+  package the site needs: Composer only brings the development tools (PHPUnit,
+  PHPStan), which never go to live
 - **Canonical ids:** IMDB ids for shows, episodes, and movies. A title IMDB doesn't
   list goes by a provisional id until it does (below)
 - **Installable PWA**, mobile-friendly (hamburger nav), and **bilingual** — English
@@ -163,7 +165,8 @@ includes/              db.php, auth.php, errors.php, i18n.php, http.php, importe
                        refresh.php, calendar.php, network_logos.php, assets.php,
                        mail.php, password_reset.php,
                        header.php (+ site_footer.php), footer.php
-scripts/               Command-line only: deploy.php (deploy.bat runs it), migrate.php,
+scripts/               Command-line only: deploy.php (deploy.bat runs it), check.php
+                       (the static analysis and the tests; check.bat runs it), migrate.php,
                        refresh_worker.php (the cron worker: works off "Refresh all
                        shows" requests and re-imports shows that are due),
                        admin.php (who is an admin), backup_pull.php (copies the
@@ -180,12 +183,20 @@ migrations/            The MySQL schema as numbered migrations: 0001_baseline.sq
                        (users, shows, episodes, movies, user_shows, watched_episodes,
                        user_movies, remember_tokens, refresh_requests), then one
                        file per change — applied by scripts/migrate.php
+tests/                 PHPUnit tests (below, "Tests and static analysis"): Unit/ (no
+                       database), Integration/ (a database of their own), Support/
+                       (stand-ins for the providers, the database's set-up),
+                       bootstrap.php (the configuration the tests run with)
+composer.json, composer.lock
+                       The development tools, installed into vendor/ (not in git);
+                       phpunit.xml.dist and phpstan.neon.dist configure them
 dev/                   Local development: setup.ps1 (setup-dev.bat runs it) installs
                        live's PHP and MySQL versions in C:\tvtakip-dev, with php.ini
-                       and my.ini, live's settings
+                       and my.ini, live's settings, and Composer
 router.php             The pretty URLs for PHP's built-in server (local development)
 start-dev.bat          Starts the local site (below), on what setup-dev.bat installs;
-                       deploy.bat deploys ("Deployment")
+                       check.bat runs the static analysis and the tests, deploy.bat
+                       deploys ("Deployment")
 config.sample.php      Copy to config.php, here beside public/: DB credentials,
                        TMDB_API_KEY, TVDB_API_KEY (optional), SESSION_DIR and
                        MAIL_FROM (on a server), WATCH_SITES (optional)
@@ -208,7 +219,11 @@ only serves phpMyAdmin now. One-time setup:
      and others). The server listens on this machine only.
    - `data\`: the database `tvtakip`, with live's default collation, and the
      account `tvtakip@localhost` (no password), which has every right on that
-     database and none elsewhere, like live's account.
+     database and none elsewhere, like live's account — and on `tvtakip_test`, the
+     tests' own database.
+   - `composer.phar`: Composer, the version `dev\setup.ps1` names, checked against
+     Composer's signature. It installs the development tools `composer.lock` lists
+     into the checkout's `vendor\` (`composer install`).
 
    Without SSH, name the versions: `setup-dev.bat -PhpVersion 8.3.37 -MysqlVersion 8.0.43`.
 2. `copy config.sample.php config.php`. Its database settings are the ones step 1
@@ -270,8 +285,49 @@ there is no cron — so shows are only as fresh as their last import until
 `C:\tvtakip-dev\php\php.exe scripts\refresh_worker.php` is run by hand; it also
 completes the imports that left their episode IMDB ids to it.
 
-There is no test suite and no linter: a change is checked by using the running
-site. `node --check public\assets\js\app.js` catches a syntax error in the script.
+### Tests and static analysis
+
+```
+check.bat              (= C:\tvtakip-dev\php\php.exe scripts\check.php)
+```
+
+runs both, one after the other, and fails when either does. `deploy.bat` runs it
+first and deploys nothing unless both pass. The tests need the local MySQL running
+(`start-dev.bat` starts it).
+
+- **Static analysis:** PHPStan (`phpstan.neon.dist`) reads all the PHP — pages,
+  includes, scripts, migrations, tests — at level 6: unknown functions and
+  constants, wrong argument types and counts, and every function's parameter and
+  return types written down. Not asked for: what an array holds
+  (`array<string, mixed>` and the like). The configuration's constants come from
+  `config.sample.php`. Alone: `C:\tvtakip-dev\php\php.exe vendor\bin\phpstan analyse`.
+- **Tests:** PHPUnit (`phpunit.xml.dist`), about 240 of them in a second or two.
+  `tests\Unit\` checks the importer's functions that need neither a database nor
+  a provider: finale flags, what TheTVDB may add, numbering and air-date
+  comparisons, air times across time zones, Turkish names, trailers and images.
+  `tests\Integration\` imports shows and movies into a database of their own,
+  `tvtakip_test`, with `tests\Support\FakeProviders.php` answering for TMDB,
+  TVmaze and TheTVDB: what each provider contributes, what a later import keeps
+  or clears, pruning, provisional ids moving to their IMDB id, the episode-id
+  lookups — and the "has it aired" checks, run by MySQL at a fixed moment, and the
+  calendar. Alone: `C:\tvtakip-dev\php\php.exe vendor\bin\phpunit` (or with
+  `--filter <name>`). The tests never use `config.php`, this machine's database or
+  the network: `tests\bootstrap.php` sets their configuration, and every test run
+  empties `tvtakip_test` and builds it from `migrations\`.
+
+A change to how the importer combines providers deserves a test in
+`ImportShowTest.php`: describe what each provider says with `FakeProviders`, import,
+and compare what was stored. Pages and JavaScript have no tests: check those by
+using the running site. `node --check public\assets\js\app.js` catches a syntax error
+in the script.
+
+The development tools are Composer packages, listed in `composer.json` and pinned
+in `composer.lock`. `setup-dev.bat` installs them; to move to newer versions:
+`C:\tvtakip-dev\php\php.exe C:\tvtakip-dev\composer.phar update`, then commit
+`composer.lock`. Nothing of Composer's goes to live: `vendor\` is not in git, and the
+site requires no package. (hostUNO does have Composer, 2.8.10 on 2026-11-20, an old
+build of the host's own, if the site ever needs a package: the deploy would then run
+`composer install --no-dev` on the server.)
 
 ## Admins
 
@@ -334,7 +390,9 @@ It reaches the server as `ssh hostuno` (a `Host` alias in `~/.ssh/config`) and s
 with `DEPLOY FAILED` and exit code 1 at the first thing that is wrong:
 
 1. **Here** — the checkout must be on `main` with nothing uncommitted (an untracked
-   file counts: it would be missing on live) and nothing unpushed.
+   file counts: it would be missing on live) and nothing unpushed, and the static
+   analysis and the tests must pass on it (`check.bat`, "Tests and static
+   analysis": the local MySQL has to be running).
 2. **On the server** — the live checkout must have no changes of its own and be able
    to fast-forward to exactly this commit. Pending migrations run first, while the
    old code still serves, after a dump of the database to

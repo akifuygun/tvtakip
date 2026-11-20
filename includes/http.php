@@ -3,10 +3,26 @@
 // One place for retry/redirect/timeout policy — used by the web importer
 // and the CLI scripts alike.
 
+/**
+ * The test suite's stand-in for the providers (tests/Support/FakeProviders.php):
+ * while $GLOBALS['tvtrack_http_fake'] holds a function, every request below is
+ * answered by it — given the URL (and a POST's payload), it returns the
+ * decoded JSON, or null for a failed request — and nothing is sent. Nothing
+ * but the tests sets it, and only the command line honours it.
+ */
+function http_fake(): ?callable
+{
+    $fake = $GLOBALS['tvtrack_http_fake'] ?? null;
+    return PHP_SAPI === 'cli' && is_callable($fake) ? $fake : null;
+}
+
 /** GET a JSON document. Retries transient failures, follows redirects
  *  (TVmaze /lookup answers with a 301). Returns null on failure. */
 function http_get_json(string $url, int $retries = 3, array $headers = []): ?array
 {
+    if ($fake = http_fake()) {
+        return $fake($url);
+    }
     for ($try = 0; $try < $retries; $try++) {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -35,6 +51,9 @@ function http_get_json(string $url, int $retries = 3, array $headers = []): ?arr
 /** POST a JSON body, decode a JSON 200 answer. One attempt; null on failure. */
 function http_post_json(string $url, array $payload): ?array
 {
+    if ($fake = http_fake()) {
+        return $fake($url, $payload);
+    }
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -65,6 +84,9 @@ function http_multi_json(array $urls, int $limit = 12, float $perSecond = 0, boo
     $results = array_fill(0, count($urls), null);
     if (!$urls) {
         return $results;
+    }
+    if ($fake = http_fake()) {
+        return array_map(fn($url) => $fake($url), array_values($urls));
     }
 
     // Some shared hosts disable curl_multi_* even though

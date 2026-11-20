@@ -49,11 +49,7 @@ if ($watched) {
     if (!$row) {
         json_response(['error' => 'Unknown episode'], 404);
     }
-    // Exact UTC airstamp when known; date-granular fallback otherwise.
-    $aired = $row['airstamp'] !== null
-        ? $row['airstamp'] <= gmdate('Y-m-d H:i:s')
-        : ($row['airdate'] !== null && $row['airdate'] <= today());
-    if (!$aired) {
+    if (!episode_aired($row['airdate'], $row['airstamp'])) {
         json_response(['error' => 'This episode has not aired yet.'], 400);
     }
     $stmt = db()->prepare('INSERT IGNORE INTO watched_episodes (user_id, episode_id) VALUES (?, ?)');

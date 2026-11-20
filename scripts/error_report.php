@@ -156,7 +156,7 @@ function errors(int $n): string
 }
 
 /** What collect() found in one log, as the report's text. */
-function describe(string $name, string $log, array $found): string
+function describe_log(string $name, string $log, array $found): string
 {
     $out = ucfirst($name) . ", $log\n";
     if (isset($found['problem'])) {
@@ -201,14 +201,14 @@ foreach (["PHP's log" => $phpLog, "the web server's log" => $serverLog] as $name
     $found = collect($log, $state['logs'][$log] ?? null);
     if (isset($found['problem'])) {
         $counts[] = "$name can't be read";
-        $sections[] = describe($name, $log, $found);
+        $sections[] = describe_log($name, $log, $found);
         continue;
     }
     // Nothing to tell does not mean nothing was read: expected lines were.
     $state['logs'][$log] = $found['seen'];
     if ($found['total']) {
         $counts[] = "{$found['total']} in $name";
-        $sections[] = describe($name, $log, $found);
+        $sections[] = describe_log($name, $log, $found);
     }
 }
 

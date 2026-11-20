@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../includes/calendar.php';
 
 $items = [];
+$upcoming = [];
+$moviesToWatch = [];
 $unsynced = [];
 $popular = [];
 if (!is_logged_in()) {

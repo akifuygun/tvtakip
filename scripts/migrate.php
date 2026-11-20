@@ -14,11 +14,13 @@
 // run stops at the first failure, and the failed migration stays unrecorded.
 // An applied migration is never edited or renamed — the next change is a new
 // file. There are no "down" migrations: undo with a new one, or restore a dump.
+//
+// The test suite loads this file for its functions, to build its database.
 
 if (PHP_SAPI !== 'cli') {
     exit("CLI only\n");
 }
-require __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/db.php';
 
 const MIGRATIONS_DIR = __DIR__ . '/../migrations';
 
@@ -79,7 +81,18 @@ function migration_statements(string $sql): array
         }
     }
     $statements[] = trim($current);
-    return array_values(array_filter($statements, 'strlen'));
+    return array_values(array_filter($statements, fn($statement) => $statement !== ''));
+}
+
+/** The table that records the applied migrations, created when missing. */
+function migrations_table(PDO $pdo): void
+{
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS schema_migrations (
+            version VARCHAR(100) NOT NULL PRIMARY KEY,  -- the file name without its extension
+            applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+    );
 }
 
 /**
@@ -124,6 +137,11 @@ function migration_apply(PDO $pdo, string $version, string $path): void
     }
 }
 
+// Loaded for the functions above (by the test suite), not run as the script.
+if (get_included_files()[0] !== __FILE__) {
+    return;
+}
+
 $unknown = array_diff(array_slice($argv, 1), ['--status']);
 if ($unknown) {
     fwrite(STDERR, 'Unknown argument: ' . implode(' ', $unknown) . "\nUsage: php scripts/migrate.php [--status]\n");
@@ -133,12 +151,7 @@ if ($unknown) {
 try {
     $files = migration_files();
     $pdo = db();
-    $pdo->exec(
-        'CREATE TABLE IF NOT EXISTS schema_migrations (
-            version VARCHAR(100) NOT NULL PRIMARY KEY,  -- the file name without its extension
-            applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
-    );
+    migrations_table($pdo);
     $status = in_array('--status', $argv, true);
     // One run at a time; the lock ends with the connection.
     if (!$status && !$pdo->query("SELECT GET_LOCK('tvtrack_migrate', 0)")->fetchColumn()) {

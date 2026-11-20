@@ -89,7 +89,7 @@ const REMOTE_FILES = <<<'BASH'
  * byte — or '' with the output written to $toFile — and its error output].
  * The error output is caught as well: a scheduled run has no console for it.
  */
-function run(array $command, string $stdin = '', ?string $toFile = null): array
+function run_caught(array $command, string $stdin = '', ?string $toFile = null): array
 {
     $errors = tmpfile();
     $process = @proc_open($command, [['pipe', 'r'], $toFile === null ? ['pipe', 'w'] : ['file', $toFile, 'wb'], $errors], $pipes);
@@ -111,7 +111,7 @@ function run(array $command, string $stdin = '', ?string $toFile = null): array
 /** Run one of the scripts above on the server, by bash there. */
 function remote(string $script, string ...$args): array
 {
-    return run([...SSH, rtrim('bash -s -- ' . implode(' ', $args))], str_replace("\r", '', $script));
+    return run_caught([...SSH, rtrim('bash -s -- ' . implode(' ', $args))], str_replace("\r", '', $script));
 }
 
 /** How a command failed, for a problem line. */
@@ -162,7 +162,7 @@ function finish(string $dir, array $done, array $problems): never
         // once; the box stays until it is clicked away, a week at most.
         $text = "The backup copy from hostUNO has a problem:\n\n- " . implode("\n- ", $problems)
             . "\n\nFolder: " . str_replace('/', '\\', $dir) . "\nMore: README.md, \"Backups and restoring\".";
-        run(['msg.exe', getenv('USERNAME') ?: '*', '/TIME:' . 7 * 86400, $text]);
+        run_caught(['msg.exe', getenv('USERNAME') ?: '*', '/TIME:' . 7 * 86400, $text]);
     }
     exit($problems ? 1 : 0);
 }
@@ -199,7 +199,7 @@ foreach ($dumps as [, $name, $size, $modified, $sha256]) {
     if (is_file($file) && filesize($file) === (int) $size) {
         continue;
     }
-    [$code, , $errors] = run([...SSH, "cat dbdumps/$name"], toFile: "$file.part");
+    [$code, , $errors] = run_caught([...SSH, "cat dbdumps/$name"], toFile: "$file.part");
     if ($code !== 0) {
         $problems[] = "could not copy $name (" . failure($code, $errors) . ')';
     } elseif (filesize("$file.part") !== (int) $size || hash_file('sha256', "$file.part") !== $sha256) {
@@ -247,7 +247,7 @@ if ($tar === false || !str_contains($tar, "tvtakip/config.php\0")) {
 // anything old go — while the copies are not complete and current, the old
 // ones may be the only ones.
 if (!$problems) {
-    [$code, , $errors] = run([...SSH, 'cat > dbdumps/off-site.txt'], "$nightly[1] and everything older copied off the server, " . gmdate('Y-m-d H:i\Z') . "\n");
+    [$code, , $errors] = run_caught([...SSH, 'cat > dbdumps/off-site.txt'], "$nightly[1] and everything older copied off the server, " . gmdate('Y-m-d H:i\Z') . "\n");
     if ($code !== 0) {
         $problems[] = 'could not leave the note on the server (' . failure($code, $errors) . ')';
     }

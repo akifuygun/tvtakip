@@ -1,0 +1,37 @@
+# Static analysis: C:\tvtakip-dev\php\php.exe vendor\bin\phpstan analyse
+# (check.bat runs it, and the tests; scripts\deploy.php refuses to deploy
+# unless both pass).
+parameters:
+    level: 6
+    phpVersion: 80300
+    paths:
+        - includes
+        - migrations
+        - public
+        - scripts
+        - tests
+        - config.sample.php
+        - router.php
+    # The configuration's constants: config.php defines them, differently on
+    # every machine (config.sample.php stands in for it).
+    bootstrapFiles:
+        - config.sample.php
+    dynamicConstantNames:
+        DB_HOST: string
+        DB_NAME: string
+        DB_USER: string
+        DB_PASS: string
+        TMDB_API_KEY: string
+        TVDB_API_KEY: string
+        SESSION_DIR: string
+        MAIL_FROM: string
+        WATCH_SITES: mixed
+    ignoreErrors:
+        # Level 6 also wants the type of every array's values written down
+        # (array<string, mixed> ...). Provider data and database rows go
+        # around as plain arrays everywhere here; that is left out.
+        - identifier: missingType.iterableValue
+        # An applied migration is never edited (CLAUDE.md, "Schema
+        # migrations"): what it does stays as it ran.
+        - identifier: argument.type
+          path: migrations/0003_admins_from_config.php

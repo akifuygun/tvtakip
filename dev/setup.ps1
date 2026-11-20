@@ -1,6 +1,8 @@
 # Installs or updates the local development runtimes: the PHP and MySQL
 # versions live runs, set like live's, in C:\tvtakip-dev - beside XAMPP, which
-# it doesn't touch. Run it by setup-dev.bat (README.md, "Local development").
+# it doesn't touch - and Composer with the development tools it installs into
+# the checkout's vendor\ (PHPUnit, PHPStan: check.bat). Run it by
+# setup-dev.bat (README.md, "Local development").
 #
 #   setup-dev.bat                     the versions live runs (asked over SSH)
 #   setup-dev.bat -PhpVersion 8.3.37 -MysqlVersion 8.0.43
@@ -13,9 +15,11 @@
 #   mysql\       MySQL + my.ini
 #   data\        MySQL's data directory: the database tvtakip and the account
 #                tvtakip@localhost (no password) with every right on it alone,
-#                as live's account has on live's database
+#                as live's account has on live's database - and on
+#                tvtakip_test, the tests' own (emptied at every test run)
 #   tmp\         PHP's session files and temporary files
 #   cacert.pem   the certificates PHP checks HTTPS against
+#   composer.phar  Composer ($ComposerVersion below)
 #
 # A program or the dev server running from php\ or mysql\ blocks an update of
 # that one: stop it first.
@@ -35,6 +39,10 @@ $PhpReleases = 'https://downloads.php.net/~windows/releases'
 # MySQL's release signing key ("MySQL Release Engineering"), as MySQL's manual
 # lists it: a download counts only with a good signature by this key.
 $MysqlKey = 'BCA43417C3B485DD128EC6D4B7B3B788A8D3785C'
+# Composer: this version, signed by its release key ("Packagist Conductors").
+# A newer one is a change here (getcomposer.org/download lists them).
+$ComposerVersion = '2.11.2'
+$ComposerKey = '161DFBE342889F01DDAC4E61CBB3D576F2A0946F'
 $Database = 'tvtakip'
 $Account = 'tvtakip'
 
@@ -94,9 +102,39 @@ function Move-Unpacked([string]$New, [string]$Target) {
     Rename-Item $New (Split-Path -Leaf $Target)
 }
 
+# Whether $File has a good signature ($Signature) by the key $Key, checked by
+# the GnuPG that comes with Git for Windows, in a keyring of its own. Whatever
+# the key server sends, only a signature by that very key counts.
+function Test-Signature([string]$File, [string]$Signature, [string]$Key) {
+    $gpg = Join-Path (Split-Path (Split-Path (Get-Command git).Source)) 'usr\bin\gpg.exe'
+    if (-not (Test-Path $gpg)) { Fail "no GnuPG at $gpg (Git for Windows has it) to check signatures with" }
+    $keyring = "$Dev\downloads\gnupg"
+    if (Test-Path $keyring) { Remove-Item -Recurse -Force $keyring }
+    New-Item -ItemType Directory $keyring | Out-Null
+    if (-not (Download "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$Key" "$keyring\key.asc")) {
+        Fail "could not fetch the key $Key from keyserver.ubuntu.com"
+    }
+    # Git's GnuPG takes its home as a path of its own kind: /c/... for C:\...
+    $env:GNUPGHOME = '/' + $keyring.Substring(0, 1).ToLower() + $keyring.Substring(2).Replace('\', '/')
+    & $gpg --batch --quiet --no-autostart --import "$keyring\key.asc"
+    $status = @(& $gpg --batch --no-autostart --status-fd 1 --verify $Signature $File)
+    Remove-Item Env:\GNUPGHOME
+    Remove-Item -Recurse -Force $keyring
+    # VALIDSIG ends with the fingerprint of the signing key's primary key.
+    return [bool]($status | Where-Object { $_ -match "^\[GNUPG:\] VALIDSIG .* $Key$" })
+}
+
 function Get-PhpVersion {
     if (-not (Test-Path "$Dev\php\php.exe")) { return '' }
     return [string](& "$Dev\php\php.exe" -n -r 'echo PHP_VERSION;')
+}
+
+function Get-ComposerVersion {
+    if (-not (Test-Path "$Dev\composer.phar") -or -not (Test-Path "$Dev\php\php.exe")) { return '' }
+    # It adds lines on its error output (see Get-PortServer for the 'Continue').
+    $ErrorActionPreference = 'Continue'
+    if ([string](& "$Dev\php\php.exe" "$Dev\composer.phar" --version --no-ansi 2>$null) -match 'Composer version (\S+)') { return $Matches[1] }
+    return ''
 }
 
 function Get-MysqlVersion {
@@ -221,27 +259,7 @@ if ((Get-MysqlVersion) -eq $MysqlVersion) {
         if (-not (Download "$base/$name" $zip)) { Fail "no such MySQL for Windows: $name" }
     }
     if (-not (Download "$base/$name.asc" "$zip.asc")) { Fail "could not download $base/$name.asc" }
-
-    # Its signature, by the GnuPG that comes with Git for Windows, in a
-    # keyring of its own. Whatever the key server sends, only a signature by
-    # that very key counts.
-    $gpg = Join-Path (Split-Path (Split-Path (Get-Command git).Source)) 'usr\bin\gpg.exe'
-    if (-not (Test-Path $gpg)) { Fail "no GnuPG at $gpg (Git for Windows has it) to check MySQL's signature with" }
-    $keyring = "$Dev\downloads\gnupg"
-    if (Test-Path $keyring) { Remove-Item -Recurse -Force $keyring }
-    New-Item -ItemType Directory $keyring | Out-Null
-    if (-not (Download "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$MysqlKey" "$keyring\mysql.asc")) {
-        Fail "could not fetch MySQL's key $MysqlKey from keyserver.ubuntu.com"
-    }
-    # Git's GnuPG takes its home as a path of its own kind: /c/... for C:\...
-    $env:GNUPGHOME = '/' + $keyring.Substring(0, 1).ToLower() + $keyring.Substring(2).Replace('\', '/')
-    & $gpg --batch --quiet --no-autostart --import "$keyring\mysql.asc"
-    $status = @(& $gpg --batch --no-autostart --status-fd 1 --verify "$zip.asc" $zip)
-    Remove-Item Env:\GNUPGHOME
-    Remove-Item -Recurse -Force $keyring
-    # VALIDSIG ends with the fingerprint of the signing key's primary key.
-    $good = $status | Where-Object { $_ -match "^\[GNUPG:\] VALIDSIG .* $MysqlKey$" }
-    if (-not $good) {
+    if (-not (Test-Signature $zip "$zip.asc" $MysqlKey)) {
         Remove-Item $zip, "$zip.asc"
         Fail "$name is not signed by MySQL's key $MysqlKey"
     }
@@ -288,6 +306,10 @@ if (-not $running) {
 Invoke-Sql "CREATE DATABASE IF NOT EXISTS $Database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
 Invoke-Sql "CREATE USER IF NOT EXISTS '$Account'@'localhost' IDENTIFIED BY ''"
 Invoke-Sql "GRANT ALL PRIVILEGES ON $Database.* TO '$Account'@'localhost'"
+# The tests' own database (tests/bootstrap.php), emptied and built anew by
+# every test run.
+Invoke-Sql "CREATE DATABASE IF NOT EXISTS ${Database}_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+Invoke-Sql "GRANT ALL PRIVILEGES ON ${Database}_test.* TO '$Account'@'localhost'"
 
 if (Test-Path "$Repo\config.php") {
     Write-Host 'Applying the migrations (scripts\migrate.php) ...'
@@ -300,8 +322,34 @@ if ($started) {
     $started.WaitForExit(60000) | Out-Null
 }
 
-Write-Host "`nDone: PHP $(Get-PhpVersion) and MySQL $(Get-MysqlVersion) in $Dev."
+# --- 4. Composer and the development tools ---------------------------------
+
+if ((Get-ComposerVersion) -eq $ComposerVersion) {
+    Write-Host "Composer $ComposerVersion is installed."
+} else {
+    $phar = "$Dev\downloads\composer.phar"
+    $base = "https://getcomposer.org/download/$ComposerVersion"
+    Write-Host "Downloading Composer $ComposerVersion ..."
+    if (-not (Download "$base/composer.phar" $phar)) { Fail "no such Composer: $base/composer.phar" }
+    if (-not (Download "$base/composer.phar.asc" "$phar.asc")) { Fail "could not download $base/composer.phar.asc" }
+    if (-not (Test-Signature $phar "$phar.asc" $ComposerKey)) {
+        Remove-Item $phar, "$phar.asc"
+        Fail "composer.phar $ComposerVersion is not signed by Composer's key $ComposerKey"
+    }
+    Write-Host "Signed by Composer's release key."
+    Remove-Item "$phar.asc"
+    Move-Item -Force $phar "$Dev\composer.phar"
+}
+
+# What composer.lock names, into the checkout's vendor\ (nothing of it goes
+# to live: the site itself needs no package).
+Write-Host 'Installing the development tools (composer install) ...'
+& "$Dev\php\php.exe" "$Dev\composer.phar" install --no-interaction --working-dir="$Repo"
+if ($LASTEXITCODE -ne 0) { Fail 'composer install failed (its output is above)' }
+
+Write-Host "`nDone: PHP $(Get-PhpVersion), MySQL $(Get-MysqlVersion) and Composer $(Get-ComposerVersion) in $Dev."
 if (-not (Test-Path "$Repo\config.php")) {
     Write-Host 'Next: copy config.sample.php config.php and set TMDB_API_KEY in it, then run this again (it creates the tables).'
 }
 Write-Host 'start-dev.bat starts the site; C:\tvtakip-dev\php\php.exe scripts\load_live.php fills the database from the newest live backup.'
+Write-Host 'check.bat runs the static analysis and the tests (with MySQL running); deploy.bat runs them too.'

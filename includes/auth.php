@@ -440,6 +440,14 @@ function aired_sql(string $alias = ''): string
         OR ({$p}airstamp IS NULL AND {$p}airdate IS NOT NULL AND {$p}airdate <= ?))";
 }
 
+/** aired_sql() for one episode in PHP: is it markable as watched? */
+function episode_aired(?string $airdate, ?string $airstamp): bool
+{
+    return $airstamp !== null
+        ? $airstamp <= gmdate('Y-m-d H:i:s')
+        : $airdate !== null && $airdate <= today();
+}
+
 /**
  * Calendar gate: does this episode air on or before TODAY in the viewer's
  * timezone? Day-granular on purpose — an episode airing tonight is listed from
