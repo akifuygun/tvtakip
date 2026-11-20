@@ -38,6 +38,8 @@ RewriteRule ^tr/?$ index.php [L,QSA]
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
 # The calendar's TV view (login-gated, so no /tr/ variant).
 RewriteRule ^tv/?$ tv.php [L,QSA]
+# What an uptime monitor asks: is PHP running, does the database answer.
+RewriteRule ^health/?$ health.php [L]
 
 # Compress text responses. <IfModule> so it harmlessly no-ops if mod_deflate
 # is unavailable.

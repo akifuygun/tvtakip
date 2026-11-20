@@ -128,6 +128,14 @@ function refresh_log(string $line): void
     echo gmdate('Y-m-d H:i:s\Z') . ' ' . $line . "\n";
 }
 
+/** A failure: a line of the run's log like any other, and one in PHP's error
+ *  log, whose new lines are mailed (scripts/error_report.php). */
+function refresh_fail(string $line): void
+{
+    refresh_log($line);
+    error_log('[tvtrack] refresh worker: ' . $line);
+}
+
 /** Movies under a provisional id that are due their daily re-import. */
 function refresh_due_movies(PDO $pdo): array
 {
@@ -169,7 +177,7 @@ function refresh_import(string $imdbId, string $name, string $for = ''): bool
         refresh_log(sprintf('ok   %s%s %s (%.1fs)%s', $imdbId, refresh_moved($imdbId, $storedAs), $name, microtime(true) - $t, $for));
         return true;
     } catch (Throwable $e) {
-        refresh_log("FAIL $imdbId $name$for: " . $e->getMessage());
+        refresh_fail("FAIL $imdbId $name$for: " . $e->getMessage());
         return false;
     }
 }
@@ -248,7 +256,7 @@ function refresh_run_movies(array &$stats): void
             refresh_log(sprintf('ok   %s%s %s (%.1fs) [movie]', $movie['imdb_id'], refresh_moved($movie['imdb_id'], $storedAs), $movie['name'], microtime(true) - $t));
             $stats['refreshed']++;
         } catch (Throwable $e) {
-            refresh_log("FAIL {$movie['imdb_id']} {$movie['name']} [movie]: " . $e->getMessage());
+            refresh_fail("FAIL {$movie['imdb_id']} {$movie['name']} [movie]: " . $e->getMessage());
             $stats['failed']++;
         }
     }
@@ -304,7 +312,7 @@ try {
         }
     }
 } catch (Throwable $e) {
-    refresh_log('ABORT ' . $e->getMessage());
+    refresh_fail('ABORT ' . $e->getMessage());
     exit(1);
 }
 

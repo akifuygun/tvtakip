@@ -2,22 +2,47 @@
 // Global error/exception handling. Required first by auth.php, so it wraps
 // every page and API entry point.
 //
-// - Uncaught throwables and fatal errors are logged via error_log() (visible
-//   in the host's error log) and turned into a clean 500: a generic JSON body
-//   for /api/ requests, a minimal HTML page otherwise — never a stack trace.
+// - Uncaught throwables and fatal errors are logged via error_log() and turned
+//   into a clean 500: a generic JSON body for /api/ requests, a minimal HTML
+//   page otherwise — never a stack trace.
 // - Warnings/notices are logged (and shown on local dev) but deliberately NOT
 //   promoted to exceptions: this codebase isn't written under strict handling,
 //   so promoting them would turn survivable notices into fatal 500s.
+// - On a server the log is a file of the site's own (error_log_file()), which
+//   scripts/error_report.php mails the new lines of.
 
 declare(strict_types=1);
+
+require_once __DIR__ . '/../config.php';
 
 // Local dev sees full errors; production logs them and shows a generic message.
 // Keyed off the SAPI (CLI or the built-in `php -S` dev server), never the
 // client-controlled Host header — which drives display_errors.
 define('APP_IS_LOCAL', PHP_SAPI === 'cli' || PHP_SAPI === 'cli-server');
 
+/**
+ * The file PHP's errors are logged to — the web requests' and the command-line
+ * scripts' alike: php-error.log in config SESSION_DIR, the site's private
+ * directory. '' where none is set (a development machine): the log is then
+ * PHP's own, the console of the dev server or of the script. On a shared host
+ * PHP's own may be nowhere the site's account can read: on hostUNO a line
+ * logged that way was not to be found in any file of the account's.
+ */
+function error_log_file(): string
+{
+    return defined('SESSION_DIR') && SESSION_DIR !== '' ? rtrim(SESSION_DIR, '/\\') . '/php-error.log' : '';
+}
+
 ini_set('display_errors', APP_IS_LOCAL ? '1' : '0');
 ini_set('log_errors', '1');
+if (error_log_file() !== '') {
+    // The directory is made here when missing (mode 700, as start_session()
+    // would), or what goes wrong before the first session is logged elsewhere.
+    if (!is_dir(dirname(error_log_file()))) {
+        @mkdir(dirname(error_log_file()), 0700, true);
+    }
+    ini_set('error_log', error_log_file());
+}
 error_reporting(E_ALL);
 
 /** True when the current request targets a JSON API endpoint. */

@@ -59,5 +59,9 @@ if (preg_match('#^/tv/?$#', $path)) {
     require __DIR__ . '/public/tv.php';
     return true;
 }
+if (preg_match('#^/health/?$#', $path)) {
+    require __DIR__ . '/public/health.php';
+    return true;
+}
 
 return false; // serve the requested file/script of public/ as-is

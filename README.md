@@ -113,6 +113,7 @@ public/                The web root: a file's path in here is its URL
   manifest.php, sw.js  Localized PWA manifest + service worker (static-asset cache,
                        named after that same version)
   sitemap.php          Dynamic sitemap (shows + movies, en + tr)
+  health.php           /health — what the uptime monitor asks ("Monitoring")
   .htaccess            HTTPS redirect, response headers, pretty URLs, asset caching
 includes/              db.php, auth.php, errors.php, i18n.php, http.php, importer.php,
                        refresh.php, calendar.php, network_logos.php, assets.php,
@@ -123,11 +124,12 @@ scripts/               Command-line only: deploy.php (deploy.bat runs it), migra
                        admin.php (who is an admin), backup_pull.php (copies the
                        server's backups to this machine) and backup_check.php
                        (on the server: mails when a backup is missing),
-                       import_popular.php, import_watchlist.php,
+                       error_report.php (on the server: mails what is new in the
+                       error logs), import_popular.php, import_watchlist.php,
                        backfill_images.php, backfill_airstamps.php,
-                       backfill_names_tr.php. All but deploy.php and the two
-                       backup scripts work on the database of the checkout they
-                       run in: here, or on the server over SSH
+                       backfill_names_tr.php. All but deploy.php, the two backup
+                       scripts and error_report.php work on the database of the
+                       checkout they run in: here, or on the server over SSH
 migrations/            The MySQL schema as numbered migrations: 0001_baseline.sql
                        (users, shows, episodes, movies, user_shows, watched_episodes,
                        user_movies, remember_tokens, refresh_requests), then one
@@ -221,7 +223,8 @@ with `DEPLOY FAILED` and exit code 1 at the first thing that is wrong:
    if a migration fails, the old code stays live.
 3. **From here** — about thirty requests to the live site as a guest: the public
    pages answer 200 and carry the asset version of the commit's CSS/JS (live works
-   it out from its own files, so that also says those are the commit's), the
+   it out from its own files, so that also says those are the commit's),
+   `/health` reports the database answering, the
    login-gated ones turn a guest away, the assets and the service worker are
    served, a directory doesn't list its files (403), and nothing beside `public/`
    has a URL (`includes/`, `scripts/`, `migrations/`: 404; a `/.git` path is a 403
@@ -265,8 +268,9 @@ is a link into the checkout, which sits beside it:
     app/               the git checkout — config.php, includes/, scripts/, .git, …
     app/public/        the pages, api/ and assets/
     public_html  ->  app/public
-    sessions/          session files (below)
-    logs/              the host's access and error logs
+    sessions/          the site's private directory: session files (below), PHP's
+                       error log ("Monitoring")
+    logs/              the host's access log and the web server's error log
 ```
 
 So a request can only ever reach a file of `public/`; that `config.php` or `.git`
@@ -285,9 +289,10 @@ server belong to this arrangement:
 - **Files that exist only there**, which git ignores: `app/config.php` (mode 600),
   `app/includes/watch_base.php`, and Google's site-verification file
   `app/public/google….html`.
-- **Cron** runs the refresh worker and the nightly backup check by their paths in
-  the checkout (`php …/app/scripts/refresh_worker.php`, `…/backup_check.php`;
-  `crontab -l`).
+- **Cron** runs the refresh worker, the nightly backup check and the morning's
+  error report by their paths in the checkout
+  (`php …/app/scripts/refresh_worker.php`, `…/backup_check.php`,
+  `…/error_report.php`; `crontab -l`).
 
 On a new server: clone the repository to `app`, replace the `public_html` the host
 created with the link (`ln -s app/public public_html`, in the domain's directory),
@@ -309,14 +314,18 @@ else (mode 700):
   is on it, together with the checkout — the command is under "What the web server
   serves" above.
 
-When the directory can't be used, every page answers 500 with the reason in the
-error log; the site never falls back to `/tmp`. Deleting the files in it logs
-nobody out who ticked "remember me". Locally `SESSION_DIR` stays empty: XAMPP's own
-session directory is on a machine with one user.
+When the directory can't be used, every page answers 500; the site never falls back
+to `/tmp`. The reason is then not to be read anywhere — PHP's error log is a file in
+this very directory ("Monitoring") — so look at the two things above. Deleting the
+`sess_…` files logs nobody out who ticked "remember me". Locally `SESSION_DIR` stays
+empty: XAMPP's own session directory is on a machine with one user.
 
-The same directory holds the one other file the site used to keep in `/tmp`:
-`tvtrack_tvdb_…`, the login token TheTVDB issues for a month, shared by the web
-requests and the cron worker. Deleting it costs one new login at the next import.
+The same directory holds what else the site keeps for itself:
+
+- `tvtrack_tvdb_…`, the login token TheTVDB issues for a month, shared by the web
+  requests and the cron worker. Deleting it costs one new login at the next import.
+- `php-error.log` (and `.1`, the one before) and `error-report.json`: PHP's error
+  log and how far it has been mailed ("Monitoring").
 
 ### HTTPS and response headers
 
@@ -426,8 +435,9 @@ Each side watches the other:
 That mail is forwarded to Gmail like everything sent to the address, and Gmail put
 the first ones into Spam (2026-11-20) — although the server signs them (DKIM) and
 sends them from an address the SPF record names. So the Gmail account needs a
-filter, or an alert goes unseen: From `me@akifuygun.com`, Subject
-`TVTrack backups`, "Never send it to Spam".
+filter, or an alert goes unseen: From `me@akifuygun.com`, "Never send it to Spam".
+No subject in it: the error reports ("Monitoring") come from the same address
+under another one.
 
 The check by hand prints the state as it is now and mails nobody:
 
@@ -519,6 +529,89 @@ with the live password afterwards. The `cmd /c "…"` is there for PowerShell, w
 own pipe turns every non-ASCII character into `?` on the way from one program to the
 next. The dump is MySQL 8's and loads into the local MariaDB 10.4 because every
 table is `utf8mb4_general_ci`.
+
+## Monitoring
+
+Three things tell when the live site is in trouble, without anyone looking at it:
+a health check for an uptime monitor to ask, the monitor itself, and a daily mail
+of what is new in the error logs.
+
+### The health check
+
+`https://tvtakip.akifuygun.com/health` answers `200` with `{"status":"ok"}` when
+PHP runs and the database answers, and `503` with `{"status":"error"}` when the
+database doesn't. It starts no session, asks no provider and is never cached, and
+it gives the database five seconds to accept the connection — so the answer is
+quick either way. Why it failed goes to PHP's error log (below), not into the
+answer. The deploy's checks ask it too.
+
+### The uptime monitor
+
+A service outside the server asks two addresses every few minutes and mails when
+one of them stops answering `200`, and again when it is back:
+
+| Address | What an alert for it says |
+| --- | --- |
+| `https://tvtakip.akifuygun.com/health` | PHP or the database is down — or, when the other one alerts too, the server, its network, the DNS or the certificate. |
+| `https://tvtakip.akifuygun.com/` | A visitor doesn't get the home page. With `/health` still fine, it is the code: look at the error log. |
+
+Any uptime service does it; the free plan of [UptimeRobot](https://uptimerobot.com/)
+is enough (HTTP checks every 5 minutes). It is set up once, in an account of the
+site owner's:
+
+1. Sign up with the Gmail address — not `me@akifuygun.com`: that mailbox, and the
+   DNS it is found by, are at the same host as the site, so an alert about the host
+   might not arrive while it is down.
+2. Add two monitors of the type "HTTP(s)", one per address above, each alerting that
+   e-mail contact. Nothing else needs setting: no answer and an answer with an
+   error status both count as down, and `/health` reports trouble as `503`.
+
+The monitor's requests are in the host's access log
+(`~/domains/tvtakip.akifuygun.com/logs/access/<date>.log`) under its own user agent.
+
+### The error logs
+
+- **PHP's**: `php-error.log` in the site's private directory (`SESSION_DIR`; on live
+  `~/domains/tvtakip.akifuygun.com/sessions/php-error.log`). The pages, the API and
+  the cron scripts all write to it: PHP's warnings and notices, and the lines the
+  code writes itself, marked `[tvtrack]` — an exception nothing caught (the visitor
+  got a plain "Something went wrong" page with status 500), an import the refresh
+  worker could not make (`refresh worker: FAIL …`), a `/health` that found the
+  database down. Each line starts with its time and the time zone that is in: the
+  visitor's for a page, the server's for the rest.
+  The site keeps this file itself (`includes/errors.php`) because what PHP logs by
+  the host's defaults arrives in no file the account can read — until 2026-11-20
+  these lines went that way and were lost. Without `SESSION_DIR`, on a development
+  machine, they go to the console of the dev server or of the script instead.
+- **The web server's**: `~/domains/tvtakip.akifuygun.com/logs/error.log`, the host's
+  own — requests it refused or could not hand to PHP.
+
+Every morning at 06:00 cron runs `scripts/error_report.php me@akifuygun.com` on the
+server. It mails what the two logs gained since the last report, and nothing when
+they gained nothing; its one line per run is in `~/logs/tvtakip-errors.log`. In the
+mail, lines that say the same thing are one entry with a count and the first and
+last time, and at most 100 different entries per log are listed. Left out are the
+web server's lines that report the site working as meant (`EXPECTED_LINES` in the
+script: a directory's file list being refused, which every deploy check asks for
+twice). What has been reported is remembered in `error-report.json` beside PHP's
+log; a report that could not be mailed is repeated the next morning with what came
+since. PHP's log is moved to `php-error.log.1` once it is past 1 MB.
+
+The mail comes from `me@akifuygun.com` like the backup alerts, so the Gmail filter
+described under "When a backup is missing" has to cover it.
+
+By hand, the script prints what is new since the last mail and marks nothing as
+reported; the log itself is a text file:
+
+```
+ssh hostuno "php domains/tvtakip.akifuygun.com/app/scripts/error_report.php"
+ssh hostuno "tail -n 50 domains/tvtakip.akifuygun.com/sessions/php-error.log"
+```
+
+What none of this catches: an error PHP raises before `includes/errors.php` has
+run — a syntax error in a page's own file or in `includes/auth.php` — is shown to
+the visitor by the host's defaults instead of being logged. The deploy's checks
+find that kind at once, since every page then fails.
 
 ## Data sources
 

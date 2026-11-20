@@ -15,7 +15,8 @@
 //      leaves that code live. Only then the code is switched.
 //   3. From here: the public pages answer 200 and carry the asset version of
 //      the commit's CSS/JS (live works it out from its own files, so that also
-//      says those are the commit's), the login-gated ones turn a guest away,
+//      says those are the commit's), /health reports the database answering,
+//      the login-gated ones turn a guest away,
 //      the assets and the service worker are served, a directory does not
 //      list its files, and nothing beside public/ (the web root) has a URL.
 //      Every answer but a refusal (403) carries the response headers the
@@ -250,6 +251,8 @@ function check_live(string $commit): array
             $report("$path: its first title", '---', ['no link found']);
         }
     }
+    // What the uptime monitor asks: PHP runs and the database answers.
+    $check('/health', 200, '{"status":"ok"}');
     // Login-gated: a guest is sent to the login form, the API answers 401.
     $check('/myshows.php', 302);
     $check('/tv', 302);
