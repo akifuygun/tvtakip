@@ -1,5 +1,4 @@
 config.php
-includes/watch_base.php*
 scripts/refresh_worker.lock
 .vscode/
 .claude/

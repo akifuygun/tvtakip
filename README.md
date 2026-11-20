@@ -103,7 +103,9 @@ watched, and keep a movie watchlist. Live at https://tvtakip.akifuygun.com.
   set/remove a show's poster and set its primary network (shared cache) — the
   "no image" placeholder is admin-only. Everyone else is refused server-side.
   Admins alone also get per-episode "Watch" links, when `WATCH_SITES` in
-  `config.php` names sites for them (`config.sample.php` has the format).
+  `config.php` names sites for them (`config.sample.php` has the format). When a
+  site moves to another domain, the ❤ in the footer sets its new one; that is
+  kept in the database (`settings` table), the paths stay `config.php`'s.
 - **i18n:** all strings live in one dictionary (`includes/i18n.php`), also handed
   to the frontend as `window.I18N`; language kept in a `lang` cookie, and public
   pages are crawlable per language under a `/tr/` prefix.
@@ -182,7 +184,9 @@ scripts/               Command-line only: deploy.php (deploy.bat runs it), check
 migrations/            The MySQL schema as numbered migrations: 0001_baseline.sql
                        (users, shows, episodes, movies, user_shows, watched_episodes,
                        user_movies, remember_tokens, refresh_requests), then one
-                       file per change — applied by scripts/migrate.php
+                       file per change — applied by scripts/migrate.php. Values
+                       the site sets at run time (a Watch site's new domain) are
+                       rows of its settings table, not files
 tests/                 PHPUnit tests (below, "Tests and static analysis"): Unit/ (no
                        database), Integration/ (a database of their own), Support/
                        (stand-ins for the providers, the database's set-up),
@@ -466,9 +470,8 @@ server belong to this arrangement:
   `ssh hostuno "devil www options tvtakip.akifuygun.com php_openbasedir /usr/home/akifuygun/domains/tvtakip.akifuygun.com/app:/usr/home/akifuygun/domains/tvtakip.akifuygun.com/sessions"`
   The option replaces the whole list each time: leave a directory out and every
   page answers 500.
-- **Files that exist only there**, which git ignores: `app/config.php` (mode 600),
-  `app/includes/watch_base.php`, and Google's site-verification file
-  `app/public/google….html`.
+- **Files that exist only there**, which git ignores: `app/config.php` (mode 600)
+  and Google's site-verification file `app/public/google….html`.
 - **Cron** runs the refresh worker, the nightly backup check and the morning's
   error report by their paths in the checkout
   (`php …/app/scripts/refresh_worker.php`, `…/backup_check.php`,
@@ -588,11 +591,11 @@ It can be run by hand at any time, and fills `Backups\hostuno` in the user's pro
   Kept for 90 days.
 - `files\hostuno-YYYYMMDD.tar.gz` — one a day, kept as long: what exists on the
   server alone. In it, `tvtakip/` holds the files git ignores in the live checkout
-  (`config.php`, `includes/watch_base.php`, Google's verification file), `cv/` the
-  akifuygun.com site, `mail/` the mailbox's forwarding rule, `crontab.txt` the cron
-  jobs and `host.txt` the host's settings as its `devil` tool lists them: the sites
-  with their options, the certificates, the databases, the DNS records, the
-  mailboxes. `tar -xzf <file>` unpacks one.
+  (`config.php`, Google's verification file), `cv/` the akifuygun.com site, `mail/`
+  the mailbox's forwarding rule, `crontab.txt` the cron jobs and `host.txt` the
+  host's settings as its `devil` tool lists them: the sites with their options, the
+  certificates, the databases, the DNS records, the mailboxes. `tar -xzf <file>`
+  unpacks one.
 - `pull.log` — a line per run, times in UTC.
 
 The code is on GitHub; with it, a dump and one of those archives, the site can be

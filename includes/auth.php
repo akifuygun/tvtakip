@@ -522,9 +522,8 @@ function watch_enabled(): bool
 }
 
 // The admin-set origins of the Watch sites (the footer ❤ → api/watch_base.php),
-// for when a site moves domains. A generated `return [label => origin];` file,
-// not in git.
-const WATCH_BASE_FILE = __DIR__ . '/watch_base.php';
+// for when a site moves domains: settings rows named this + the site's label.
+const WATCH_BASE_SETTING = 'watch_base.';
 
 /** "scheme://host/" a URL starts with, or ''. */
 function url_origin(string $url): string
@@ -532,14 +531,33 @@ function url_origin(string $url): string
     return preg_match('#^https?://[^/]+/#i', $url, $m) ? $m[0] : '';
 }
 
+/** The origin "scheme://host/" an admin typed: a URL or a bare domain, any
+ *  path after the host ignored; null when it names none (no http(s), a port,
+ *  a user, an IP address or a host without a dot). */
+function input_origin(string $input): ?string
+{
+    $input = trim($input);
+    $parts = parse_url(preg_match('#^[a-z]+://#i', $input) ? $input : 'https://' . $input);
+    if ($parts === false) {
+        return null;
+    }
+    $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+    $host = strtolower((string) ($parts['host'] ?? ''));
+    if (!in_array($scheme, ['http', 'https'], true) || isset($parts['user']) || isset($parts['port'])
+        || !preg_match('/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/', $host)) {
+        return null;
+    }
+    return "$scheme://$host/";
+}
+
 /** Each Watch site's origin, label => "scheme://host/": the admin-set one,
  *  else its URL template's. */
 function watch_bases(): array
 {
-    $saved = is_file(WATCH_BASE_FILE) ? include WATCH_BASE_FILE : null;
+    $saved = settings();
     $bases = [];
     foreach (watch_sites() as $site => $cfg) {
-        $base = is_array($saved) ? (string) ($saved[$site] ?? '') : '';
+        $base = $saved[WATCH_BASE_SETTING . $site] ?? '';
         $bases[$site] = $base !== '' && url_origin($base) === $base ? $base : url_origin($cfg['url']);
     }
     return $bases;

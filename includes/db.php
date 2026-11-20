@@ -31,6 +31,24 @@ function db(bool $reconnect = false): PDO
     return $pdo;
 }
 
+/** Every row of the settings table, name => value: what the site sets at run
+ *  time (see migrations/0006_settings.sql). A few rows, read whole. */
+function settings(): array
+{
+    return db()->query('SELECT name, value FROM settings')->fetchAll(PDO::FETCH_KEY_PAIR);
+}
+
+/** Set one setting; null deletes it. */
+function set_setting(string $name, ?string $value): void
+{
+    if ($value === null) {
+        db()->prepare('DELETE FROM settings WHERE name = ?')->execute([$name]);
+        return;
+    }
+    db()->prepare('INSERT INTO settings (name, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)')
+        ->execute([$name, $value]);
+}
+
 /**
  * Return a known-live connection, reconnecting if the server dropped an idle
  * one (MySQL error 2006 "server has gone away"). Call this before writing

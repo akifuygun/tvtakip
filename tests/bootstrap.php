@@ -18,7 +18,10 @@ define('DB_PASS', getenv('TVTRACK_TEST_DB_PASS') ?: '');
 define('TMDB_API_KEY', 'test-tmdb-key');
 define('TVDB_API_KEY', 'test-tvdb-key');
 define('MAIL_FROM', '');
-define('WATCH_SITES', []);
+define('WATCH_SITES', [
+    'AA' => ['url' => 'https://aa.example.com/{slug}-{season}x{episode}'],
+    'BB' => ['url' => 'https://www.bb.example.org/{slug}/{season}-sezon-{episode}-bolum/'],
+]);
 
 $sessionDir = sys_get_temp_dir() . '/tvtrack-tests-' . getmypid();
 define('SESSION_DIR', $sessionDir);
